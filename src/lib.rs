@@ -1,2 +1,2 @@
-pub mod custom_target;
+pub mod asm;
 pub mod opts;

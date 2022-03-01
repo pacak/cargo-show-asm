@@ -43,7 +43,11 @@ fn main() -> anyhow::Result<()> {
     if let Some(package) = opts.package {
         copts.spec = Packages::Packages(vec![package]);
     } else if let Some(function) = &opts.function {
-        todo!("{:?}", function);
+        if let Some((package, _)) = function.split_once("::") {
+            copts.spec = Packages::Packages(vec![package.to_string()]);
+        } else {
+            todo!("{:?}", function);
+        }
     } else {
         eprintln!("You need to specify package/function to use, try one of those");
         todo!("-p xxxxxx");
@@ -57,20 +61,26 @@ fn main() -> anyhow::Result<()> {
         String::from("asm"),
         String::from("-C"),
         String::from("llvm-args=-x86-asm-syntax=intel"),
+        String::from("-C"),
+        String::from("debuginfo=2"),
     ]);
 
     copts.build_config.build_plan = opts.dry;
-    let c = compile(&ws, &copts)?;
-    let comp = c.deps_output.get(&CompileKind::Host).unwrap();
+    let comp = compile(&ws, &copts)?;
+    let output = comp.deps_output.get(&CompileKind::Host).unwrap();
+
+    let target = opts.function.as_deref().unwrap_or(" ");
+
+    let fmt = opts::Format { rust: opts.rust };
 
     let mut seen = false;
     let mut existing = BTreeSet::new();
     for x in glob::glob(&format!(
         "{}/{}-*.s",
-        comp.display(),
-        &c.root_crate_names[0]
+        output.display(),
+        &comp.root_crate_names[0]
     ))? {
-        seen |= asm::dump_function("tsu_mini_std::math::softmax_y", &x?, &mut existing)?;
+        seen |= asm::dump_function(target, &x?, &fmt, &mut existing)?;
     }
 
     if !seen {

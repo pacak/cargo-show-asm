@@ -11,6 +11,12 @@ pub struct Options {
     pub frozen: bool,
     pub locked: bool,
     pub offline: bool,
+    pub rust: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct Format {
+    pub rust: bool,
 }
 
 pub fn opts() -> Options {
@@ -51,15 +57,21 @@ pub fn opts() -> Options {
         .help("Run without accessing the network")
         .switch();
 
+    let rust = long("rust")
+        .short('r')
+        .help("Print interleaved Rust code")
+        .switch();
+
     let parser = construct!(Options {
         target,
         manifest,
         dry,
         package,
-        function,
         frozen,
         locked,
-        offline
+        offline,
+        rust,
+        function,
     });
 
     Info::default().for_parser(parser).run()

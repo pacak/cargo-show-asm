@@ -1,4 +1,6 @@
+#![allow(clippy::match_like_matches_macro)]
 // TODO, use https://sourceware.org/binutils/docs/as/index.html
+use crate::opts::Format;
 
 #[derive(Clone, Debug)]
 pub enum Statement<'a> {
@@ -33,7 +35,7 @@ impl std::fmt::Display for Directive<'_> {
 
 impl std::fmt::Display for File<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "\t.file\t{} {}", self.0, self.1)
+        write!(f, "\t.file\t{} {}", self.index, self.name)
     }
 }
 
@@ -186,7 +188,10 @@ pub enum Directive<'a> {
 }
 
 #[derive(Clone, Debug)]
-pub struct File<'a>(u64, &'a str);
+pub struct File<'a> {
+    index: u64,
+    name: &'a str,
+}
 /*
 #[derive(Clone, Debug)]
 pub struct Section<'a> {
@@ -197,7 +202,8 @@ pub struct Section<'a> {
 #[derive(Clone, Debug)]
 pub struct GenericDirective<'a>(&'a str);
 
-use std::collections::BTreeSet;
+use std::collections::btree_map::Entry;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use nom::branch::alt;
@@ -284,7 +290,12 @@ fn parse_statement(input: &str) -> IResult<&str, Statement> {
 
     let file = map(
         tuple((tag("\t.file\t"), complete::u64, space1, filename)),
-        |(_, fileno, _, filename)| Directive::File(File(fileno, filename)),
+        |(_, fileno, _, filename)| {
+            Directive::File(File {
+                index: fileno,
+                name: filename,
+            })
+        },
     );
 
     let loc = map(Loc::parse, Directive::Loc);
@@ -331,14 +342,24 @@ fn parse_fn_name(input: &str) -> IResult<&str, String> {
     }
 }*/
 
+struct OwningFile {
+    name: String,
+    payload: String,
+    lines: Vec<usize>,
+}
+
 pub fn dump_function(
     goal: &str,
     path: &Path,
+    fmt: &Format,
     items: &mut BTreeSet<String>,
 ) -> anyhow::Result<bool> {
     let contents = std::fs::read_to_string(path)?;
     let mut show = false;
     let mut seen = false;
+
+    let mut files = BTreeMap::new();
+
     for line in parse_file(&contents).unwrap().1.iter() {
         if let Statement::Label(label) = line {
             if let Ok(name) = rustc_demangle::try_demangle(label.id) {
@@ -348,12 +369,39 @@ pub fn dump_function(
                 seen |= show;
             }
         }
+
+        if fmt.rust {
+            if let Statement::Directive(Directive::File(f)) = line {
+                let entry = files.entry(f.index);
+                if let Entry::Vacant(_) = &entry {
+                    if let Ok(payload) = std::fs::read_to_string(f.name) {
+                        let cache = line_span::CachedLines::without_ending(payload);
+                        entry.or_insert((f.name, cache));
+                    }
+                }
+            }
+
+            if show {
+                if let Statement::Directive(Directive::Loc(loc)) = line {
+                    use owo_colors::OwoColorize;
+                    if let Some((fname, file)) = files.get(&loc.file) {
+                        if loc.line != 0 {
+                            println!("\t\t{},  {}", loc.red(), fname.red());
+                            println!("\t\t{}", (&file[loc.line as usize - 1]).green());
+                        }
+                    }
+                }
+            }
+        }
+
         if line.is_loc() {
             continue;
         }
+
         if show {
             println!("{}", line);
         }
+
         if let Statement::Directive(Directive::Generic(GenericDirective("cfi_endproc"))) = line {
             show = false;
         }
@@ -361,53 +409,6 @@ pub fn dump_function(
     Ok(seen)
 }
 
-#[cfg(test)]
-mod test {
-    use std::collections::BTreeSet;
-
-    use super::dump_function;
-    use crate::asm::Statement;
-
-    #[test]
-    fn asdf() {
-        let s = "/home/pacak/ej/master/target/asm/release/deps/tsu_mini_std-c590d4e929fdbd3c.s";
-        let b = std::path::PathBuf::from(String::from(s));
-        let mut items = BTreeSet::new();
-        let goal = "tsu_mini_std::math::lse";
-        dump_function(goal, &b, &mut items).unwrap();
-
-        todo!();
-    }
-
-    //    #[test]
-    fn asdf2() {
-        let s = "/home/pacak/ej/master/target/asm/release/deps/tsu_mini_std-c590d4e929fdbd3c.s";
-        let b = std::path::PathBuf::from(String::from(s));
-        let a = std::fs::read_to_string(b).unwrap();
-
-        let t = "tsu_mini_std::math::lse";
-        let mut show = false;
-
-        let r = super::parse_file(&a); // [..1000]);
-        for x in r.unwrap().1 {
-            if let Statement::Label(label) = x {
-                //                if label.local {
-                //                    continue;
-                //                }
-
-                if let Ok(name) = rustc_demangle::try_demangle(label.id) {
-                    show = format!("{name:#?}") == t;
-                }
-            }
-            //            println!("{:?}", x);
-            if show {
-                println!("{}", x);
-            }
-        }
-        todo!();
-        //        todo!("PARSED: {:?}", r);
-    }
-}
 impl Statement<'_> {
     fn is_loc(&self) -> bool {
         match self {
