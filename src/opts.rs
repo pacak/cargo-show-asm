@@ -11,12 +11,13 @@ pub struct Options {
     pub frozen: bool,
     pub locked: bool,
     pub offline: bool,
-    pub rust: bool,
+    pub format: Format,
 }
 
 #[derive(Debug, Clone)]
 pub struct Format {
     pub rust: bool,
+    pub color: bool,
 }
 
 pub fn opts() -> Options {
@@ -62,6 +63,13 @@ pub fn opts() -> Options {
         .help("Print interleaved Rust code")
         .switch();
 
+    let color = long("no-color")
+        .help("Disable color detection")
+        .switch()
+        .map(|x| !x);
+
+    let format = construct!(Format { rust, color });
+
     let parser = construct!(Options {
         target,
         manifest,
@@ -70,7 +78,7 @@ pub fn opts() -> Options {
         frozen,
         locked,
         offline,
-        rust,
+        format,
         function,
     });
 

@@ -12,16 +12,25 @@ use cargo::{
     Config,
 };
 
-fn main() -> anyhow::Result<()> {
-    let opts = opts::opts();
+/// This should be called before calling any cli method or printing any output.
+pub fn reset_signal_pipe_handler() -> anyhow::Result<()> {
+    #[cfg(target_family = "unix")]
+    {
+        use nix::sys::signal;
 
-    let custom_target = Some(match opts.target {
-        Some(target) => target,
-        None => match opts.manifest.parent() {
-            Some(p) => p.join(PathBuf::from("target/asm")),
-            None => PathBuf::from("target/asm"),
-        },
-    });
+        unsafe {
+            signal::signal(signal::Signal::SIGPIPE, signal::SigHandler::SigDfl)?;
+            //                .map_err(|e| Error::Other(e.to_string()))?;
+        }
+    }
+
+    Ok(())
+}
+
+fn main() -> anyhow::Result<()> {
+    reset_signal_pipe_handler()?;
+
+    let opts = opts::opts();
 
     let mut cfg = Config::default()?;
     cfg.configure(
@@ -31,7 +40,7 @@ fn main() -> anyhow::Result<()> {
         opts.frozen,
         opts.locked,
         opts.offline,
-        &custom_target,
+        &None,
         &[],
         &[],
     )?;
@@ -71,7 +80,7 @@ fn main() -> anyhow::Result<()> {
 
     let target = opts.function.as_deref().unwrap_or(" ");
 
-    let fmt = opts::Format { rust: opts.rust };
+    //    let fmt = opts::Format { rust: opts.rust };
 
     let mut seen = false;
     let mut existing = BTreeSet::new();
@@ -80,7 +89,7 @@ fn main() -> anyhow::Result<()> {
         output.display(),
         &comp.root_crate_names[0]
     ))? {
-        seen |= asm::dump_function(target, &x?, &fmt, &mut existing)?;
+        seen |= asm::dump_function(target, &x?, &opts.format, &mut existing)?;
     }
 
     if !seen {

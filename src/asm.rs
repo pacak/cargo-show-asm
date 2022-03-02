@@ -6,8 +6,32 @@ use crate::opts::Format;
 pub enum Statement<'a> {
     Label(Label<'a>),
     Directive(Directive<'a>),
-    Instruction(&'a str),
+    Instruction(Instruction<'a>),
     Nothing,
+}
+
+#[derive(Clone, Debug)]
+pub struct Instruction<'a> {
+    op: &'a str,
+    args: Option<&'a str>,
+}
+
+impl<'a> Instruction<'a> {
+    pub fn parse(input: &'a str) -> IResult<&'a str, Self> {
+        let (input, _) = tag("\t")(input)?;
+        let (input, op) = take_while1(|c: char| c.is_alphanum())(input)?;
+        let (input, args) = opt(preceded(space1, take_while1(|c| c != '\n')))(input)?;
+        Ok((input, Instruction { op, args }))
+    }
+}
+
+impl std::fmt::Display for Instruction<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.args {
+            Some(args) => write!(f, "{} {}", self.op, args),
+            None => write!(f, "{}", self.op),
+        }
+    }
 }
 
 impl std::fmt::Display for Statement<'_> {
@@ -84,7 +108,7 @@ impl<'a> Label<'a> {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
 pub struct Loc<'a> {
     pub file: u64,
     pub line: u64,
@@ -282,6 +306,7 @@ fn good_for_label(c: char) -> bool {
 }
 
 use nom::character::complete;
+use owo_colors::OwoColorize;
 
 fn parse_statement(input: &str) -> IResult<&str, Statement> {
     let label = map(Label::parse, Statement::Label);
@@ -311,16 +336,7 @@ fn parse_statement(input: &str) -> IResult<&str, Statement> {
 
     let dunno = |input: &str| todo!("{:?}", &input[..100]);
 
-    let instr = map(
-        preceded(
-            tag("\t"),
-            verify(take_while1(|c| c != '\n'), |s: &str| {
-                let c = s.chars().next().unwrap();
-                ('a'..='z').contains(&c)
-            }),
-        ),
-        Statement::Instruction,
-    );
+    let instr = map(Instruction::parse, Statement::Instruction);
     let nothing = map(
         verify(take_while(|c| c != '\n'), |s: &str| s.is_empty()),
         |_| Statement::Nothing,
@@ -357,6 +373,7 @@ pub fn dump_function(
     let contents = std::fs::read_to_string(path)?;
     let mut show = false;
     let mut seen = false;
+    let mut prev_loc = Loc::default();
 
     let mut files = BTreeMap::new();
 
@@ -380,26 +397,57 @@ pub fn dump_function(
                     }
                 }
             }
-
-            if show {
-                if let Statement::Directive(Directive::Loc(loc)) = line {
-                    use owo_colors::OwoColorize;
-                    if let Some((fname, file)) = files.get(&loc.file) {
-                        if loc.line != 0 {
-                            println!("\t\t{},  {}", loc.red(), fname.red());
-                            println!("\t\t{}", (&file[loc.line as usize - 1]).green());
-                        }
+        }
+        if show {
+            match line {
+                Statement::Label(l) => {
+                    if fmt.color {
+                        println!("{}", l.bright_black())
+                    } else {
+                        println!("{}", l);
                     }
                 }
+                Statement::Directive(dir) => match dir {
+                    Directive::File(_) => {}
+                    Directive::Loc(loc) => {
+                        if loc.file == prev_loc.file && loc.line == prev_loc.line {
+                            continue;
+                        }
+                        prev_loc = *loc;
+                        // use owo_colors::OwoColorize;
+                        if let Some((_fname, file)) = files.get(&loc.file) {
+                            if loc.line != 0 {
+                                let line = &file[loc.line as usize - 1];
+                                if fmt.color {
+                                    println!("\t\t\t{}", line.bright_red());
+                                } else {
+                                    println!("\t\t\t{}", line);
+                                }
+                            }
+                        }
+                    }
+                    Directive::Membarrier => todo!(),
+                    Directive::Generic(g) => {
+                        if fmt.color {
+                            println!("{}", g.bright_black());
+                        } else {
+                            println!("\t{}", g);
+                        }
+                    }
+                    Directive::Set(_) => todo!(),
+                },
+                Statement::Instruction(i) => {
+                    if fmt.color {
+                        match i.args {
+                            Some(args) => println!("\t{} {}", i.op.bright_blue(), args),
+                            None => println!("\t{}", i.op.bright_blue()),
+                        }
+                    } else {
+                        println!("\t{}", i);
+                    }
+                }
+                Statement::Nothing => {}
             }
-        }
-
-        if line.is_loc() {
-            continue;
-        }
-
-        if show {
-            println!("{}", line);
         }
 
         if let Statement::Directive(Directive::Generic(GenericDirective("cfi_endproc"))) = line {
