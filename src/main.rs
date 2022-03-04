@@ -31,7 +31,7 @@ fn main() -> anyhow::Result<()> {
 
     let mut cfg = Config::default()?;
     cfg.configure(
-        1,
+        opts.verbosity as u32,
         false,
         None,
         opts.frozen,

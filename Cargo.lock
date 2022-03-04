@@ -659,8 +659,8 @@ dependencies = [
 
 [[package]]
 name = "line-span"
-version = "0.1.3"
-source = "git+https://github.com/pacak/line-span?rev=31278a82c8ea60ab59199e595e39a0888e6938b2#31278a82c8ea60ab59199e595e39a0888e6938b2"
+version = "0.1.4"
+source = "git+https://github.com/pacak/line-span?rev=c4844e32f06b6d664327b55149f1b7df201bdc7f#c4844e32f06b6d664327b55149f1b7df201bdc7f"
 
 [[package]]
 name = "log"

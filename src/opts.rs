@@ -12,6 +12,7 @@ pub struct Options {
     pub locked: bool,
     pub offline: bool,
     pub format: Format,
+    pub verbosity: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -26,6 +27,13 @@ pub fn opts() -> Options {
         .argument_os("PATH")
         .map(PathBuf::from)
         .fallback_with(|| std::env::current_dir().map(|x| x.join("Cargo.toml")));
+
+    let verbosity = short('v')
+        .long("verbose")
+        .help("more verbose output, can be specified multuple times")
+        .req_flag(())
+        .many()
+        .map(|v| v.len());
 
     let target = long("target-dir")
         .help("Custom target directory for generated artifacts")
@@ -73,6 +81,7 @@ pub fn opts() -> Options {
     let parser = construct!(Options {
         target,
         manifest,
+        verbosity,
         dry,
         package,
         frozen,
