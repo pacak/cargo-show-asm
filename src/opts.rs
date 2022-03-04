@@ -25,7 +25,7 @@ pub fn opts() -> Options {
         .help("Path to Cargo.toml")
         .argument_os("PATH")
         .map(PathBuf::from)
-        .fallback("Cargo.toml".into());
+        .fallback_with(|| std::env::current_dir().map(|x| x.join("Cargo.toml")));
 
     let target = long("target-dir")
         .help("Custom target directory for generated artifacts")
@@ -82,5 +82,20 @@ pub fn opts() -> Options {
         function,
     });
 
-    Info::default().for_parser(parser).run()
+    /*
+    pub fn options() -> OptionParser<(Level, OsString, Command)> {
+        Info::default().for_parser(command(
+            "hackerman",
+            Some("A set of commands to do strange things to the workspace"),
+            options_inner(),
+        ))
+    }*/
+
+    let command_parser = command(
+        "asm",
+        Some("A command to display raw asm for some rust function"),
+        Info::default().for_parser(parser),
+    );
+
+    Info::default().for_parser(command_parser).run()
 }

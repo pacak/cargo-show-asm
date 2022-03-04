@@ -1,9 +1,6 @@
-//use asm::
-//mod opts;
-
 use cargo_show_asm::*;
 
-use std::{collections::BTreeSet, path::PathBuf};
+use std::collections::BTreeSet;
 
 use cargo::{
     core::{
@@ -20,13 +17,10 @@ pub fn reset_signal_pipe_handler() -> anyhow::Result<()> {
     #[cfg(target_family = "unix")]
     {
         use nix::sys::signal;
-
         unsafe {
             signal::signal(signal::Signal::SIGPIPE, signal::SigHandler::SigDfl)?;
-            //                .map_err(|e| Error::Other(e.to_string()))?;
         }
     }
-
     Ok(())
 }
 
