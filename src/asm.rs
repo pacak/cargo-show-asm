@@ -18,6 +18,16 @@ pub struct Instruction<'a> {
 
 impl<'a> Instruction<'a> {
     pub fn parse(input: &'a str) -> IResult<&'a str, Self> {
+        alt((Self::parse_regular, Self::parse_barrier))(input)
+    }
+
+    fn parse_barrier(input: &'a str) -> IResult<&'a str, Self> {
+        map(tag("\t#MEMBARRIER"), |_| Instruction {
+            op: "#MEMBARRIER",
+            args: None,
+        })(input)
+    }
+    fn parse_regular(input: &'a str) -> IResult<&'a str, Self> {
         let (input, _) = tag("\t")(input)?;
         let (input, op) = take_while1(|c: char| c.is_alphanum())(input)?;
         let (input, args) = opt(preceded(space1, take_while1(|c| c != '\n')))(input)?;
@@ -328,7 +338,6 @@ fn parse_statement(input: &str) -> IResult<&str, Statement> {
     let generic = map(preceded(tag("\t."), take_while1(|c| c != '\n')), |s| {
         Directive::Generic(GenericDirective(s))
     });
-    let memb = map(tag("\t#MEMBARRIER"), |_| Directive::Membarrier);
     let set = map(
         preceded(tag(".set"), take_while1(|c| c != '\n')),
         Directive::Set,
@@ -342,31 +351,15 @@ fn parse_statement(input: &str) -> IResult<&str, Statement> {
         |_| Statement::Nothing,
     );
 
-    let dir = map(alt((file, loc, memb, set, generic)), Statement::Directive);
+    let dir = map(alt((file, loc, set, generic)), Statement::Directive);
 
     terminated(alt((label, dir, instr, nothing, dunno)), newline)(input)
-
-    //        todo!("{:?}", r);
-    //        todo!("{}", &input[..200]);
-}
-/*
-fn parse_fn_name(input: &str) -> IResult<&str, String> {
-    let (input, name) = terminated(take_until(":"), tag(":\n"))(input)?;
-    match rustc_demangle::try_demangle(name) {
-        Ok(demangle) => Ok((input, format!("{:#?}", demangle))),
-        Err(_) => Err(Err::Failure(make_error(input, error::ErrorKind::Tag))),
-    }
-}*/
-
-struct OwningFile {
-    name: String,
-    payload: String,
-    lines: Vec<usize>,
 }
 
 pub fn dump_function(
     goal: &str,
     path: &Path,
+    sysroot: &Path,
     fmt: &Format,
     items: &mut BTreeSet<String>,
 ) -> anyhow::Result<bool> {
@@ -394,6 +387,20 @@ pub fn dump_function(
                     if let Ok(payload) = std::fs::read_to_string(f.name) {
                         let cache = line_span::CachedLines::without_ending(payload);
                         entry.or_insert((f.name, cache));
+                    } else if f.name.starts_with("/rustc/") {
+                        if let Some(x) = f.name.splitn(4, '/').last() {
+                            let src = sysroot.join("lib/rustlib/src/rust").join(x);
+                            if let Ok(payload) = std::fs::read_to_string(src) {
+                                let cache = line_span::CachedLines::without_ending(payload);
+                                entry.or_insert((f.name, cache));
+                            } else {
+                                println!("file not found {:?}", f.name);
+                            }
+                        } else {
+                            println!("file not found {:?}", f.name);
+                        }
+                    } else {
+                        println!("file not found {:?}", f.name);
                     }
                 }
             }
@@ -410,7 +417,8 @@ pub fn dump_function(
                 Statement::Directive(dir) => match dir {
                     Directive::File(_) => {}
                     Directive::Loc(loc) => {
-                        if loc.file == prev_loc.file && loc.line == prev_loc.line {
+                        if loc.line == 0 || (loc.file == prev_loc.file && loc.line == prev_loc.line)
+                        {
                             continue;
                         }
                         prev_loc = *loc;
@@ -455,21 +463,4 @@ pub fn dump_function(
         }
     }
     Ok(seen)
-}
-
-impl Statement<'_> {
-    fn is_loc(&self) -> bool {
-        match self {
-            Statement::Directive(d) => d.is_loc(),
-            _ => false,
-        }
-    }
-}
-impl Directive<'_> {
-    fn is_loc(&self) -> bool {
-        match self {
-            Directive::Loc(_) => true,
-            _ => false,
-        }
-    }
 }

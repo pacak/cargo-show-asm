@@ -6,7 +6,10 @@ use cargo_show_asm::*;
 use std::{collections::BTreeSet, path::PathBuf};
 
 use cargo::{
-    core::{compiler::CompileKind, Workspace},
+    core::{
+        compiler::{CompileKind, TargetInfo},
+        Workspace,
+    },
     ops::{compile, CompileOptions, Packages},
     util::interning::InternedString,
     Config,
@@ -47,6 +50,9 @@ fn main() -> anyhow::Result<()> {
 
     let ws = Workspace::new(&opts.manifest, &cfg)?;
 
+    let rustc = cfg.load_global_rustc(Some(&ws))?;
+    let target_info = TargetInfo::new(&cfg, &[CompileKind::Host], &rustc, CompileKind::Host)?;
+
     let mut copts = CompileOptions::new(&cfg, cargo::core::compiler::CompileMode::Build)?;
 
     if let Some(package) = opts.package {
@@ -84,12 +90,18 @@ fn main() -> anyhow::Result<()> {
 
     let mut seen = false;
     let mut existing = BTreeSet::new();
-    for x in glob::glob(&format!(
+    for s_file in glob::glob(&format!(
         "{}/{}-*.s",
         output.display(),
         &comp.root_crate_names[0]
     ))? {
-        seen |= asm::dump_function(target, &x?, &opts.format, &mut existing)?;
+        seen |= asm::dump_function(
+            target,
+            &s_file?,
+            &target_info.sysroot,
+            &opts.format,
+            &mut existing,
+        )?;
     }
 
     if !seen {
