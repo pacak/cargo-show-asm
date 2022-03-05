@@ -1,4 +1,3 @@
-#![allow(clippy::match_like_matches_macro)]
 // TODO, use https://sourceware.org/binutils/docs/as/index.html
 use crate::opts::Format;
 
@@ -18,15 +17,16 @@ pub struct Instruction<'a> {
 
 impl<'a> Instruction<'a> {
     pub fn parse(input: &'a str) -> IResult<&'a str, Self> {
-        alt((Self::parse_regular, Self::parse_barrier))(input)
+        alt((Self::parse_regular, Self::parse_sharp))(input)
     }
 
-    fn parse_barrier(input: &'a str) -> IResult<&'a str, Self> {
-        map(tag("\t#MEMBARRIER"), |_| Instruction {
-            op: "#MEMBARRIER",
-            args: None,
+    fn parse_sharp(input: &'a str) -> IResult<&'a str, Self> {
+        let sharp_tag = tuple((tag("#"), take_while1(|c: char| c == '_' || c.is_alphanum())));
+        map(preceded(tag("\t"), consumed(sharp_tag)), |(op, _)| {
+            Instruction { op, args: None }
         })(input)
     }
+
     fn parse_regular(input: &'a str) -> IResult<&'a str, Self> {
         let (input, _) = tag("\t")(input)?;
         let (input, op) = take_while1(|c: char| c.is_alphanum())(input)?;
@@ -81,7 +81,6 @@ impl std::fmt::Display for GenericDirective<'_> {
 
 impl std::fmt::Display for Loc<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        //                .loc    16 26 5 prologue_end
         match self.extra {
             Some(x) => write!(
                 f,
@@ -226,12 +225,6 @@ pub struct File<'a> {
     index: u64,
     name: &'a str,
 }
-/*
-#[derive(Clone, Debug)]
-pub struct Section<'a> {
-    pub header: SecHdr<'a>,
-    pub functions: Vec<Function<'a>>,
-}*/
 
 #[derive(Clone, Debug)]
 pub struct GenericDirective<'a>(&'a str);
@@ -243,7 +236,7 @@ use std::path::Path;
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_while, take_while1};
 use nom::character::complete::{newline, space1};
-use nom::combinator::{map, opt, verify};
+use nom::combinator::{consumed, map, opt, verify};
 use nom::multi::many0;
 use nom::sequence::{delimited, preceded, terminated, tuple};
 use nom::*;
@@ -255,56 +248,10 @@ pub enum SecHdr<'a> {
     Bss,
     Custom(&'a str),
 }
-/*
-fn parse_header(input: &str) -> IResult<&str, SecHdr> {
-    let (input, (_, sec, _)) = tuple((
-        tag("\t."),
-        alt((
-            map(tag("text"), |_| SecHdr::Text),
-            map(tag("data"), |_| SecHdr::Data),
-            map(tag("bss"), |_| SecHdr::Bss),
-            map(alphanumeric1, SecHdr::Custom),
-        )),
-        newline,
-    ))(input)?;
-
-    #[rustfmt::skip]
-    let (input, _) = many0(tuple((
-        tag("\t"),
-        alt((
-            map(tuple((tag(".intel_syntax"), take_till(|c| c == '\n'))), |_| (),),
-            map(tuple((tag(".file"), take_till(|c| c == '\n'))), |_| ()),
-            map(tuple((tag(".type"), take_till(|c| c == '\n'))), |_| ()),
-            map(tuple((tag(".section"), take_till(|c| c == '\n'))), |_| ()),
-            map(tuple((tag(".p2align"), take_till(|c| c == '\n'))), |_| ()),
-        )),
-        tag("\n"),
-    )))(input)?;
-    Ok((input, sec))
-}*/
 
 pub fn parse_file(input: &str) -> IResult<&str, Vec<Statement>> {
     many0(parse_statement)(input)
 }
-/*
-fn parse_function<'a, 'b>(
-    files: &'b mut HashMap<u64, &'a str>,
-) -> impl FnMut(&'a str) -> IResult<&'a str, Function<'a>> + 'b {
-    move |input| {
-        let (input, (name, statements)) =
-            tuple((parse_fn_name, many0(parse_statement(files))))(input)?;
-        let loc = None; // TODO
-        Ok((
-            input,
-            Function {
-                name,
-                loc,
-                statements,
-            },
-        ))
-        //        todo!("\n{}", &input[..100]);
-    }
-}*/
 
 fn good_for_label(c: char) -> bool {
     c == '.'
@@ -459,7 +406,9 @@ pub fn dump_function(
         }
 
         if let Statement::Directive(Directive::Generic(GenericDirective("cfi_endproc"))) = line {
-            show = false;
+            if seen {
+                return Ok(true);
+            }
         }
     }
     Ok(seen)

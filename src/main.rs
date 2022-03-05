@@ -5,9 +5,9 @@ use std::collections::BTreeSet;
 use cargo::{
     core::{
         compiler::{CompileKind, TargetInfo},
-        Workspace,
+        MaybePackage, TargetKind, Workspace,
     },
-    ops::{compile, CompileOptions, Packages},
+    ops::{compile, CompileFilter, CompileOptions, FilterRule, LibRule, Packages},
     util::interning::InternedString,
     Config,
 };
@@ -44,24 +44,56 @@ fn main() -> anyhow::Result<()> {
 
     let ws = Workspace::new(&opts.manifest, &cfg)?;
 
+    let package = match (ws.root_maybe(), &opts.package) {
+        (MaybePackage::Package(p), _) => p,
+        (MaybePackage::Virtual(_), None) => {
+            eprintln!("{:?} defines a virtual workspace package, you need to specify which member to use with -p xxxx", opts.manifest);
+            for package in ws.members() {
+                eprintln!("\t-p {}", package.name());
+            }
+            std::process::exit(1);
+        }
+        (MaybePackage::Virtual(_), Some(p)) => {
+            if let Some(package) = ws.members().find(|package| package.name().as_str() == p) {
+                package
+            } else {
+                eprintln!("{p} is not a valid package name in this workspace");
+                std::process::exit(1);
+            }
+        }
+    };
+
+    if package.targets().len() > 1 && opts.focus.is_none() {
+        eprintln!(
+            "{} defines multiple targets, you need to specify which one to use:",
+            package.name()
+        );
+        for t in package.targets().iter() {
+            match t.kind() {
+                TargetKind::Lib(_) => print!("--lib"),
+                TargetKind::Bin => print!("--bin {}", t.name()),
+                TargetKind::Test => print!("--test {}", t.name()),
+                TargetKind::Bench => print!("--bench {}", t.name()),
+                TargetKind::ExampleLib(_) => todo!(),
+                TargetKind::ExampleBin => print!("--example {}", t.name()),
+                TargetKind::CustomBuild => continue,
+            }
+            println!("\tfor {}: {:?}", t.description_named(), t.src_path());
+        }
+
+        std::process::exit(1);
+    }
+
     let rustc = cfg.load_global_rustc(Some(&ws))?;
     let target_info = TargetInfo::new(&cfg, &[CompileKind::Host], &rustc, CompileKind::Host)?;
 
     let mut copts = CompileOptions::new(&cfg, cargo::core::compiler::CompileMode::Build)?;
 
-    if let Some(package) = opts.package {
-        copts.spec = Packages::Packages(vec![package]);
-    } else if let Some(function) = &opts.function {
-        if let Some((package, _)) = function.split_once("::") {
-            copts.spec = Packages::Packages(vec![package.to_string()]);
-        } else {
-            todo!("{:?}", function);
-        }
-    } else {
-        eprintln!("You need to specify package/function to use, try one of those");
-        todo!("-p xxxxxx");
-    }
+    copts.spec = Packages::Packages(vec![package.name().to_string()]);
 
+    if let Some(focus) = opts.focus {
+        copts.filter = CompileFilter::from(focus);
+    }
     copts.build_config.requested_profile = InternedString::new("release");
     copts.target_rustc_args = Some(vec![
         String::from("-C"),
@@ -79,8 +111,6 @@ fn main() -> anyhow::Result<()> {
     let output = comp.deps_output.get(&CompileKind::Host).unwrap();
 
     let target = opts.function.as_deref().unwrap_or(" ");
-
-    //    let fmt = opts::Format { rust: opts.rust };
 
     let mut seen = false;
     let mut existing = BTreeSet::new();
