@@ -7,7 +7,7 @@ use cargo::{
         compiler::{CompileKind, TargetInfo},
         MaybePackage, TargetKind, Workspace,
     },
-    ops::{compile, CompileFilter, CompileOptions, FilterRule, LibRule, Packages},
+    ops::{compile, CleanOptions, CompileFilter, CompileOptions, FilterRule, LibRule, Packages},
     util::interning::InternedString,
     Config,
 };
@@ -107,48 +107,72 @@ fn main() -> anyhow::Result<()> {
     ]);
 
     copts.build_config.build_plan = opts.dry;
-    let comp = compile(&ws, &copts)?;
-    let output = comp.deps_output.get(&CompileKind::Host).unwrap();
 
-    let target = opts.function.as_deref().unwrap_or(" ");
+    let mut retrying = false;
+    loop {
+        let comp = compile(&ws, &copts)?;
+        let output = comp.deps_output.get(&CompileKind::Host).unwrap();
 
-    let mut seen = false;
-    let mut existing = BTreeSet::new();
-    for s_file in glob::glob(&format!(
-        "{}/{}-*.s",
-        output.display(),
-        &comp.root_crate_names[0]
-    ))? {
-        seen |= asm::dump_function(
-            target,
-            &s_file?,
-            &target_info.sysroot,
-            &opts.format,
-            &mut existing,
-        )?;
+        let target = opts.function.as_deref().unwrap_or(" ");
+
+        let seen;
+        let mut existing = BTreeSet::new();
+        let mut asm_files = glob::glob(&format!(
+            "{}/{}-*.s",
+            output.display(),
+            &comp.root_crate_names[0]
+        ))?
+        .collect::<Vec<_>>();
+
+        match asm_files.len() {
+            0 => {
+                eprintln!(
+                    "Compilation produced no files satisfying {}/{}-*.s, this is a bug",
+                    output.display(),
+                    &comp.root_crate_names[0]
+                );
+                std::process::exit(1);
+            }
+            1 => {
+                let file = asm_files.remove(0)?;
+                seen = asm::dump_function(
+                    target,
+                    &file,
+                    &target_info.sysroot,
+                    &opts.format,
+                    &mut existing,
+                )?;
+            }
+            _ => {
+                if retrying {
+                    eprintln!(
+                        "Compilation produced multiple matching files: {:?}, this is a bug",
+                        asm_files
+                    );
+                    std::process::exit(1);
+                }
+                let opts = CleanOptions {
+                    config: &cfg,
+                    spec: vec![package.name().to_string()],
+                    targets: Vec::new(),
+                    profile_specified: false,
+                    requested_profile: InternedString::new(""),
+                    doc: false,
+                };
+                cargo::ops::clean(&ws, &opts)?;
+                retrying = true;
+                continue;
+            }
+        }
+
+        if !seen {
+            println!("Try one of those");
+            for x in existing.iter() {
+                println!("\t{x}");
+            }
+        }
+        break;
     }
 
-    if !seen {
-        println!("Try one of those");
-        for x in existing.iter() {
-            println!("\t{x}");
-        }
-    }
-
-    /*
-        for e in walkdir::WalkDir::new(o) {
-            println!("{:?}", e?);
-        }
-
-        let f = PathBuf::from(String::from(
-            "/home/pacak/ej/master/target/asm/release/deps/tsu_mini_std-c590d4e929fdbd3c.s",
-        ));
-        let ti = TargetInfo::new_from_triple("x86_64-unknown-linux-gnu".into());
-        //  let c=
-
-        let x = cargo_show_asm::asm::run(&[f], &ti);
-
-        todo!("{:?}", x);
-    */
     Ok(())
 }
