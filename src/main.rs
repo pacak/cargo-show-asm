@@ -7,7 +7,7 @@ use cargo::{
         compiler::{CompileKind, TargetInfo},
         MaybePackage, TargetKind, Workspace,
     },
-    ops::{compile, CleanOptions, CompileFilter, CompileOptions, FilterRule, LibRule, Packages},
+    ops::{compile, CleanOptions, CompileFilter, CompileOptions, Packages},
     util::interning::InternedString,
     Config,
 };
