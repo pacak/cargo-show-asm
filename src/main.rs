@@ -156,7 +156,7 @@ fn main() -> anyhow::Result<()> {
                     spec: vec![package.name().to_string()],
                     targets: Vec::new(),
                     profile_specified: false,
-                    requested_profile: InternedString::new(""),
+                    requested_profile: InternedString::new("release"),
                     doc: false,
                 };
                 cargo::ops::clean(&ws, &opts)?;
