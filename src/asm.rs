@@ -241,14 +241,6 @@ use nom::multi::many0;
 use nom::sequence::{delimited, preceded, terminated, tuple};
 use nom::*;
 
-#[derive(Clone, Debug)]
-pub enum SecHdr<'a> {
-    Text,
-    Data,
-    Bss,
-    Custom(&'a str),
-}
-
 pub fn parse_file(input: &str) -> IResult<&str, Vec<Statement>> {
     many0(parse_statement)(input)
 }
