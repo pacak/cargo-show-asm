@@ -264,6 +264,7 @@ fn good_for_label(c: char) -> bool {
 
 use nom::character::complete;
 use owo_colors::OwoColorize;
+use regex::Replacer;
 
 fn parse_statement(input: &str) -> IResult<&str, Statement> {
     let label = map(Label::parse, Statement::Label);
@@ -314,6 +315,8 @@ pub fn dump_function(
     let mut show = false;
     let mut seen = false;
     let mut prev_loc = Loc::default();
+
+    let reg = regex::Regex::new(r"(_[a-zA-Z0-9_]+)")?;
 
     let mut files = BTreeMap::new();
 
@@ -394,11 +397,26 @@ pub fn dump_function(
                 Statement::Instruction(i) => {
                     if fmt.color {
                         match i.args {
-                            Some(args) => println!("\t{} {}", i.op.bright_blue(), args),
+                            Some(args) => {
+                                println!(
+                                    "\t{} {}",
+                                    i.op.bright_blue(),
+                                    reg.replace_all(args, Demangle(fmt.color))
+                                )
+                            }
                             None => println!("\t{}", i.op.bright_blue()),
                         }
                     } else {
-                        println!("\t{}", i);
+                        match i.args {
+                            Some(args) => {
+                                println!(
+                                    "\t{} {}",
+                                    i.op,
+                                    reg.replace_all(args, Demangle(fmt.color))
+                                )
+                            }
+                            None => println!("\t{}", i.op),
+                        }
                     }
                 }
                 Statement::Nothing => {}
@@ -412,4 +430,20 @@ pub fn dump_function(
         }
     }
     Ok(seen)
+}
+
+struct Demangle(bool);
+impl Replacer for Demangle {
+    fn replace_append(&mut self, cap: &regex::Captures<'_>, dst: &mut std::string::String) {
+        if let Ok(dem) = rustc_demangle::try_demangle(&cap[0]) {
+            let demangled = if self.0 {
+                format!("{:#?}", dem.green())
+            } else {
+                format!("{:#?}", dem)
+            };
+            dst.push_str(&demangled)
+        } else {
+            dst.push_str(&cap[0])
+        }
+    }
 }

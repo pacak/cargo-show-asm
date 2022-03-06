@@ -172,6 +172,7 @@ dependencies = [
  "nix",
  "nom",
  "owo-colors",
+ "regex",
  "rustc-demangle",
 ]
 

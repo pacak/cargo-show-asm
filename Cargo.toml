@@ -7,13 +7,14 @@ edition = "2021"
 
 [dependencies]
 anyhow = "*"
-cargo = "0.60"
-rustc-demangle = "0.1"
-nom = "*"
-glob = "*"
 bpaf = { git = "https://github.com/pacak/bpaf.git", rev = "448ec931b689f339a7404ce0525f18b9a28bffd5" }
+cargo = "0.60"
+glob = "*"
 line-span = { git = "https://github.com/pacak/line-span", rev = "c4844e32f06b6d664327b55149f1b7df201bdc7f" }
+nom = "*"
 owo-colors = "3.2.0"
+regex = "1.5.4"
+rustc-demangle = "0.1"
 
 [target.'cfg(target_family = "unix")'.dependencies]
 nix = "0.23.0"
