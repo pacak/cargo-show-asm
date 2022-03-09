@@ -380,9 +380,9 @@ pub fn dump_function(
                     }
                     Directive::Generic(g) => {
                         if fmt.color {
-                            println!("\t{}", g.bright_black());
+                            println!("{}", g.bright_black());
                         } else {
-                            println!("\t{}", g);
+                            println!("{}", g);
                         }
                     }
                     Directive::Set(g) => {
