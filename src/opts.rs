@@ -1,5 +1,8 @@
 use bpaf::*;
-use cargo::ops::CompileFilter;
+use cargo::{
+    core::{MaybePackage, Target, TargetKind, Workspace},
+    ops::CompileFilter,
+};
 use std::path::PathBuf;
 
 #[derive(Clone, Debug)]
@@ -52,12 +55,50 @@ impl From<Focus> for CompileFilter {
     }
 }
 
+impl std::fmt::Display for Focus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Focus::Lib => f.write_str("--lib"),
+            Focus::Test(t) => write!(f, "--test {}", t),
+            Focus::Bench(b) => write!(f, "--bench {}", b),
+            Focus::Example(e) => write!(f, "--example {}", e),
+            Focus::Bin(b) => write!(f, "--bin {b}"),
+        }
+    }
+}
+
+impl Focus {
+    pub fn matches(&self, target: &Target) -> bool {
+        match self {
+            Focus::Lib => target.is_lib(),
+            Focus::Test(t) => target.is_test() && target.name() == t,
+            Focus::Bench(b) => target.is_bench() && target.name() == b,
+            Focus::Example(e) => target.is_example() && target.name() == e,
+            Focus::Bin(b) => target.is_bin() && target.name() == b,
+        }
+    }
+}
+
 fn focus() -> Parser<Focus> {
-    let lib = long("lib").req_flag(Focus::Lib);
-    let bin = long("bin").argument("BIN").map(Focus::Bin);
-    let test = long("test").argument("TEST").map(Focus::Test);
-    let bench = long("bench").argument("BENCH").map(Focus::Bench);
-    let example = long("example").argument("EXAMPLE").map(Focus::Example);
+    let lib = long("lib")
+        .help("Show results from library code")
+        .req_flag(Focus::Lib);
+    let bin = long("bin")
+        .help("Show results from a binary")
+        .argument("BIN")
+        .map(Focus::Bin);
+    let test = long("test")
+        .help("Show results from a test")
+        .argument("TEST")
+        .map(Focus::Test);
+    let bench = long("bench")
+        .help("Show results from a benchmark")
+        .argument("BENCH")
+        .map(Focus::Bench);
+    let example = long("example")
+        .help("Show results from an example")
+        .argument("EXAMPLE")
+        .map(Focus::Example);
     lib.or_else(bin)
         .or_else(test)
         .or_else(bench)
@@ -153,4 +194,75 @@ pub fn opts() -> Options {
     );
 
     Info::default().for_parser(command_parser).run()
+}
+
+pub fn select_package(opts: &Options, ws: &Workspace) -> String {
+    let package = match (ws.root_maybe(), &opts.package) {
+        (MaybePackage::Package(p), _) => p,
+        (MaybePackage::Virtual(_), None) => {
+            if let Some(focus) = &opts.focus {
+                let mut candidates = Vec::new();
+                for p in ws.members() {
+                    for t in p.targets() {
+                        if focus.matches(t) {
+                            candidates.push(p.name());
+                        }
+                        println!("{:?} {:?}", p, t);
+                    }
+                }
+                match candidates.len() {
+                    0 => {
+                        eprintln!("Target specification {focus} didn't match any packages");
+                        std::process::exit(1);
+                    }
+                    1 => return candidates.remove(0).to_string(),
+                    _ => {
+                        eprintln!(
+                            "There's multiple targets that match {focus}. Try narrowing the focus by specifying one of those packages:"
+                        );
+                        for cand in &candidates {
+                            eprintln!("\t-p {cand}");
+                        }
+                        std::process::exit(1);
+                    }
+                }
+            } else {
+                eprintln!("{:?} defines a virtual workspace package, you need to specify which member to use with -p xxxx", opts.manifest);
+                for package in ws.members() {
+                    eprintln!("\t-p {}", package.name());
+                }
+                std::process::exit(1);
+            }
+        }
+        (MaybePackage::Virtual(_), Some(p)) => {
+            if let Some(package) = ws.members().find(|package| package.name().as_str() == p) {
+                package
+            } else {
+                // give up and let rustc to handle the rest
+                return p.to_string();
+            }
+        }
+    };
+
+    if package.targets().len() > 1 && opts.focus.is_none() {
+        eprintln!(
+            "{} defines multiple targets, you need to specify which one to use:",
+            package.name()
+        );
+        for t in package.targets().iter() {
+            match t.kind() {
+                TargetKind::Lib(_) => eprint!("--lib"),
+                TargetKind::Bin => eprint!("--bin {}", t.name()),
+                TargetKind::Test => eprint!("--test {}", t.name()),
+                TargetKind::Bench => eprint!("--bench {}", t.name()),
+                TargetKind::ExampleLib(_) => continue,
+                TargetKind::ExampleBin => eprint!("--example {}", t.name()),
+                TargetKind::CustomBuild => continue,
+            }
+            eprintln!("\tfor {}: {:?}", t.description_named(), t.src_path());
+        }
+
+        std::process::exit(1);
+    }
+    package.name().to_string()
 }
