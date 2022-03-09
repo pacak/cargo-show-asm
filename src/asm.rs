@@ -22,7 +22,7 @@ impl<'a> Instruction<'a> {
     }
 
     fn parse_sharp(input: &'a str) -> IResult<&'a str, Self> {
-        let sharp_tag = tuple((tag("#"), take_while1(|c: char| c == '_' || c.is_alphanum())));
+        let sharp_tag = tuple((tag("#"), opt(tag("#")), take_while1(|c: char| c != '\n')));
         map(preceded(tag("\t"), consumed(sharp_tag)), |(op, _)| {
             Instruction { op, args: None }
         })(input)
