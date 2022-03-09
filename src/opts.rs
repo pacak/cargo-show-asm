@@ -209,7 +209,6 @@ pub fn select_package(opts: &Options, ws: &Workspace) -> String {
                         if focus.matches(t) {
                             candidates.push(p.name());
                         }
-                        println!("{:?} {:?}", p, t);
                     }
                 }
                 match candidates.len() {
