@@ -1,4 +1,4 @@
-use cargo_show_asm::*;
+use cargo_show_asm::{asm, opts};
 
 use std::collections::BTreeSet;
 
@@ -13,10 +13,12 @@ use cargo::{
 };
 
 /// This should be called before calling any cli method or printing any output.
-pub fn reset_signal_pipe_handler() -> anyhow::Result<()> {
+fn reset_signal_pipe_handler() -> anyhow::Result<()> {
     #[cfg(target_family = "unix")]
     {
         use nix::sys::signal;
+        // Safety: previous handler returned by signal can be invalid and trigger UB if used, we are not
+        // keeping it around so it's safe
         unsafe {
             signal::signal(signal::Signal::SIGPIPE, signal::SigHandler::SigDfl)?;
         }
@@ -31,7 +33,7 @@ fn main() -> anyhow::Result<()> {
 
     let mut cfg = Config::default()?;
     cfg.configure(
-        opts.verbosity as u32,
+        u32::try_from(opts.verbosity).unwrap_or(0),
         false,
         None,
         opts.frozen,
@@ -49,15 +51,15 @@ fn main() -> anyhow::Result<()> {
     let rustc = cfg.load_global_rustc(Some(&ws))?;
     let target_info = TargetInfo::new(&cfg, &[CompileKind::Host], &rustc, CompileKind::Host)?;
 
-    let mut copts = CompileOptions::new(&cfg, cargo::core::compiler::CompileMode::Build)?;
+    let mut compile_opts = CompileOptions::new(&cfg, cargo::core::compiler::CompileMode::Build)?;
 
-    copts.spec = Packages::Packages(vec![package.clone()]);
+    compile_opts.spec = Packages::Packages(vec![package.clone()]);
 
     if let Some(focus) = opts.focus {
-        copts.filter = CompileFilter::from(focus);
+        compile_opts.filter = CompileFilter::from(focus);
     }
-    copts.build_config.requested_profile = InternedString::new("release");
-    copts.target_rustc_args = Some(vec![
+    compile_opts.build_config.requested_profile = InternedString::new("release");
+    compile_opts.target_rustc_args = Some(vec![
         String::from("-C"),
         String::from("codegen-units=1"),
         String::from("--emit"),
@@ -68,12 +70,12 @@ fn main() -> anyhow::Result<()> {
         String::from("debuginfo=2"),
     ]);
 
-    copts.build_config.build_plan = opts.dry;
+    compile_opts.build_config.build_plan = opts.dry;
 
     let mut retrying = false;
     loop {
-        let comp = compile(&ws, &copts)?;
-        let output = comp.deps_output.get(&CompileKind::Host).unwrap();
+        let comp = compile(&ws, &compile_opts)?;
+        let output = &comp.deps_output[&CompileKind::Host];
 
         let target = opts.function.as_deref().unwrap_or(" ");
 
@@ -113,7 +115,7 @@ fn main() -> anyhow::Result<()> {
                     );
                     std::process::exit(1);
                 }
-                let opts = CleanOptions {
+                let clean_opts = CleanOptions {
                     config: &cfg,
                     spec: vec![package.clone()],
                     targets: Vec::new(),
@@ -121,17 +123,18 @@ fn main() -> anyhow::Result<()> {
                     requested_profile: InternedString::new("release"),
                     doc: false,
                 };
-                cargo::ops::clean(&ws, &opts)?;
+                cargo::ops::clean(&ws, &clean_opts)?;
                 retrying = true;
                 continue;
             }
         }
 
         if !seen {
-            println!("Try one of those");
-            for x in existing.iter() {
-                println!("\t{x}");
+            eprintln!("Try one of those");
+            for x in &existing {
+                eprintln!("\t{x}");
             }
+            std::process::exit(1);
         }
         break;
     }

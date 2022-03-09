@@ -1,4 +1,4 @@
-use crate::demangle::{demangle_contents, demangle_name};
+use crate::demangle;
 // TODO, use https://sourceware.org/binutils/docs/as/index.html
 use crate::opts::Format;
 
@@ -30,7 +30,7 @@ impl<'a> Instruction<'a> {
 
     fn parse_regular(input: &'a str) -> IResult<&'a str, Self> {
         let (input, _) = tag("\t")(input)?;
-        let (input, op) = take_while1(|c: char| c.is_alphanum())(input)?;
+        let (input, op) = take_while1(AsChar::is_alphanum)(input)?;
         let (input, args) = opt(preceded(space1, take_while1(|c| c != '\n')))(input)?;
         Ok((input, Instruction { op, args }))
     }
@@ -60,7 +60,6 @@ impl std::fmt::Display for Directive<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Directive::File(ff) => ff.fmt(f),
-            Directive::Membarrier => f.write_str("\t#MEMBARRIER"),
             Directive::Loc(l) => l.fmt(f),
             Directive::Generic(g) => g.fmt(f),
             Directive::Set(g) => f.write_str(g),
@@ -217,7 +216,6 @@ fn test_parse_loc() {
 pub enum Directive<'a> {
     File(File<'a>),
     Loc(Loc<'a>),
-    Membarrier,
     Generic(GenericDirective<'a>),
     Set(&'a str),
     SubsectionsViaSym,
@@ -315,9 +313,12 @@ pub fn dump_function(
 
     let mut files = BTreeMap::new();
 
-    for line in parse_file(&contents).unwrap().1.iter() {
+    for line in &parse_file(&contents)
+        .expect("Should be able to parse file")
+        .1
+    {
         if let Statement::Label(label) = line {
-            if let Some(dem) = demangle_name(label.id) {
+            if let Some(dem) = demangle::name(label.id) {
                 show = dem == goal;
                 items.insert(dem);
                 seen |= show;
@@ -353,9 +354,9 @@ pub fn dump_function(
             match line {
                 Statement::Label(l) => {
                     if fmt.color {
-                        println!("{}:", demangle_contents(l.id, false).bright_black());
+                        println!("{}:", demangle::contents(l.id, false).bright_black());
                     } else {
-                        println!("{}:", demangle_contents(l.id, false));
+                        println!("{}:", demangle::contents(l.id, false));
                     }
                 }
                 Statement::Directive(dir) => match dir {
@@ -366,19 +367,17 @@ pub fn dump_function(
                             continue;
                         }
                         prev_loc = *loc;
-                        // use owo_colors::OwoColorize;
                         if let Some((_fname, file)) = files.get(&loc.file) {
                             if loc.line != 0 {
-                                let line = &file[loc.line as usize - 1];
+                                let rust_line = &file[loc.line as usize - 1];
                                 if fmt.color {
-                                    println!("\t\t\t{}", line.bright_red());
+                                    println!("\t\t\t{}", rust_line.bright_red());
                                 } else {
-                                    println!("\t\t\t{}", line);
+                                    println!("\t\t\t{}", rust_line);
                                 }
                             }
                         }
                     }
-                    Directive::Membarrier => todo!(),
                     Directive::Generic(g) => {
                         if fmt.color {
                             println!("\t{}", g.bright_black());
@@ -408,15 +407,15 @@ pub fn dump_function(
                                 println!(
                                     "\t{} {}",
                                     i.op.bright_blue(),
-                                    demangle_contents(args, fmt.color)
-                                )
+                                    demangle::contents(args, fmt.color)
+                                );
                             }
                             None => println!("\t{}", i.op.bright_blue()),
                         }
                     } else {
                         match i.args {
                             Some(args) => {
-                                println!("\t{} {}", i.op, demangle_contents(args, fmt.color))
+                                println!("\t{} {}", i.op, demangle::contents(args, fmt.color));
                             }
                             None => println!("\t{}", i.op),
                         }

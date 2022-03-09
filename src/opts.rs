@@ -1,4 +1,4 @@
-use bpaf::*;
+use bpaf::{command, construct, long, positional, short, Info, Meta, Parser};
 use cargo::{
     core::{MaybePackage, Target, TargetKind, Workspace},
     ops::CompileFilter,
@@ -39,18 +39,18 @@ impl From<Focus> for CompileFilter {
     fn from(focus: Focus) -> Self {
         let mut lib_only = false;
         let mut bins = Vec::new();
-        let mut tsts = Vec::new();
-        let mut exms = Vec::new();
-        let mut bens = Vec::new();
+        let mut tests = Vec::new();
+        let mut examples = Vec::new();
+        let mut benches = Vec::new();
         match focus {
             Focus::Lib => lib_only = true,
-            Focus::Test(t) => tsts = vec![t],
-            Focus::Bench(b) => bens = vec![b],
-            Focus::Example(e) => exms = vec![e],
+            Focus::Test(t) => tests = vec![t],
+            Focus::Bench(b) => benches = vec![b],
+            Focus::Example(e) => examples = vec![e],
             Focus::Bin(b) => bins = vec![b],
         }
-        CompileFilter::from_raw_arguments(
-            lib_only, bins, false, tsts, false, exms, false, bens, false, false,
+        Self::from_raw_arguments(
+            lib_only, bins, false, tests, false, examples, false, benches, false, false,
         )
     }
 }
@@ -68,6 +68,7 @@ impl std::fmt::Display for Focus {
 }
 
 impl Focus {
+    #[must_use]
     pub fn matches(&self, target: &Target) -> bool {
         match self {
             Focus::Lib => target.is_lib(),
@@ -105,6 +106,7 @@ fn focus() -> Parser<Focus> {
         .or_else(example)
 }
 
+#[must_use]
 pub fn opts() -> Options {
     let manifest = long("manifest-path")
         .help("Path to Cargo.toml")
@@ -116,7 +118,7 @@ pub fn opts() -> Options {
             } else {
                 std::env::current_dir()
                     .map(|d| d.join(p))
-                    .and_then(|p| p.canonicalize())
+                    .and_then(|full_path| full_path.canonicalize())
             }
         })
         .fallback_with(|| std::env::current_dir().map(|x| x.join("Cargo.toml")));
@@ -255,9 +257,8 @@ pub fn select_package(opts: &Options, ws: &Workspace) -> String {
                 TargetKind::Bin => eprint!("--bin {}", t.name()),
                 TargetKind::Test => eprint!("--test {}", t.name()),
                 TargetKind::Bench => eprint!("--bench {}", t.name()),
-                TargetKind::ExampleLib(_) => continue,
                 TargetKind::ExampleBin => eprint!("--example {}", t.name()),
-                TargetKind::CustomBuild => continue,
+                TargetKind::ExampleLib(_) | TargetKind::CustomBuild => continue,
             }
             eprintln!("\tfor {}: {:?}", t.description_named(), t.src_path());
         }
