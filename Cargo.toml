@@ -10,6 +10,7 @@ anyhow = "*"
 bpaf = { git = "https://github.com/pacak/bpaf.git", rev = "448ec931b689f339a7404ce0525f18b9a28bffd5" }
 cargo = "0.60"
 glob = "*"
+once_cell = "*"
 line-span = { git = "https://github.com/pacak/line-span", rev = "c4844e32f06b6d664327b55149f1b7df201bdc7f" }
 nom = "*"
 owo-colors = "3.2.0"

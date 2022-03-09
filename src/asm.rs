@@ -1,3 +1,4 @@
+use crate::demangle::{demangle_contents, demangle_name};
 // TODO, use https://sourceware.org/binutils/docs/as/index.html
 use crate::opts::Format;
 
@@ -63,6 +64,7 @@ impl std::fmt::Display for Directive<'_> {
             Directive::Loc(l) => l.fmt(f),
             Directive::Generic(g) => g.fmt(f),
             Directive::Set(g) => f.write_str(g),
+            Directive::SubsectionsViaSym => f.write_str(".subsections_via_symbols"),
         }
     }
 }
@@ -218,6 +220,7 @@ pub enum Directive<'a> {
     Membarrier,
     Generic(GenericDirective<'a>),
     Set(&'a str),
+    SubsectionsViaSym,
 }
 
 #[derive(Clone, Debug)]
@@ -256,7 +259,6 @@ fn good_for_label(c: char) -> bool {
 
 use nom::character::complete;
 use owo_colors::OwoColorize;
-use regex::Replacer;
 
 fn parse_statement(input: &str) -> IResult<&str, Statement> {
     let label = map(Label::parse, Statement::Label);
@@ -282,6 +284,9 @@ fn parse_statement(input: &str) -> IResult<&str, Statement> {
         preceded(tag(".set"), take_while1(|c| c != '\n')),
         Directive::Set,
     );
+    let ssvs = map(tag(".subsections_via_symbols"), |_| {
+        Directive::SubsectionsViaSym
+    });
 
     let dunno = |input: &str| todo!("{:?}", &input[..100]);
 
@@ -291,7 +296,7 @@ fn parse_statement(input: &str) -> IResult<&str, Statement> {
         |_| Statement::Nothing,
     );
 
-    let dir = map(alt((file, loc, set, generic)), Statement::Directive);
+    let dir = map(alt((file, loc, set, ssvs, generic)), Statement::Directive);
 
     terminated(alt((label, dir, instr, nothing, dunno)), newline)(input)
 }
@@ -308,14 +313,11 @@ pub fn dump_function(
     let mut seen = false;
     let mut prev_loc = Loc::default();
 
-    let reg = regex::Regex::new(r"(_[a-zA-Z0-9_]+)")?;
-
     let mut files = BTreeMap::new();
 
     for line in parse_file(&contents).unwrap().1.iter() {
         if let Statement::Label(label) = line {
-            if let Ok(name) = rustc_demangle::try_demangle(label.id) {
-                let dem = format!("{name:#?}");
+            if let Some(dem) = demangle_name(label.id) {
                 show = dem == goal;
                 items.insert(dem);
                 seen |= show;
@@ -351,9 +353,9 @@ pub fn dump_function(
             match line {
                 Statement::Label(l) => {
                     if fmt.color {
-                        println!("{}", l.bright_black())
+                        println!("{}:", demangle_contents(l.id, false).bright_black());
                     } else {
-                        println!("{}", l);
+                        println!("{}:", demangle_contents(l.id, false));
                     }
                 }
                 Statement::Directive(dir) => match dir {
@@ -379,12 +381,25 @@ pub fn dump_function(
                     Directive::Membarrier => todo!(),
                     Directive::Generic(g) => {
                         if fmt.color {
-                            println!("{}", g.bright_black());
+                            println!("\t{}", g.bright_black());
                         } else {
                             println!("\t{}", g);
                         }
                     }
-                    Directive::Set(_) => todo!(),
+                    Directive::Set(g) => {
+                        if fmt.color {
+                            println!(".set {}", g.bright_black());
+                        } else {
+                            println!(".set {}", g);
+                        }
+                    }
+                    Directive::SubsectionsViaSym => {
+                        if fmt.color {
+                            println!(".{}", "subsections_via_symbols".bright_black());
+                        } else {
+                            println!(".subsections_via_symbols");
+                        }
+                    }
                 },
                 Statement::Instruction(i) => {
                     if fmt.color {
@@ -393,7 +408,7 @@ pub fn dump_function(
                                 println!(
                                     "\t{} {}",
                                     i.op.bright_blue(),
-                                    reg.replace_all(args, Demangle(fmt.color))
+                                    demangle_contents(args, fmt.color)
                                 )
                             }
                             None => println!("\t{}", i.op.bright_blue()),
@@ -401,11 +416,7 @@ pub fn dump_function(
                     } else {
                         match i.args {
                             Some(args) => {
-                                println!(
-                                    "\t{} {}",
-                                    i.op,
-                                    reg.replace_all(args, Demangle(fmt.color))
-                                )
+                                println!("\t{} {}", i.op, demangle_contents(args, fmt.color))
                             }
                             None => println!("\t{}", i.op),
                         }
@@ -422,20 +433,4 @@ pub fn dump_function(
         }
     }
     Ok(seen)
-}
-
-struct Demangle(bool);
-impl Replacer for Demangle {
-    fn replace_append(&mut self, cap: &regex::Captures<'_>, dst: &mut std::string::String) {
-        if let Ok(dem) = rustc_demangle::try_demangle(&cap[0]) {
-            let demangled = if self.0 {
-                format!("{:#?}", dem.green())
-            } else {
-                format!("{:#?}", dem)
-            };
-            dst.push_str(&demangled)
-        } else {
-            dst.push_str(&cap[0])
-        }
-    }
 }

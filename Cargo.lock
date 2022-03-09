@@ -171,6 +171,7 @@ dependencies = [
  "line-span",
  "nix",
  "nom",
+ "once_cell",
  "owo-colors",
  "regex",
  "rustc-demangle",
