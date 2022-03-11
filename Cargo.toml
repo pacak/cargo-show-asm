@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "*"
-bpaf = { git = "https://github.com/pacak/bpaf.git", rev = "448ec931b689f339a7404ce0525f18b9a28bffd5" }
+bpaf = "0.2.0"
 cargo = "0.60"
 glob = "*"
 once_cell = "*"
