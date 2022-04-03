@@ -1,4 +1,4 @@
-use bpaf::{command, construct, long, positional, short, Bpaf, Info, OptionParser, Parser};
+use bpaf::{command, construct, long, short, Bpaf, Info, Parser};
 use cargo::{
     core::{MaybePackage, Target, TargetKind, Workspace},
     ops::CompileFilter,
@@ -28,7 +28,7 @@ pub struct Options {
     pub offline: bool,
     #[bpaf(external(format))]
     pub format: Format,
-    /// more verbose output, can be specified multuple times
+    /// more verbose output, can be specified multiple times
     #[bpaf(external(verbose))]
     pub verbosity: usize,
     #[bpaf(positional("FUNCTION"), optional)]
@@ -38,7 +38,7 @@ pub struct Options {
 fn verbose() -> Parser<usize> {
     short('v')
         .long("verbose")
-        .help("more verbose output, can be specified multuple times")
+        .help("more verbose output, can be specified multiple times")
         .req_flag(())
         .many()
         .map(|v| v.len())
@@ -155,87 +155,6 @@ impl Focus {
         }
     }
 }
-
-/*
-pub fn opts() -> Options {
-    let manifest_path = long("manifest-path")
-        .help("Path to Cargo.toml")
-        .argument_os("PATH")
-        .map(PathBuf::from)
-        .parse(|p| {
-            if p.is_absolute() {
-                Ok(p)
-            } else {
-                std::env::current_dir()
-                    .map(|d| d.join(p))
-                    .and_then(|full_path| full_path.canonicalize())
-            }
-        })
-        .fallback_with(|| std::env::current_dir().map(|x| x.join("Cargo.toml")));
-
-    let verbosity = short('v')
-        .long("verbose")
-        .help("more verbose output, can be specified multuple times")
-        .req_flag(())
-        .many()
-        .map(|v| v.len());
-
-    let target = long("target-dir")
-        .help("Custom target directory for generated artifacts")
-        .argument_os("DIR")
-        .map(PathBuf::from)
-        .optional();
-
-    let package = long("package")
-        .short('p')
-        .help("Package to use, if not specified")
-        .argument("SPEC")
-        .optional();
-
-    let function = positional("FUNCTION").optional();
-
-    let dry = short('d')
-        .long("dry")
-        .help("Produce a build plan instead of actually building")
-        .switch();
-
-    let frozen = long("frozen")
-        .help("Require Cargo.lock and cache are up to date")
-        .switch();
-
-    let locked = long("locked")
-        .help("Require Cargo.lock is up to date")
-        .switch();
-
-    let offline = long("offline")
-        .help("Run without accessing the network")
-        .switch();
-
-    let focus = focus().optional();
-
-    let parser = construct!(Options {
-        target,
-        manifest_path,
-        focus,
-        verbosity,
-        dry,
-        package,
-        frozen,
-        locked,
-        offline,
-        format(),
-        function,
-    });
-
-    let command_parser = command(
-        "asm",
-        Some("A command to display raw asm for some rust function"),
-        Info::default().for_parser(parser),
-    );
-
-    Info::default().for_parser(command_parser).run()
-}
-*/
 
 pub fn opts() -> Options {
     let command_parser = command(
