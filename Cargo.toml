@@ -7,7 +7,8 @@ edition = "2021"
 
 [dependencies]
 anyhow = "*"
-bpaf = "0.2.0"
+bpaf = { version = "0.3.2", path = "../bpaf", features = ["bpaf_derive"] }
+atty = "0.2"
 cargo = "0.60"
 glob = "*"
 once_cell = "*"

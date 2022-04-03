@@ -1,38 +1,114 @@
-use bpaf::{command, construct, long, positional, short, Info, Meta, Parser};
+use bpaf::{command, construct, long, positional, short, Bpaf, Info, OptionParser, Parser};
 use cargo::{
     core::{MaybePackage, Target, TargetKind, Workspace},
     ops::CompileFilter,
 };
 use std::path::PathBuf;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Bpaf)]
+#[bpaf(options)]
 pub struct Options {
-    pub manifest: PathBuf,
-    pub target: Option<PathBuf>,
+    #[bpaf(external(parse_manifest_path))]
+    pub manifest_path: PathBuf,
+    /// Custom target directory for generated artifacts
+    #[bpaf(argument_os("DIR"))]
+    pub target_dir: Option<PathBuf>,
+    /// Package to use if ambigous
+    #[bpaf(argument("SPEC"))]
     pub package: Option<String>,
-    pub function: Option<String>,
+    #[bpaf(external(focus), optional)]
     pub focus: Option<Focus>,
+    /// Produce a build plan instead of actually building
     pub dry: bool,
+    /// Requires Cargo.lock and cache are up to date
     pub frozen: bool,
+    /// Requires Cargo.lock is up to date
     pub locked: bool,
+    /// Run without accessing the network
     pub offline: bool,
+    #[bpaf(external(format))]
     pub format: Format,
+    /// more verbose output, can be specified multuple times
+    #[bpaf(external(verbose))]
     pub verbosity: usize,
+    #[bpaf(positional("FUNCTION"), optional)]
+    pub function: Option<String>,
 }
 
-#[derive(Debug, Clone)]
+fn verbose() -> Parser<usize> {
+    short('v')
+        .long("verbose")
+        .help("more verbose output, can be specified multuple times")
+        .req_flag(())
+        .many()
+        .map(|v| v.len())
+}
+
+fn parse_manifest_path() -> Parser<PathBuf> {
+    long("manifest-path")
+        .help("Path to Cargo.toml")
+        .argument_os("PATH")
+        .map(PathBuf::from)
+        .parse(|p| {
+            if p.is_absolute() {
+                Ok(p)
+            } else {
+                std::env::current_dir()
+                    .map(|d| d.join(p))
+                    .and_then(|full_path| full_path.canonicalize())
+            }
+        })
+        .fallback_with(|| std::env::current_dir().map(|x| x.join("Cargo.toml")))
+}
+
+#[derive(Debug, Clone, Bpaf)]
 pub struct Format {
+    /// Print interleaved Rust code
     pub rust: bool,
+
+    /// use
+    #[bpaf(external(color_detection))]
     pub color: bool,
 }
 
-#[derive(Debug, Clone)]
+fn color_detection() -> Parser<bool> {
+    let yes = long("color")
+        .help("Enable color highlighting")
+        .req_flag(true);
+    let no = long("no-color")
+        .help("Disable color highlighting")
+        .req_flag(false);
+    construct!([yes, no]).fallback_with::<_, &str>(|| Ok(atty::is(atty::Stream::Stdout)))
+}
+
+#[derive(Debug, Clone, Bpaf)]
 pub enum Focus {
+    /// Show results from library code
     Lib,
-    Test(String),
-    Bench(String),
-    Example(String),
-    Bin(String),
+
+    Test(
+        /// Show results from a test
+        #[bpaf(long("test"), argument("TEST"))]
+        String,
+    ),
+
+    Bench(
+        /// Show results from a benchmark
+        #[bpaf(long("bench"), argument("BENCH"))]
+        String,
+    ),
+
+    Example(
+        /// Show results from an example
+        #[bpaf(long("example"), argument("EXAMPLE"))]
+        String,
+    ),
+
+    Bin(
+        /// Show results from a binary
+        #[bpaf(long("bin"), argument("BIN"))]
+        String,
+    ),
 }
 
 impl From<Focus> for CompileFilter {
@@ -80,35 +156,9 @@ impl Focus {
     }
 }
 
-fn focus() -> Parser<Focus> {
-    let lib = long("lib")
-        .help("Show results from library code")
-        .req_flag(Focus::Lib);
-    let bin = long("bin")
-        .help("Show results from a binary")
-        .argument("BIN")
-        .map(Focus::Bin);
-    let test = long("test")
-        .help("Show results from a test")
-        .argument("TEST")
-        .map(Focus::Test);
-    let bench = long("bench")
-        .help("Show results from a benchmark")
-        .argument("BENCH")
-        .map(Focus::Bench);
-    let example = long("example")
-        .help("Show results from an example")
-        .argument("EXAMPLE")
-        .map(Focus::Example);
-    lib.or_else(bin)
-        .or_else(test)
-        .or_else(bench)
-        .or_else(example)
-}
-
-#[must_use]
+/*
 pub fn opts() -> Options {
-    let manifest = long("manifest-path")
+    let manifest_path = long("manifest-path")
         .help("Path to Cargo.toml")
         .argument_os("PATH")
         .map(PathBuf::from)
@@ -161,23 +211,11 @@ pub fn opts() -> Options {
         .help("Run without accessing the network")
         .switch();
 
-    let rust = long("rust")
-        .short('r')
-        .help("Print interleaved Rust code")
-        .switch();
-
-    let color = long("no-color")
-        .help("Disable color detection")
-        .switch()
-        .map(|x| !x);
-
-    let format = construct!(Format { rust, color });
-
     let focus = focus().optional();
 
     let parser = construct!(Options {
         target,
-        manifest,
+        manifest_path,
         focus,
         verbosity,
         dry,
@@ -185,7 +223,7 @@ pub fn opts() -> Options {
         frozen,
         locked,
         offline,
-        format,
+        format(),
         function,
     });
 
@@ -193,6 +231,17 @@ pub fn opts() -> Options {
         "asm",
         Some("A command to display raw asm for some rust function"),
         Info::default().for_parser(parser),
+    );
+
+    Info::default().for_parser(command_parser).run()
+}
+*/
+
+pub fn opts() -> Options {
+    let command_parser = command(
+        "asm",
+        Some("A command to display raw asm for some rust function"),
+        options(),
     );
 
     Info::default().for_parser(command_parser).run()
@@ -228,7 +277,7 @@ pub fn select_package(opts: &Options, ws: &Workspace) -> String {
                     }
                 }
             } else {
-                eprintln!("{:?} defines a virtual workspace package, you need to specify which member to use with -p xxxx", opts.manifest);
+                eprintln!("{:?} defines a virtual workspace package, you need to specify which member to use with -p xxxx", opts.manifest_path);
                 for package in ws.members() {
                     eprintln!("\t-p {}", package.name());
                 }

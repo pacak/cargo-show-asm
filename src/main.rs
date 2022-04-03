@@ -44,7 +44,7 @@ fn main() -> anyhow::Result<()> {
         &[],
     )?;
 
-    let ws = Workspace::new(&opts.manifest, &cfg)?;
+    let ws = Workspace::new(&opts.manifest_path, &cfg)?;
 
     let package = opts::select_package(&opts, &ws);
 
