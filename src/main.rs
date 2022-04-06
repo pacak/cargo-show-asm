@@ -55,6 +55,17 @@ fn main() -> anyhow::Result<()> {
 
     compile_opts.spec = Packages::Packages(vec![package.clone()]);
 
+    let correction = match opts.focus.as_ref() {
+        Some(opts::Focus::Example(_)) => "../examples/",
+        _ => "",
+        /*
+        opts::Focus::Lib => todo!(),
+        opts::Focus::Test(_) => todo!(),
+        opts::Focus::Bench(_) => todo!(),
+        opts::Focus::Example(_) => todo!(),
+        opts::Focus::Bin(_) => todo!(),*/
+    };
+
     if let Some(focus) = opts.focus {
         compile_opts.filter = CompileFilter::from(focus);
     }
@@ -73,28 +84,27 @@ fn main() -> anyhow::Result<()> {
     compile_opts.build_config.build_plan = opts.dry;
 
     let mut retrying = false;
+
     loop {
         let comp = compile(&ws, &compile_opts)?;
         let output = &comp.deps_output[&CompileKind::Host];
 
         let target = opts.function.as_deref().unwrap_or(" ");
 
+        let file_mask = format!(
+            "{}/{}{}-*.s",
+            output.display(),
+            correction,
+            &comp.root_crate_names[0]
+        );
+
         let seen;
         let mut existing = BTreeSet::new();
-        let mut asm_files = glob::glob(&format!(
-            "{}/{}-*.s",
-            output.display(),
-            &comp.root_crate_names[0]
-        ))?
-        .collect::<Vec<_>>();
+        let mut asm_files = glob::glob(&file_mask)?.collect::<Vec<_>>();
 
         match asm_files.len() {
             0 => {
-                eprintln!(
-                    "Compilation produced no files satisfying {}/{}-*.s, this is a bug",
-                    output.display(),
-                    &comp.root_crate_names[0]
-                );
+                eprintln!("Compilation produced no files satisfying {file_mask}, this is a bug");
                 std::process::exit(1);
             }
             1 => {
