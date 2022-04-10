@@ -2,6 +2,26 @@ use crate::demangle;
 // TODO, use https://sourceware.org/binutils/docs/as/index.html
 use crate::opts::Format;
 
+struct CachedLines {
+    content: String,
+    splits: Vec<Range<usize>>,
+}
+
+impl CachedLines {
+    fn without_ending(content: String) -> Self {
+        let splits = content.line_spans().map(|s| s.range()).collect::<Vec<_>>();
+        Self { splits, content }
+    }
+}
+
+impl Index<usize> for CachedLines {
+    type Output = str;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.content[self.splits[index].clone()]
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum Statement<'a> {
     Label(Label<'a>),
@@ -232,8 +252,10 @@ pub struct GenericDirective<'a>(&'a str);
 
 use std::collections::btree_map::Entry;
 use std::collections::{BTreeMap, BTreeSet};
+use std::ops::{Index, Range};
 use std::path::Path;
 
+use line_span::LineSpans;
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_while, take_while1};
 use nom::character::complete::{newline, space1};
@@ -313,13 +335,17 @@ pub fn dump_function(
 
     let mut files = BTreeMap::new();
 
-    for line in &parse_file(&contents)
+    let mut current_name = None;
+    for (ix, line) in parse_file(&contents)
         .expect("Should be able to parse file")
         .1
+        .iter()
+        .enumerate()
     {
         if let Statement::Label(label) = line {
             if let Some(dem) = demangle::name(label.id) {
                 show = dem == goal;
+                current_name = Some((ix, dem.clone()));
                 items.insert(dem);
                 seen |= show;
             }
@@ -330,13 +356,13 @@ pub fn dump_function(
                 let entry = files.entry(f.index);
                 if let Entry::Vacant(_) = &entry {
                     if let Ok(payload) = std::fs::read_to_string(f.name) {
-                        let cache = line_span::CachedLines::without_ending(payload);
+                        let cache = CachedLines::without_ending(payload);
                         entry.or_insert((f.name, cache));
                     } else if f.name.starts_with("/rustc/") {
                         if let Some(x) = f.name.splitn(4, '/').last() {
                             let src = sysroot.join("lib/rustlib/src/rust").join(x);
                             if let Ok(payload) = std::fs::read_to_string(src) {
-                                let cache = line_span::CachedLines::without_ending(payload);
+                                let cache = CachedLines::without_ending(payload);
                                 entry.or_insert((f.name, cache));
                             } else {
                                 println!("file not found {:?}", f.name);
@@ -426,6 +452,10 @@ pub fn dump_function(
         }
 
         if let Statement::Directive(Directive::Generic(GenericDirective("cfi_endproc"))) = line {
+            if let Some(start) = current_name {
+                println!("{:?} - {:?}", start.1, ix - start.0);
+                current_name = None;
+            }
             if seen {
                 return Ok(true);
             }

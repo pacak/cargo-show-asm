@@ -1,4 +1,4 @@
-use bpaf::{command, construct, long, short, Bpaf, Info, Parser};
+use bpaf::{construct, long, short, Bpaf, Parser};
 use cargo::{
     core::{MaybePackage, Target, TargetKind, Workspace},
     ops::CompileFilter,
@@ -6,7 +6,7 @@ use cargo::{
 use std::path::PathBuf;
 
 #[derive(Clone, Debug, Bpaf)]
-#[bpaf(options)]
+#[bpaf(options("asm"))]
 pub struct Options {
     #[bpaf(external(parse_manifest_path))]
     pub manifest_path: PathBuf,
@@ -14,7 +14,7 @@ pub struct Options {
     #[bpaf(argument_os("DIR"))]
     pub target_dir: Option<PathBuf>,
     /// Package to use if ambigous
-    #[bpaf(argument("SPEC"))]
+    #[bpaf(long, short, argument("SPEC"))]
     pub package: Option<String>,
     #[bpaf(external(focus), optional)]
     pub focus: Option<Focus>,
@@ -154,16 +154,6 @@ impl Focus {
             Focus::Bin(b) => target.is_bin() && target.name() == b,
         }
     }
-}
-
-pub fn opts() -> Options {
-    let command_parser = command(
-        "asm",
-        Some("A command to display raw asm for some rust function"),
-        options(),
-    );
-
-    Info::default().for_parser(command_parser).run()
 }
 
 pub fn select_package(opts: &Options, ws: &Workspace) -> String {

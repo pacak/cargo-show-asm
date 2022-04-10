@@ -29,7 +29,7 @@ fn reset_signal_pipe_handler() -> anyhow::Result<()> {
 fn main() -> anyhow::Result<()> {
     reset_signal_pipe_handler()?;
 
-    let opts = opts::opts();
+    let opts = opts::options().run();
 
     let mut cfg = Config::default()?;
     cfg.configure(
