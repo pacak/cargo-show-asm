@@ -424,6 +424,7 @@ pub fn dump_function(
                 // if file is not found - ust create a dummy
                 (f.name, CachedLines::without_ending(String::new()))
             });
+            continue;
         }
         if show {
             if let Statement::Directive(Directive::Loc(loc)) = &line {
