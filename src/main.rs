@@ -1,6 +1,9 @@
-use cargo_show_asm::{asm, opts};
+use std::collections::BTreeMap;
 
-use std::collections::BTreeSet;
+use cargo_show_asm::{
+    asm::{self, Item},
+    color, opts,
+};
 
 use cargo::{
     core::{
@@ -89,7 +92,7 @@ fn main() -> anyhow::Result<()> {
         let comp = compile(&ws, &compile_opts)?;
         let output = &comp.deps_output[&CompileKind::Host];
 
-        let target = opts.function.as_deref().unwrap_or(" ");
+        let target = (opts.function.as_deref().unwrap_or(" "), opts.nth);
 
         let file_mask = format!(
             "{}/{}{}-*.s",
@@ -98,32 +101,32 @@ fn main() -> anyhow::Result<()> {
             &comp.root_crate_names[0]
         );
 
-        let seen;
-        let mut existing = BTreeSet::new();
+        owo_colors::set_override(opts.format.color);
+
+        let mut existing = Vec::new();
         let mut asm_files = glob::glob(&file_mask)?.collect::<Vec<_>>();
 
-        match asm_files.len() {
+        let seen = match asm_files.len() {
             0 => {
-                eprintln!("Compilation produced no files satisfying {file_mask}, this is a bug");
-                std::process::exit(1);
+                anyhow::bail!(
+                    "Compilation produced no files satisfying {file_mask}, this is a bug"
+                );
             }
             1 => {
                 let file = asm_files.remove(0)?;
-                seen = asm::dump_function(
+                asm::dump_function(
                     target,
                     &file,
                     &target_info.sysroot,
                     &opts.format,
                     &mut existing,
-                )?;
+                )?
             }
             _ => {
                 if retrying {
-                    eprintln!(
-                        "Compilation produced multiple matching files: {:?}, this is a bug",
-                        asm_files
+                    anyhow::bail!(
+                        "Compilation produced multiple matching files: {asm_files:?}, this is a bug",
                     );
-                    std::process::exit(1);
                 }
                 let clean_opts = CleanOptions {
                     config: &cfg,
@@ -137,17 +140,31 @@ fn main() -> anyhow::Result<()> {
                 retrying = true;
                 continue;
             }
-        }
+        };
 
         if !seen {
-            eprintln!("Try one of those");
-            for x in &existing {
-                eprintln!("\t{x}");
-            }
-            std::process::exit(1);
+            suggest_name(&existing);
         }
         break;
     }
 
     Ok(())
+}
+
+fn suggest_name(items: &[Item]) {
+    let names = items.iter().fold(BTreeMap::new(), |mut m, item| {
+        m.entry(&item.name).or_insert_with(Vec::new).push(item.len);
+        m
+    });
+
+    println!("Try one of those");
+    for (name, lens) in names.iter() {
+        println!(
+            "{:?} {:?}",
+            color!(name, owo_colors::OwoColorize::green),
+            color!(lens, owo_colors::OwoColorize::cyan)
+        );
+    }
+
+    std::process::exit(1);
 }

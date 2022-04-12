@@ -33,6 +33,8 @@ pub struct Options {
     pub verbosity: usize,
     #[bpaf(positional("FUNCTION"), optional)]
     pub function: Option<String>,
+    #[bpaf(positional("INDEX"), from_str(usize), fallback(0))]
+    pub nth: usize,
 }
 
 fn verbose() -> Parser<usize> {
@@ -78,7 +80,9 @@ fn color_detection() -> Parser<bool> {
     let no = long("no-color")
         .help("Disable color highlighting")
         .req_flag(false);
-    construct!([yes, no]).fallback_with::<_, &str>(|| Ok(atty::is(atty::Stream::Stdout)))
+    construct!([yes, no]).fallback_with::<_, &str>(|| {
+        Ok(supports_color::on(supports_color::Stream::Stdout).is_some())
+    })
 }
 
 #[derive(Debug, Clone, Bpaf)]

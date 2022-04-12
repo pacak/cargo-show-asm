@@ -3,16 +3,24 @@ use std::borrow::Cow;
 use once_cell::sync::OnceCell;
 use owo_colors::OwoColorize;
 use regex::{Regex, Replacer};
+use rustc_demangle::Demangle;
+
+use crate::color;
 
 #[must_use]
 pub fn name(input: &str) -> Option<String> {
+    Some(format!("{:#?}", demangled(input)?))
+}
+
+#[must_use]
+pub fn demangled(input: &str) -> Option<Demangle> {
     let name = if input.starts_with("__") {
         #[allow(clippy::string_slice)]
         rustc_demangle::try_demangle(&input[1..]).ok()?
     } else {
         rustc_demangle::try_demangle(input).ok()?
     };
-    Some(format!("{name:#?}"))
+    Some(name)
 }
 
 fn reg() -> &'static Regex {
@@ -21,16 +29,11 @@ fn reg() -> &'static Regex {
         .get_or_init(|| regex::Regex::new(r"_?(_[a-zA-Z0-9_$.]+)").expect("regexp should be valid"))
 }
 
-struct Demangle(bool);
-impl Replacer for Demangle {
+struct Demangler;
+impl Replacer for Demangler {
     fn replace_append(&mut self, cap: &regex::Captures<'_>, dst: &mut std::string::String) {
         if let Ok(dem) = rustc_demangle::try_demangle(&cap[1]) {
-            let demangled = if self.0 {
-                format!("{:#?}", dem.green())
-            } else {
-                format!("{:#?}", dem)
-            };
-            dst.push_str(&demangled);
+            dst.push_str(&format!("{:#?}", color!(dem, OwoColorize::green)));
         } else {
             dst.push_str(&cap[0]);
         }
@@ -38,12 +41,14 @@ impl Replacer for Demangle {
 }
 
 #[must_use]
-pub fn contents(input: &str, color: bool) -> Cow<'_, str> {
-    reg().replace_all(input, Demangle(color))
+pub fn contents(input: &str) -> Cow<'_, str> {
+    reg().replace_all(input, Demangler)
 }
 
 #[cfg(test)]
 mod test {
+    use owo_colors::set_override;
+
     use super::{contents, name};
     const MAC: &str =
         "__ZN58_$LT$nom..error..ErrorKind$u20$as$u20$core..fmt..Debug$GT$3fmt17hb98704099c11c31fE";
@@ -64,7 +69,8 @@ mod test {
 
     #[test]
     fn linux_demangle_call() {
-        let x = contents(CALL_L, true);
+        set_override(true);
+        let x = contents(CALL_L);
         assert_eq!(
             "[rip + \u{1b}[32m<nom::error::ErrorKind as core::fmt::Debug>::fmt\u{1b}[39m]",
             x
@@ -73,7 +79,8 @@ mod test {
 
     #[test]
     fn mac_demangle_call() {
-        let x = contents(CALL_M, true);
+        set_override(true);
+        let x = contents(CALL_M);
         assert_eq!(
             "[rip + \u{1b}[32m<nom::error::ErrorKind as core::fmt::Debug>::fmt\u{1b}[39m]",
             x
