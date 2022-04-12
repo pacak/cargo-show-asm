@@ -20,8 +20,6 @@ cargo install cargo-show-asm
 
   * Assembly in Intel or AT&T syntax.
   * Corresponding Rust source code alongside assembly.
-  * JSON AST for further processing.
-  * LLVM-IR.
 
 * Querying:
 
@@ -62,16 +60,3 @@ at your option.
 Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in this project by you, as defined in the Apache-2.0 license,
 shall be dual licensed as above, without any additional terms or conditions.
-
-[`cargo`]: https://crates.io/
-
-[travis-shield]: https://img.shields.io/travis/gnzlbg/cargo-asm.svg?style=flat-square
-[travis]: https://travis-ci.org/gnzlbg/cargo-asm
-[appveyor-shield]: https://img.shields.io/appveyor/ci/gnzlbg/cargo-asm.svg?style=flat-square
-[appveyor]: https://ci.appveyor.com/project/gnzlbg/cargo-asm/branch/master
-[license-shield]: https://img.shields.io/badge/License-MIT%2FApache2.0-green.svg?style=flat-square
-[license]: https://github.com/gnzlbg/cargo-asm/blob/master/license.md
-[crate-shield]: https://img.shields.io/crates/v/cargo-asm.svg?style=flat-square
-[crate]: https://crates.io/crates/cargo-asm
-[`lib_crate`]: https://github.com/gnzlbg/cargo-asm/tree/master/cargo-asm-test/lib_crate
-
