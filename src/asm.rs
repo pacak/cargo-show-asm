@@ -73,7 +73,7 @@ mod statements {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             write!(f, "{}", color!(self.op, |t| t.bright_blue()))?;
             if let Some(args) = self.args {
-                write!(f, " {}", demangle::contents(args))?
+                write!(f, " {}", demangle::contents(args, f.alternate()))?
             }
             Ok(())
         }
@@ -84,7 +84,13 @@ mod statements {
             match self {
                 Statement::Label(l) => l.fmt(f),
                 Statement::Directive(d) => d.fmt(f),
-                Statement::Instruction(i) => write!(f, "\t{i}"),
+                Statement::Instruction(i) => {
+                    if f.alternate() {
+                        write!(f, "\t{i:#}")
+                    } else {
+                        write!(f, "\t{i}")
+                    }
+                }
                 Statement::Nothing => Ok(()),
             }
         }
@@ -137,7 +143,8 @@ mod statements {
             write!(
                 f,
                 "{}:",
-                color!(demangle::contents(self.id), |t| t.bright_black())
+                color!(demangle::contents(self.id, f.alternate()), |t| t
+                    .bright_black())
             )
         }
     }
@@ -387,7 +394,7 @@ pub fn dump_function(
                 let name = format!("{dem:#?}");
                 let name_entry = names.entry(name.clone()).or_insert(0);
 
-                show = (name.as_ref(), *name_entry) == goal;
+                show = (name.as_ref(), *name_entry) == goal || hashed == goal.0;
                 current_item = Some(Item {
                     name,
                     hashed,
@@ -440,7 +447,12 @@ pub fn dump_function(
                     );
                 }
             } else {
-                println!("{line}");
+                #[allow(clippy::collapsible_else_if)]
+                if fmt.full_name {
+                    println!("{line:#}");
+                } else {
+                    println!("{line}");
+                }
             }
         }
 

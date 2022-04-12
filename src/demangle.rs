@@ -29,11 +29,17 @@ fn reg() -> &'static Regex {
         .get_or_init(|| regex::Regex::new(r"_?(_[a-zA-Z0-9_$.]+)").expect("regexp should be valid"))
 }
 
-struct Demangler;
+struct Demangler {
+    full_name: bool,
+}
 impl Replacer for Demangler {
     fn replace_append(&mut self, cap: &regex::Captures<'_>, dst: &mut std::string::String) {
         if let Ok(dem) = rustc_demangle::try_demangle(&cap[1]) {
-            dst.push_str(&format!("{:#?}", color!(dem, OwoColorize::green)));
+            if self.full_name {
+                dst.push_str(&format!("{:?}", color!(dem, OwoColorize::green)));
+            } else {
+                dst.push_str(&format!("{:#?}", color!(dem, OwoColorize::green)));
+            }
         } else {
             dst.push_str(&cap[0]);
         }
@@ -41,8 +47,8 @@ impl Replacer for Demangler {
 }
 
 #[must_use]
-pub fn contents(input: &str) -> Cow<'_, str> {
-    reg().replace_all(input, Demangler)
+pub fn contents(input: &str, full_name: bool) -> Cow<'_, str> {
+    reg().replace_all(input, Demangler { full_name })
 }
 
 #[cfg(test)]
@@ -70,7 +76,7 @@ mod test {
     #[test]
     fn linux_demangle_call() {
         set_override(true);
-        let x = contents(CALL_L);
+        let x = contents(CALL_L, false);
         assert_eq!(
             "[rip + \u{1b}[32m<nom::error::ErrorKind as core::fmt::Debug>::fmt\u{1b}[39m]",
             x
@@ -80,7 +86,17 @@ mod test {
     #[test]
     fn mac_demangle_call() {
         set_override(true);
-        let x = contents(CALL_M);
+        let x = contents(CALL_M, false);
+        assert_eq!(
+            "[rip + \u{1b}[32m<nom::error::ErrorKind as core::fmt::Debug>::fmt\u{1b}[39m]",
+            x
+        );
+    }
+
+    #[test]
+    fn mac_demangle_call2() {
+        set_override(true);
+        let x = contents(CALL_M, true);
         assert_eq!(
             "[rip + \u{1b}[32m<nom::error::ErrorKind as core::fmt::Debug>::fmt\u{1b}[39m]",
             x

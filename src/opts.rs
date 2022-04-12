@@ -68,9 +68,11 @@ pub struct Format {
     /// Print interleaved Rust code
     pub rust: bool,
 
-    /// use
     #[bpaf(external(color_detection))]
     pub color: bool,
+
+    /// include full demangled name instead of just prefix
+    pub full_name: bool,
 }
 
 fn color_detection() -> Parser<bool> {

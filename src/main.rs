@@ -143,7 +143,7 @@ fn main() -> anyhow::Result<()> {
         };
 
         if !seen {
-            suggest_name(&existing);
+            suggest_name(opts.format.full_name, &existing);
         }
         break;
     }
@@ -151,9 +151,15 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn suggest_name(items: &[Item]) {
+fn suggest_name(full: bool, items: &[Item]) {
     let names = items.iter().fold(BTreeMap::new(), |mut m, item| {
-        m.entry(&item.name).or_insert_with(Vec::new).push(item.len);
+        if full {
+            m.entry(&item.hashed)
+        } else {
+            m.entry(&item.name)
+        }
+        .or_insert_with(Vec::new)
+        .push(item.len);
         m
     });
 
