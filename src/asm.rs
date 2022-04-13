@@ -41,6 +41,7 @@ mod statements {
         Directive(Directive<'a>),
         Instruction(Instruction<'a>),
         Nothing,
+        Dunno(&'a str),
     }
 
     #[derive(Clone, Debug)]
@@ -92,6 +93,7 @@ mod statements {
                     }
                 }
                 Statement::Nothing => Ok(()),
+                Statement::Dunno(l) => write!(f, "{l}"),
             }
         }
     }
@@ -314,7 +316,8 @@ mod statements {
             Directive::SubsectionsViaSym
         });
 
-        let dunno = |input: &str| todo!("{:?}", &input[..100]);
+        let dunno = map(take_while1(|c| c != '\n'), Statement::Dunno);
+        // let dunno = |input: &str| todo!("{:?}", &input[..100]);
 
         let instr = map(Instruction::parse, Statement::Instruction);
         let nothing = map(
