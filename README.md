@@ -1,6 +1,6 @@
 # cargo-show-asm
 
-> A [`cargo`] subcommand that displays the assembly generated for Rust source code.
+A cargo subcommand that displays the assembly generated for Rust source code.
 
 # Install
 
@@ -8,44 +8,71 @@
 cargo install cargo-show-asm
 ```
 
-#  Features
+# Features
 
-* Platform support:
+- Platform support:
 
-  * OS: Linux, and MacOSX.
-  * Rust: nightly and stable.
-  * Architectures: x86, x86_64, arm, aarch64, powerpc, mips, sparc.
+  - OS: Linux, and MacOSX.
+  - Rust: nightly and stable.
+  - Architectures: x86, x86_64.
 
-* Displaying:
+Missing operating systems and architenctures might be supported by accident, please make a
+ticket if something not working for your favorite platform.
 
-  * Assembly in Intel or AT&T syntax.
-  * Corresponding Rust source code alongside assembly.
 
-* Querying:
+- Displaying:
 
-  * functions, for example: `foo`:
+  - Assembly in Intel or AT&T syntax.
+  - Corresponding Rust source code alongside assembly.
 
-  ```
-  cargo asm crate::path::to::foo
-  ```
+# Usage:
 
-  * inherent method, for example: `foo` of a type `Foo` (that is, `Foo::foo`):
+You can start by running `cargo asm` with no parameters - it will suggests how to narrow the
+search scope - for workspace crates you need to specify a crate to work with, for crates
+defining several targets (lib, binaries, examples) you need to specify exactly which target to
+use.
 
-  ```
-  cargo asm crate::path::to::Foo::foo
-  ```
+Once `cargo asm` focues on a single target it will compile it producing assembly file and will
+try to list of available public functions:
 
-  * trait method implementations, for example: `bar` of the trait `Bar` for the type `Foo`:
+```ignore
+% cargo asm --lib
+Try one of those
+"<&T as core::fmt::Display>::fmt" [17, 12, 12, 12, 12, 19, 19, 12]
+"<&mut W as core::fmt::Write>::write_char" [20]
+"<&mut W as core::fmt::Write>::write_fmt" [38]
+"<&mut W as core::fmt::Write>::write_str" [90]
+"<F as nom::internal::Parser<I,O,E>>::parse" [263]
+...
+```
 
-  ```
-  cargo asm "<crate::path::to::Foo as crate::path::to::Bar>::bar"
-  ```
+Name in quotes is demangled rust name, numbers in square brackets represent number of lines
+in asm file. Function with the same name can be present in several instances.
 
-  * generic functions, methods, ...
+Specifying exact function name will print its assembly code
 
-To search for a function named `foo` in some path, one can just type `cargo asm
-foo`. The command will return a list of all similarly named functions
-independently of the path.
+```ignore
+% cargo asm --lib "cargo_show_asm::opts::focus::{{closure}}"
+```
+To pick between different alternatives you can either specify the index
+
+```ignore
+% cargo asm --lib "cargo_show_asm::opts::focus::{{closure}}" 2
+```
+Or start using full names with hex included:
+
+```ignore
+% cargo asm --lib --full-name
+....
+% cargo asm --lib "once_cell::imp::OnceCell<T>::initialize::h9c5c7d5bd745000b"
+```
+
+`cargo-show-asm` comes with a built in search function. Just pass partial name
+instead of a full one and only matching functions will be listed
+
+```
+% cargo asm --lib Debug
+```
 
 # License
 This project is licensed under either of
