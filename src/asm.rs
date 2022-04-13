@@ -1,3 +1,4 @@
+#![allow(clippy::missing_errors_doc)]
 use crate::{color, demangle};
 // TODO, use https://sourceware.org/binutils/docs/as/index.html
 use crate::opts::Format;
@@ -10,7 +11,7 @@ struct CachedLines {
 impl CachedLines {
     fn without_ending(content: String) -> Self {
         let splits = content.line_spans().map(|s| s.range()).collect::<Vec<_>>();
-        Self { splits, content }
+        Self { content, splits }
     }
 }
 
@@ -30,7 +31,7 @@ mod statements {
     use nom::character::complete::{newline, space1};
     use nom::combinator::{consumed, map, opt, verify};
     use nom::sequence::{delimited, preceded, terminated, tuple};
-    use nom::*;
+    use nom::{AsChar, IResult};
     use owo_colors::OwoColorize;
 
     use crate::{color, demangle};
@@ -72,9 +73,9 @@ mod statements {
 
     impl std::fmt::Display for Instruction<'_> {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            write!(f, "{}", color!(self.op, |t| t.bright_blue()))?;
+            write!(f, "{}", color!(self.op, OwoColorize::bright_blue))?;
             if let Some(args) = self.args {
-                write!(f, " {}", demangle::contents(args, f.alternate()))?
+                write!(f, " {}", demangle::contents(args, f.alternate()))?;
             }
             Ok(())
         }
@@ -105,11 +106,11 @@ mod statements {
                 Directive::Loc(l) => l.fmt(f),
                 Directive::Generic(g) => g.fmt(f),
                 Directive::Set(g) => {
-                    f.write_str(&format!(".set {}", color!(g, |t| t.bright_black())))
+                    f.write_str(&format!(".set {}", color!(g, OwoColorize::bright_black)))
                 }
                 Directive::SubsectionsViaSym => f.write_str(&format!(
                     ".{}",
-                    color!("subsections_via_symbols", |t| t.bright_black())
+                    color!("subsections_via_symbols", OwoColorize::bright_black)
                 )),
             }
         }
@@ -123,7 +124,7 @@ mod statements {
 
     impl std::fmt::Display for GenericDirective<'_> {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            write!(f, "\t.{}", color!(self.0, |t| t.bright_black()))
+            write!(f, "\t.{}", color!(self.0, OwoColorize::bright_black))
         }
     }
 
@@ -145,8 +146,10 @@ mod statements {
             write!(
                 f,
                 "{}:",
-                color!(demangle::contents(self.id, f.alternate()), |t| t
-                    .bright_black())
+                color!(
+                    demangle::contents(self.id, f.alternate()),
+                    OwoColorize::bright_black
+                )
             )
         }
     }
@@ -320,10 +323,9 @@ mod statements {
         // let dunno = |input: &str| todo!("{:?}", &input[..100]);
 
         let instr = map(Instruction::parse, Statement::Instruction);
-        let nothing = map(
-            verify(take_while(|c| c != '\n'), |s: &str| s.is_empty()),
-            |_| Statement::Nothing,
-        );
+        let nothing = map(verify(take_while(|c| c != '\n'), str::is_empty), |_| {
+            Statement::Nothing
+        });
 
         let dir = map(alt((file, loc, set, ssvs, generic)), Statement::Directive);
 
@@ -342,7 +344,7 @@ mod statements {
 // }}}
 
 use owo_colors::OwoColorize;
-use statements::*;
+use statements::{parse_statement, Directive, GenericDirective, Loc, Statement};
 
 use std::collections::BTreeMap;
 use std::ops::{Index, Range};
@@ -369,6 +371,7 @@ pub struct Item {
     pub len: usize,
 }
 
+/// try to print `goal` from `path`, collect available items otherwise
 pub fn dump_function(
     goal: (&str, usize),
     path: &Path,

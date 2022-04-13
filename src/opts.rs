@@ -7,6 +7,7 @@ use std::path::PathBuf;
 
 #[derive(Clone, Debug, Bpaf)]
 #[bpaf(options("asm"))]
+#[allow(clippy::struct_excessive_bools)]
 pub struct Options {
     #[bpaf(external(parse_manifest_path))]
     pub manifest_path: PathBuf,

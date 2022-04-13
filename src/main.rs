@@ -60,13 +60,10 @@ fn main() -> anyhow::Result<()> {
 
     let correction = match opts.focus.as_ref() {
         Some(opts::Focus::Example(_)) => "../examples/",
-        _ => "",
-        /*
-        opts::Focus::Lib => todo!(),
-        opts::Focus::Test(_) => todo!(),
-        opts::Focus::Bench(_) => todo!(),
-        opts::Focus::Example(_) => todo!(),
-        opts::Focus::Bin(_) => todo!(),*/
+        Some(
+            opts::Focus::Lib | opts::Focus::Test(_) | opts::Focus::Bench(_) | opts::Focus::Bin(_),
+        )
+        | None => "",
     };
 
     if let Some(focus) = opts.focus {
@@ -153,18 +150,14 @@ fn main() -> anyhow::Result<()> {
 
 fn suggest_name(full: bool, items: &[Item]) {
     let names = items.iter().fold(BTreeMap::new(), |mut m, item| {
-        if full {
-            m.entry(&item.hashed)
-        } else {
-            m.entry(&item.name)
-        }
-        .or_insert_with(Vec::new)
-        .push(item.len);
+        m.entry(if full { &item.hashed } else { &item.name })
+            .or_insert_with(Vec::new)
+            .push(item.len);
         m
     });
 
     println!("Try one of those");
-    for (name, lens) in names.iter() {
+    for (name, lens) in &names {
         println!(
             "{:?} {:?}",
             color!(name, owo_colors::OwoColorize::green),
