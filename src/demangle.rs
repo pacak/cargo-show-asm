@@ -98,7 +98,7 @@ mod test {
         set_override(true);
         let x = contents(CALL_M, true);
         assert_eq!(
-            "[rip + \u{1b}[32m<nom::error::ErrorKind as core::fmt::Debug>::fmt\u{1b}[39m]",
+            "[rip + \u{1b}[32m<nom::error::ErrorKind as core::fmt::Debug>::fmt::hb98704099c11c31f\u{1b}[39m]",
             x
         );
     }
