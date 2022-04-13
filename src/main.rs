@@ -89,7 +89,8 @@ fn main() -> anyhow::Result<()> {
         let comp = compile(&ws, &compile_opts)?;
         let output = &comp.deps_output[&CompileKind::Host];
 
-        let target = (opts.function.as_deref().unwrap_or(" "), opts.nth);
+        let target_name = opts.function.as_deref().unwrap_or("");
+        let target = (target_name, opts.nth);
 
         let file_mask = format!(
             "{}/{}{}-*.s",
@@ -140,7 +141,7 @@ fn main() -> anyhow::Result<()> {
         };
 
         if !seen {
-            suggest_name(opts.format.full_name, &existing);
+            suggest_name(target_name, opts.format.full_name, &existing)?;
         }
         break;
     }
@@ -148,7 +149,7 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn suggest_name(full: bool, items: &[Item]) {
+fn suggest_name(search: &str, full: bool, items: &[Item]) -> anyhow::Result<()> {
     let names = items.iter().fold(BTreeMap::new(), |mut m, item| {
         m.entry(if full { &item.hashed } else { &item.name })
             .or_insert_with(Vec::new)
@@ -156,6 +157,13 @@ fn suggest_name(full: bool, items: &[Item]) {
         m
     });
 
+    if names.is_empty() {
+        if search.is_empty() {
+            anyhow::bail!("No matching functions, try relaxing your search request")
+        } else {
+            anyhow::bail!("This target defines no functions")
+        }
+    }
     println!("Try one of those");
     for (name, lens) in &names {
         println!(

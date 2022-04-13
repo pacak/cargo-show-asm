@@ -466,7 +466,7 @@ pub fn dump_function(
         if let Statement::Directive(Directive::Generic(GenericDirective("cfi_endproc"))) = line {
             if let Some(mut cur) = current_item.take() {
                 cur.len = ix - cur.len;
-                if goal.0 == " " || cur.name.contains(goal.0) {
+                if goal.0 == "" || cur.name.contains(goal.0) {
                     items.push(cur);
                 }
             }
