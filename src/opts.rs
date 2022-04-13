@@ -6,8 +6,19 @@ use cargo::{
 use std::path::PathBuf;
 
 #[derive(Clone, Debug, Bpaf)]
-#[bpaf(options("asm"))]
+#[bpaf(options("asm"), version)]
 #[allow(clippy::struct_excessive_bools)]
+/// Show the code rustc generates for any function
+///
+///
+///
+///
+/// 1. Focus on a single assembly producing target:
+///    % cargo asm -p isin --lib   # here we are targeting lib in isin crate
+/// 2. Narrow down a function:
+///    % cargo asm -p isin --lib from_ # here "from_" is part of the function you are interested intel
+/// 3. Get the full results:
+///    % cargo asm -p isin --lib isin::base36::from_alphanum
 pub struct Options {
     #[bpaf(external(parse_manifest_path))]
     pub manifest_path: PathBuf,
