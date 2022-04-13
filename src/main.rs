@@ -79,7 +79,7 @@ fn main() -> anyhow::Result<()> {
         String::from("--emit"),
         String::from("asm"),
         String::from("-C"),
-        String::from("llvm-args=-x86-asm-syntax=intel"),
+        opts.syntax.to_string(),
         String::from("-C"),
         String::from("debuginfo=2"),
     ]);

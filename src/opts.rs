@@ -31,6 +31,8 @@ pub struct Options {
     /// more verbose output, can be specified multiple times
     #[bpaf(external(verbose))]
     pub verbosity: usize,
+    #[bpaf(external, fallback(Syntax::Intel))]
+    pub syntax: Syntax,
     #[bpaf(positional("FUNCTION"), optional)]
     pub function: Option<String>,
     #[bpaf(positional("INDEX"), from_str(usize), fallback(0))]
@@ -73,6 +75,23 @@ pub struct Format {
 
     /// include full demangled name instead of just prefix
     pub full_name: bool,
+}
+
+#[derive(Debug, Clone, Bpaf)]
+pub enum Syntax {
+    /// Generate assembly using Intel style
+    Intel,
+    /// Generate assembly using AT&T style
+    Att,
+}
+
+impl ToString for Syntax {
+    fn to_string(&self) -> String {
+        match self {
+            Syntax::Intel => String::from("llvm-args=-x86-asm-syntax=intel"),
+            Syntax::Att => String::from("llvm-args=-x86-asm-syntax=att"),
+        }
+    }
 }
 
 fn color_detection() -> Parser<bool> {
