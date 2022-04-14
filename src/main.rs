@@ -1,19 +1,17 @@
-use std::collections::BTreeMap;
-
-use cargo_show_asm::{
-    asm::{self, Item},
-    color, opts,
-};
-
 use cargo::{
     core::{
-        compiler::{CompileKind, TargetInfo},
+        compiler::{CompileKind, CompileTarget, TargetInfo},
         Workspace,
     },
     ops::{compile, CleanOptions, CompileFilter, CompileOptions, Packages},
-    util::interning::InternedString,
     Config,
 };
+use cargo_show_asm::{
+    asm::{self, Item},
+    color,
+    opts::{self, Focus},
+};
+use std::collections::BTreeMap;
 
 /// This should be called before calling any cli method or printing any output.
 fn reset_signal_pipe_handler() -> anyhow::Result<()> {
@@ -36,61 +34,65 @@ fn main() -> anyhow::Result<()> {
 
     let mut cfg = Config::default()?;
     cfg.configure(
-        u32::try_from(opts.verbosity).unwrap_or(0),
+        opts.verbosity,
         false,
         None,
         opts.frozen,
         opts.locked,
         opts.offline,
-        &None,
+        &opts.target_dir,
         &[],
         &[],
     )?;
 
     let ws = Workspace::new(&opts.manifest_path, &cfg)?;
-
     let package = opts::select_package(&opts, &ws);
-
     let rustc = cfg.load_global_rustc(Some(&ws))?;
-    let target_info = TargetInfo::new(&cfg, &[CompileKind::Host], &rustc, CompileKind::Host)?;
+    let kind = match opts.target {
+        Some(t) => CompileKind::Target(CompileTarget::new(&t)?),
+        None => CompileKind::Host,
+    };
+    let target_info = TargetInfo::new(&cfg, &[CompileKind::Host], &rustc, kind)?;
 
     let mut compile_opts = CompileOptions::new(&cfg, cargo::core::compiler::CompileMode::Build)?;
 
     compile_opts.spec = Packages::Packages(vec![package.clone()]);
 
-    let correction = match opts.focus.as_ref() {
-        Some(opts::Focus::Example(_)) => "../examples/",
-        Some(
-            opts::Focus::Lib | opts::Focus::Test(_) | opts::Focus::Bench(_) | opts::Focus::Bin(_),
-        )
-        | None => "",
-    };
+    let correction = opts.focus.as_ref().map_or("", Focus::correction);
 
     if let Some(focus) = opts.focus {
         compile_opts.filter = CompileFilter::from(focus);
     }
-    compile_opts.build_config.requested_profile = InternedString::new("release");
+    compile_opts.cli_features = opts.cli_features.try_into()?;
+    compile_opts.build_config.requested_profile = opts.compile_mode.into();
+    compile_opts.build_config.force_rebuild = opts.force_rebuild;
     compile_opts.target_rustc_args = Some(vec![
+        // so only one file gets created
         String::from("-C"),
         String::from("codegen-units=1"),
+        // we care about asm
         String::from("--emit"),
         String::from("asm"),
         String::from("-C"),
         opts.syntax.to_string(),
+        // debug info is needed to map to rust source
         String::from("-C"),
         String::from("debuginfo=2"),
     ]);
-
     compile_opts.build_config.build_plan = opts.dry;
 
     let mut retrying = false;
+    owo_colors::set_override(opts.format.color);
+
+    let target_name = opts.function.as_deref().unwrap_or("");
+    let target = (target_name, opts.nth);
 
     loop {
         let comp = compile(&ws, &compile_opts)?;
+        if opts.dry {
+            return Ok(());
+        }
         let output = &comp.deps_output[&CompileKind::Host];
-
-        let target_name = opts.function.as_deref().unwrap_or("");
-        let target = (target_name, opts.nth);
 
         let file_mask = format!(
             "{}/{}{}-*.s",
@@ -98,8 +100,6 @@ fn main() -> anyhow::Result<()> {
             correction,
             &comp.root_crate_names[0]
         );
-
-        owo_colors::set_override(opts.format.color);
 
         let mut existing = Vec::new();
         let mut asm_files = glob::glob(&file_mask)?.collect::<Vec<_>>();
@@ -131,7 +131,7 @@ fn main() -> anyhow::Result<()> {
                     spec: vec![package.clone()],
                     targets: Vec::new(),
                     profile_specified: false,
-                    requested_profile: InternedString::new("release"),
+                    requested_profile: opts.compile_mode.into(),
                     doc: false,
                 };
                 cargo::ops::clean(&ws, &clean_opts)?;
@@ -158,10 +158,11 @@ fn suggest_name(search: &str, full: bool, items: &[Item]) -> anyhow::Result<()> 
     });
 
     if names.is_empty() {
+        #[allow(clippy::redundant_else)]
         if search.is_empty() {
-            anyhow::bail!("No matching functions, try relaxing your search request")
-        } else {
             anyhow::bail!("This target defines no functions")
+        } else {
+            anyhow::bail!("No matching functions, try relaxing your search request")
         }
     }
     println!("Try one of those");

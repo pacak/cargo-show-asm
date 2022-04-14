@@ -2,34 +2,39 @@ use bpaf::{construct, long, short, Bpaf, Parser};
 use cargo::{
     core::{MaybePackage, Target, TargetKind, Workspace},
     ops::CompileFilter,
+    util::interning::InternedString,
 };
 use std::path::PathBuf;
 
 #[derive(Clone, Debug, Bpaf)]
 #[bpaf(options("asm"), version)]
 #[allow(clippy::struct_excessive_bools)]
+#[allow(clippy::doc_markdown)]
 /// Show the code rustc generates for any function
 ///
 ///
 ///
-///
-/// 1. Focus on a single assembly producing target:
-///    % cargo asm -p isin --lib   # here we are targeting lib in isin crate
-/// 2. Narrow down a function:
-///    % cargo asm -p isin --lib from_ # here "from_" is part of the function you are interested intel
-/// 3. Get the full results:
-///    % cargo asm -p isin --lib isin::base36::from_alphanum
+/// Usage:
+///   1. Focus on a single assembly producing target:
+///      % cargo asm -p isin --lib   # here we are targeting lib in isin crate
+///   2. Narrow down a function:
+///      % cargo asm -p isin --lib from_ # here "from_" is part of the function you are interested intel
+///   3. Get the full results:
+///      % cargo asm -p isin --lib isin::base36::from_alphanum
 pub struct Options {
+    // what to compile
     #[bpaf(external(parse_manifest_path))]
     pub manifest_path: PathBuf,
-    /// Custom target directory for generated artifacts
-    #[bpaf(argument_os("DIR"))]
-    pub target_dir: Option<PathBuf>,
     /// Package to use if ambigous
     #[bpaf(long, short, argument("SPEC"))]
     pub package: Option<String>,
     #[bpaf(external(focus), optional)]
     pub focus: Option<Focus>,
+
+    // how to compile
+    /// Custom target directory for generated artifacts
+    #[bpaf(argument_os("DIR"))]
+    pub target_dir: Option<PathBuf>,
     /// Produce a build plan instead of actually building
     pub dry: bool,
     /// Requires Cargo.lock and cache are up to date
@@ -38,26 +43,77 @@ pub struct Options {
     pub locked: bool,
     /// Run without accessing the network
     pub offline: bool,
+    /// Force Cargo to do a full rebuild and treat each target as changed
+    pub force_rebuild: bool,
+    #[bpaf(external)]
+    pub cli_features: CliFeatures,
+    #[bpaf(external, fallback(CompileMode::Release))]
+    pub compile_mode: CompileMode,
+    /// Build for the target triple
+    #[bpaf(argument("TRIPLE"))]
+    pub target: Option<String>,
+
+    // how to display
     #[bpaf(external(format))]
     pub format: Format,
     /// more verbose output, can be specified multiple times
     #[bpaf(external(verbose))]
-    pub verbosity: usize,
+    pub verbosity: u32,
     #[bpaf(external, fallback(Syntax::Intel))]
     pub syntax: Syntax,
+
+    // what to display
     #[bpaf(positional("FUNCTION"), optional)]
     pub function: Option<String>,
     #[bpaf(positional("INDEX"), from_str(usize), fallback(0))]
     pub nth: usize,
 }
 
-fn verbose() -> Parser<usize> {
+#[derive(Bpaf, Clone, Debug)]
+pub struct CliFeatures {
+    /// Do not activate `default` feature
+    pub no_defaut_features: bool,
+    /// Activate all available features
+    pub all_features: bool,
+    /// A feature to activate, can be used multiple times
+    #[bpaf(argument("FEATURE"))]
+    pub feature: Vec<String>,
+}
+
+impl TryFrom<CliFeatures> for cargo::core::resolver::features::CliFeatures {
+    type Error = anyhow::Error;
+
+    fn try_from(cf: CliFeatures) -> Result<Self, Self::Error> {
+        Self::from_command_line(&cf.feature, cf.all_features, !cf.no_defaut_features)
+    }
+}
+
+// feature, no_defaut_features, all_features
+
+#[derive(Bpaf, Copy, Clone, Debug)]
+pub enum CompileMode {
+    /// Compile in release mode (default)
+    Release,
+    /// Compile in dev mode
+    Dev,
+}
+
+impl From<CompileMode> for InternedString {
+    fn from(mode: CompileMode) -> Self {
+        InternedString::new(match mode {
+            CompileMode::Release => "release",
+            CompileMode::Dev => "dev",
+        })
+    }
+}
+
+fn verbose() -> Parser<u32> {
     short('v')
         .long("verbose")
         .help("more verbose output, can be specified multiple times")
         .req_flag(())
         .many()
-        .map(|v| v.len())
+        .map(|v| v.len().max(u32::MAX as usize) as u32)
 }
 
 fn parse_manifest_path() -> Parser<PathBuf> {
@@ -189,6 +245,15 @@ impl Focus {
             Focus::Bench(b) => target.is_bench() && target.name() == b,
             Focus::Example(e) => target.is_example() && target.name() == e,
             Focus::Bin(b) => target.is_bin() && target.name() == b,
+        }
+    }
+
+    #[must_use]
+    /// a path relative to output directory for this focus item
+    pub const fn correction(&self) -> &'static str {
+        match self {
+            Focus::Example(_) => "../examples/",
+            Focus::Lib | Focus::Test(_) | Focus::Bench(_) | Focus::Bin(_) => "",
         }
     }
 }
