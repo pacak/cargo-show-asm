@@ -48,8 +48,8 @@ fn main() -> anyhow::Result<()> {
     let ws = Workspace::new(&opts.manifest_path, &cfg)?;
     let package = opts::select_package(&opts, &ws);
     let rustc = cfg.load_global_rustc(Some(&ws))?;
-    let kind = match opts.target {
-        Some(t) => CompileKind::Target(CompileTarget::new(&t)?),
+    let kind = match &opts.target {
+        Some(t) => CompileKind::Target(CompileTarget::new(t)?),
         None => CompileKind::Host,
     };
     let target_info = TargetInfo::new(&cfg, &[CompileKind::Host], &rustc, kind)?;
@@ -66,7 +66,8 @@ fn main() -> anyhow::Result<()> {
     compile_opts.cli_features = opts.cli_features.try_into()?;
     compile_opts.build_config.requested_profile = opts.compile_mode.into();
     compile_opts.build_config.force_rebuild = opts.force_rebuild;
-    compile_opts.target_rustc_args = Some(vec![
+
+    let mut rustc_args = vec![
         // so only one file gets created
         String::from("-C"),
         String::from("codegen-units=1"),
@@ -78,7 +79,16 @@ fn main() -> anyhow::Result<()> {
         // debug info is needed to map to rust source
         String::from("-C"),
         String::from("debuginfo=2"),
-    ]);
+    ];
+    if let Some(target) = &opts.target {
+        rustc_args.push(String::from("--target"));
+        rustc_args.push(target.to_string());
+        if let Ok(linker) = cfg.get::<String>(&format!("target.{target}.linker")) {
+            rustc_args.push(String::from("-C"));
+            rustc_args.push(format!("linker={linker}"));
+        }
+    }
+    compile_opts.target_rustc_args = Some(rustc_args);
     compile_opts.build_config.build_plan = opts.dry;
 
     let mut retrying = false;
