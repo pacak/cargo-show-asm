@@ -27,6 +27,7 @@ fn reset_signal_pipe_handler() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[allow(clippy::too_many_lines)]
 fn main() -> anyhow::Result<()> {
     reset_signal_pipe_handler()?;
 

@@ -124,7 +124,14 @@ mod statements {
 
     impl std::fmt::Display for GenericDirective<'_> {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            write!(f, "\t.{}", color!(self.0, OwoColorize::bright_black))
+            write!(
+                f,
+                "\t.{}",
+                color!(
+                    demangle::contents(self.0, f.alternate()),
+                    OwoColorize::bright_black
+                )
+            )
         }
     }
 

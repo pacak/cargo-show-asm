@@ -12,13 +12,13 @@ cargo install cargo-show-asm
 
 - Platform support:
 
-  - OS: Linux, and MacOSX.
+  - OS: Linux and MacOSX. Probably more but untested
   - Rust: nightly and stable.
-  - Architectures: x86, x86_64.
+  - Architectures: x86, x86_64, aarch64, probably more but untested.
+  - Crosscompilation support.
 
 Missing operating systems and architenctures might be supported by accident, please make a
-ticket if something not working for your favorite platform.
-
+ticket if something not working for your favorite platform
 
 - Displaying:
 
@@ -30,9 +30,10 @@ ticket if something not working for your favorite platform.
 You can start by running `cargo asm` with no parameters - it will suggests how to narrow the
 search scope - for workspace crates you need to specify a crate to work with, for crates
 defining several targets (lib, binaries, examples) you need to specify exactly which target to
-use.
+use. In a workspace `cargo asm` lists only workspace members as suggestions but any crate from
+workspace tree is available.
 
-Once `cargo asm` focues on a single target it will compile it producing assembly file and will
+Once `cargo asm` focues on a single target it will run rustc producing assembly file and will
 try to list of available public functions:
 
 ```ignore
