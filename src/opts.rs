@@ -113,7 +113,7 @@ fn verbose() -> Parser<u32> {
         .help("more verbose output, can be specified multiple times")
         .req_flag(())
         .many()
-        .map(|v| v.len().max(u32::MAX as usize) as u32)
+        .map(|v| v.len().min(u32::MAX as usize) as u32)
 }
 
 fn parse_manifest_path() -> Parser<PathBuf> {
