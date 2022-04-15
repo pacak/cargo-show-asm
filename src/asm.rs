@@ -347,11 +347,31 @@ mod statements {
             || ('A'..='Z').contains(&c)
             || ('0'..='9').contains(&c)
     }
+    impl Statement<'_> {
+        pub(crate) fn is_end_of_fn(&self) -> bool {
+            #[allow(unused_variables)]
+            if let Statement::Directive(Directive::Generic(GenericDirective("cfi_endproc"))) = self
+            {
+                true
+            } else if let Statement::Label(Label { id, local: true }) = self {
+                #[cfg(windows)]
+                {
+                    id.starts_with(".Lfunc_end")
+                }
+                #[cfg(not(windows))]
+                {
+                    false
+                }
+            } else {
+                false
+            }
+        }
+    }
 }
 // }}}
 
 use owo_colors::OwoColorize;
-use statements::{parse_statement, Directive, GenericDirective, Loc, Statement};
+use statements::{parse_statement, Directive, Loc, Statement};
 
 use std::collections::BTreeMap;
 use std::ops::{Index, Range};
@@ -470,7 +490,7 @@ pub fn dump_function(
             }
         }
 
-        if let Statement::Directive(Directive::Generic(GenericDirective("cfi_endproc"))) = line {
+        if line.is_end_of_fn() {
             if let Some(mut cur) = current_item.take() {
                 cur.len = ix - cur.len;
                 if goal.0.is_empty() || cur.name.contains(goal.0) {

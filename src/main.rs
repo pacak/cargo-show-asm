@@ -105,9 +105,24 @@ fn main() -> anyhow::Result<()> {
         }
         let output = &comp.deps_output[&CompileKind::Host];
 
+        let root;
+        #[cfg(not(windows))]
+        {
+            root = output.display();
+        }
+        #[cfg(windows)]
+        {
+            let full = output.canonicalize()?.display().to_string();
+            let cur = std::env::current_dir()?
+                .canonicalize()?
+                .display()
+                .to_string();
+            root = format!(".\\{}", &full[cur.len()..]);
+        }
+
         let file_mask = format!(
-            "{}/{}{}-*.s",
-            output.display(),
+            "{root}{}{}{}-*.s",
+            std::path::MAIN_SEPARATOR,
             correction,
             &comp.root_crate_names[0]
         );

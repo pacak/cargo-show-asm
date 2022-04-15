@@ -12,7 +12,7 @@ cargo install cargo-show-asm
 
 - Platform support:
 
-  - OS: Linux and MacOSX. Probably more but untested
+  - OS: Linux and MacOSX. Limited support for Windows
   - Rust: nightly and stable.
   - Architectures: x86, x86_64, aarch64, probably more but untested.
   - Crosscompilation support.
