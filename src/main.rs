@@ -117,7 +117,12 @@ fn main() -> anyhow::Result<()> {
                 .canonicalize()?
                 .display()
                 .to_string();
-            root = format!(".\\{}", &full[cur.len()..]);
+            let relative = &full[cur.len()..];
+            root = format!(
+                ".{}{}",
+                if relative.starts_with("\\") { "" } else { "\\" },
+                relative
+            );
         }
 
         let file_mask = format!(
