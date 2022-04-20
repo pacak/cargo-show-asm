@@ -8,7 +8,7 @@ use cargo::{
 };
 use cargo_show_asm::{
     asm::{self, Item},
-    color,
+    color, llvm,
     opts::{self, Focus},
 };
 use std::collections::BTreeMap;
@@ -74,9 +74,9 @@ fn main() -> anyhow::Result<()> {
         String::from("codegen-units=1"),
         // we care about asm
         String::from("--emit"),
-        String::from("asm"),
+        opts.syntax.emit(),
         String::from("-C"),
-        opts.syntax.to_string(),
+        opts.syntax.format(),
         // debug info is needed to map to rust source
         String::from("-C"),
         String::from("debuginfo=2"),
@@ -126,10 +126,11 @@ fn main() -> anyhow::Result<()> {
         }
 
         let file_mask = format!(
-            "{root}{}{}{}-*.s",
+            "{root}{}{}{}-*.{}",
             std::path::MAIN_SEPARATOR,
             correction,
-            &comp.root_crate_names[0]
+            &comp.root_crate_names[0],
+            opts.syntax.ext(),
         );
 
         let mut existing = Vec::new();
@@ -143,13 +144,19 @@ fn main() -> anyhow::Result<()> {
             }
             1 => {
                 let file = asm_files.remove(0)?;
-                asm::dump_function(
-                    target,
-                    &file,
-                    &target_info.sysroot,
-                    &opts.format,
-                    &mut existing,
-                )?
+
+                match opts.syntax {
+                    opts::Syntax::Intel | opts::Syntax::Att => asm::dump_function(
+                        target,
+                        &file,
+                        &target_info.sysroot,
+                        &opts.format,
+                        &mut existing,
+                    )?,
+                    opts::Syntax::Llvm => {
+                        llvm::dump_function(target, &file, &opts.format, &mut existing)?
+                    }
+                }
             }
             _ => {
                 if retrying {

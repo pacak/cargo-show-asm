@@ -147,17 +147,37 @@ pub struct Format {
 
 #[derive(Debug, Clone, Bpaf)]
 pub enum Syntax {
-    /// Generate assembly using Intel style
+    /// Show assembly using Intel style
+    #[bpaf(long("intel"), long("asm"))]
     Intel,
-    /// Generate assembly using AT&T style
+    /// Show assembly using AT&T style
     Att,
+    /// Show llvm-ir
+    Llvm,
 }
 
-impl ToString for Syntax {
-    fn to_string(&self) -> String {
+impl Syntax {
+    #[must_use]
+    pub fn format(&self) -> String {
+        String::from(match self {
+            Syntax::Intel => "llvm-args=-x86-asm-syntax=intel",
+            Syntax::Att | Syntax::Llvm => "llvm-args=-x86-asm-syntax=att",
+        })
+    }
+
+    #[must_use]
+    pub fn emit(&self) -> String {
+        String::from(match self {
+            Syntax::Intel | Syntax::Att => "asm",
+            Syntax::Llvm => "llvm-ir",
+        })
+    }
+
+    #[must_use]
+    pub const fn ext(&self) -> &str {
         match self {
-            Syntax::Intel => String::from("llvm-args=-x86-asm-syntax=intel"),
-            Syntax::Att => String::from("llvm-args=-x86-asm-syntax=att"),
+            Syntax::Intel | Syntax::Att => "s",
+            Syntax::Llvm => "ll",
         }
     }
 }

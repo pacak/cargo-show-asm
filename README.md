@@ -24,6 +24,7 @@ ticket if something not working for your favorite platform
 
   - Assembly in Intel or AT&T syntax.
   - Corresponding Rust source code alongside assembly.
+  - llvm-ir.
 
 # Usage:
 

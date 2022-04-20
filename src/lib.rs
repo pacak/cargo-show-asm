@@ -1,5 +1,6 @@
 pub mod asm;
 pub mod demangle;
+pub mod llvm;
 pub mod opts;
 
 #[macro_export]
