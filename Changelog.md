@@ -1,5 +1,8 @@
 # Change Log
 
+## [0.1.4] - 2022-04-20
+### Limited support for LLVM-IR
+
 ## [0.1.3] - 2022-04-20
 ### Limited support for Windows:
 Works a bit better thanks to @nico-abram
