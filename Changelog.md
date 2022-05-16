@@ -1,5 +1,8 @@
 # Change Log
 
+## [0.1.5] - 2022-05-16
+### bump dependencies
+
 ## [0.1.4] - 2022-04-20
 ### Limited support for LLVM-IR
 
