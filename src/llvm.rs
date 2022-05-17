@@ -47,7 +47,6 @@ pub fn dump_function(
     for (ix, line) in reader.lines().enumerate() {
         let line = line?;
 
-        println!("{line}");
         // glorious state machine
         match state {
             State::Skipping => {
