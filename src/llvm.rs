@@ -104,7 +104,7 @@ pub fn dump_function(
                 } else {
                     state = State::Skipping;
                 }
-            } // todo!(),
+            }
             State::Define => {
                 if seen {
                     println!("{}", contents(&line, fmt.full_name));

@@ -8,7 +8,7 @@ use cargo::{
 };
 use cargo_show_asm::{
     asm::{self, Item},
-    color, llvm,
+    color, llvm, mir,
     opts::{self, Focus},
 };
 use std::collections::BTreeMap;
@@ -155,6 +155,9 @@ fn main() -> anyhow::Result<()> {
                     )?,
                     opts::Syntax::Llvm => {
                         llvm::dump_function(target, &file, &opts.format, &mut existing)?
+                    }
+                    opts::Syntax::Mir => {
+                        mir::dump_function(target, &file, &opts.format, &mut existing)?
                     }
                 }
             }

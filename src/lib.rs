@@ -1,6 +1,8 @@
 pub mod asm;
+pub mod cached_lines;
 pub mod demangle;
 pub mod llvm;
+pub mod mir;
 pub mod opts;
 
 #[macro_export]

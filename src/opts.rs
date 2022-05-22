@@ -154,6 +154,8 @@ pub enum Syntax {
     Att,
     /// Show llvm-ir
     Llvm,
+    /// Show MIR
+    Mir,
 }
 
 impl Syntax {
@@ -161,7 +163,7 @@ impl Syntax {
     pub fn format(&self) -> String {
         String::from(match self {
             Syntax::Intel => "llvm-args=-x86-asm-syntax=intel",
-            Syntax::Att | Syntax::Llvm => "llvm-args=-x86-asm-syntax=att",
+            Syntax::Att | Syntax::Mir | Syntax::Llvm => "llvm-args=-x86-asm-syntax=att",
         })
     }
 
@@ -170,6 +172,7 @@ impl Syntax {
         String::from(match self {
             Syntax::Intel | Syntax::Att => "asm",
             Syntax::Llvm => "llvm-ir",
+            Syntax::Mir => "mir",
         })
     }
 
@@ -178,6 +181,7 @@ impl Syntax {
         match self {
             Syntax::Intel | Syntax::Att => "s",
             Syntax::Llvm => "ll",
+            Syntax::Mir => "mir",
         }
     }
 }

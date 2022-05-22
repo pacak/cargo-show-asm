@@ -1,27 +1,8 @@
 #![allow(clippy::missing_errors_doc)]
+use crate::cached_lines::CachedLines;
 use crate::{color, demangle};
 // TODO, use https://sourceware.org/binutils/docs/as/index.html
 use crate::opts::Format;
-
-struct CachedLines {
-    content: String,
-    splits: Vec<Range<usize>>,
-}
-
-impl CachedLines {
-    fn without_ending(content: String) -> Self {
-        let splits = content.line_spans().map(|s| s.range()).collect::<Vec<_>>();
-        Self { content, splits }
-    }
-}
-
-impl Index<usize> for CachedLines {
-    type Output = str;
-
-    fn index(&self, index: usize) -> &Self::Output {
-        &self.content[self.splits[index].clone()]
-    }
-}
 
 // {{{
 mod statements {
@@ -374,10 +355,7 @@ use owo_colors::OwoColorize;
 use statements::{parse_statement, Directive, Loc, Statement};
 
 use std::collections::BTreeMap;
-use std::ops::{Index, Range};
 use std::path::Path;
-
-use line_span::LineSpans;
 
 use nom::multi::many0;
 use nom::IResult;
