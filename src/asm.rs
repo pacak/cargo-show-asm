@@ -353,10 +353,8 @@ mod statements {
 
 use owo_colors::OwoColorize;
 use statements::{parse_statement, Directive, Loc, Statement};
-
 use std::collections::BTreeMap;
 use std::path::Path;
-
 use nom::multi::many0;
 use nom::IResult;
 

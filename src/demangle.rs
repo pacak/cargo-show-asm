@@ -1,11 +1,9 @@
-use std::borrow::Cow;
-
+use crate::color;
 use once_cell::sync::OnceCell;
 use owo_colors::OwoColorize;
 use regex::{Regex, Replacer};
 use rustc_demangle::Demangle;
-
-use crate::color;
+use std::borrow::Cow;
 
 #[must_use]
 pub fn name(input: &str) -> Option<String> {
