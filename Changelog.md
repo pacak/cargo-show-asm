@@ -1,5 +1,10 @@
 # Change Log
 
+
+## [0.1.7] - 2022-05-25
+### arm asm bugfixes
+thanks to @RustyYato
+
 ## [0.1.6] - 2022-05-22
 ### Limited support for MIR
 
