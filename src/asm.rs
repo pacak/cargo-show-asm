@@ -46,7 +46,8 @@ mod statements {
 
         fn parse_regular(input: &'a str) -> IResult<&'a str, Self> {
             let (input, _) = tag("\t")(input)?;
-            let (input, op) = take_while1(AsChar::is_alphanum)(input)?;
+            // NOTE: ARM allows `.` inside instruction names i.e. for `b.ne` for branch not equal
+            let (input, op) = take_while1(|c| AsChar::is_alphanum(c) || matches!(c, '.'))(input)?;
             let (input, args) = opt(preceded(space1, take_while1(|c| c != '\n')))(input)?;
             Ok((input, Instruction { op, args }))
         }
@@ -317,7 +318,15 @@ mod statements {
 
         let dir = map(alt((file, loc, set, ssvs, generic)), Statement::Directive);
 
-        terminated(alt((label, dir, instr, nothing, dunno)), newline)(input)
+        // use terminated on the subparsers so that if the subparser doesn't consume the whole line, it's discarded
+        // we assume that each label/instruction/directive will only take one line
+        alt((
+            terminated(label, newline),
+            terminated(dir, newline),
+            terminated(instr, newline),
+            terminated(nothing, newline),
+            terminated(dunno, newline),
+        ))(input)
     }
 
     fn good_for_label(c: char) -> bool {
@@ -351,15 +360,17 @@ mod statements {
 }
 // }}}
 
+use nom::IResult;
 use owo_colors::OwoColorize;
 use statements::{parse_statement, Directive, Loc, Statement};
 use std::collections::BTreeMap;
 use std::path::Path;
-use nom::multi::many0;
-use nom::IResult;
 
 pub fn parse_file(input: &str) -> IResult<&str, Vec<Statement>> {
-    many0(parse_statement)(input)
+    // eat all statements until the eof, so we can report the proper errors on failed parse
+    let (input, (stmts, _eof)) =
+        nom::multi::many_till(parse_statement, nom::combinator::eof)(input)?;
+    Ok((input, stmts))
 }
 
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
