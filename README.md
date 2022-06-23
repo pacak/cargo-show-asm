@@ -1,6 +1,6 @@
 # cargo-show-asm
 
-A cargo subcommand that displays the assembly generated for Rust source code.
+A cargo subcommand that displays the Assembly, LLVM-IR and MIR generated for Rust source code.
 
 # Install
 

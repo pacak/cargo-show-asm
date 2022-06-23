@@ -1,5 +1,8 @@
 # Change Log
 
+## [0.1.8] - 2022-06-24
+### arm asm bugfixes
+### Bump the dependencies, mostly cargo to 0.62
 
 ## [0.1.7] - 2022-05-25
 ### arm asm bugfixes
