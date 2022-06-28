@@ -63,9 +63,9 @@ dependencies = [
 
 [[package]]
 name = "bpaf"
-version = "0.4.4"
+version = "0.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c5a80253f0e9a06b09235e747568813806f76212b96b824701c3693f4359110"
+checksum = "0001ae0a7a63663e9b2fbb7a1ba1baf092826a0c8cc43934a94d5f7da8a9f970"
 dependencies = [
  "bpaf_derive",
 ]
@@ -173,7 +173,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-show-asm"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "anyhow",
  "bpaf",
