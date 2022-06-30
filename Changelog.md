@@ -1,5 +1,8 @@
 # Change Log
 
+# [0.1.9] - 2022-07-01
+## Upgrade cargo dependency
+
 ## [0.1.8] - 2022-06-24
 ### arm asm bugfixes
 ### Bump the dependencies, mostly cargo to 0.62
