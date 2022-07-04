@@ -1,5 +1,8 @@
 # Change Log
 
+# [0.1.10] - 2022-07-05
+## Upgrade cargo dependency
+
 # [0.1.9] - 2022-07-01
 ## Upgrade cargo dependency
 
