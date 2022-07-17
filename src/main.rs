@@ -96,7 +96,7 @@ fn main() -> anyhow::Result<()> {
     owo_colors::set_override(opts.format.color);
 
     let target_name = opts.function.as_deref().unwrap_or("");
-    let target = (target_name, opts.nth);
+    let target_function = (target_name, opts.nth);
 
     loop {
         let comp = compile(&ws, &compile_opts)?;
@@ -147,17 +147,17 @@ fn main() -> anyhow::Result<()> {
 
                 match opts.syntax {
                     opts::Syntax::Intel | opts::Syntax::Att => asm::dump_function(
-                        target,
+                        target_function,
                         &file,
                         &target_info.sysroot,
                         &opts.format,
                         &mut existing,
                     )?,
                     opts::Syntax::Llvm => {
-                        llvm::dump_function(target, &file, &opts.format, &mut existing)?
+                        llvm::dump_function(target_function, &file, &opts.format, &mut existing)?
                     }
                     opts::Syntax::Mir => {
-                        mir::dump_function(target, &file, &opts.format, &mut existing)?
+                        mir::dump_function(target_function, &file, &opts.format, &mut existing)?
                     }
                 }
             }
