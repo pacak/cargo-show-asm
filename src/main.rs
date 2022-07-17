@@ -103,7 +103,39 @@ fn main() -> anyhow::Result<()> {
         if opts.dry {
             return Ok(());
         }
-        let output = &comp.deps_output[&CompileKind::Host];
+
+        // I see no ways how there can be more than one, let's assert that
+        // and deal with the bug reports if any.
+        assert!(
+            [1, 2].contains(&comp.deps_output.len()),
+            "More than one custom target?"
+        );
+
+        // by default "clean" cleans only the host target, in case of crosscompilation
+        // we need to clean the crosscompiled one
+        let mut clean_targets = Vec::new();
+
+        // crosscompilation can produce files for kinds other than Host.
+        // If it's present - we prefer non host versions as more interesting one
+        // As a side effect this prevents cargo-show-asm from showing things
+        // used to compile proc macro. Proper approach would probably be looking
+        // for target crate files in both host and target folders, there
+        // should be only one. But then there's windows with odd glob crate andt
+        // testing that is very painful. Pull requests are welcome
+        let output = if comp.deps_output.len() == 1 {
+            &comp.deps_output[&CompileKind::Host]
+        } else {
+            let (cc, path) = comp
+                .deps_output
+                .iter()
+                .find(|(k, _v)| **k != CompileKind::Host)
+                .expect("There shouldn't be more than one host target");
+            match cc {
+                CompileKind::Host => unreachable!("We are filtering host out above..."),
+                CompileKind::Target(t) => clean_targets.push(t.short_name().to_string()),
+            }
+            path
+        };
 
         let root;
         #[cfg(not(windows))]
@@ -170,7 +202,7 @@ fn main() -> anyhow::Result<()> {
                 let clean_opts = CleanOptions {
                     config: &cfg,
                     spec: vec![package.clone()],
-                    targets: Vec::new(),
+                    targets: clean_targets,
                     profile_specified: false,
                     requested_profile: opts.compile_mode.into(),
                     doc: false,
