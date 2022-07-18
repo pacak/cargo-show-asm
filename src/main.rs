@@ -196,7 +196,7 @@ fn main() -> anyhow::Result<()> {
             _ => {
                 if retrying {
                     anyhow::bail!(
-                        "Compilation produced multiple matching files: {asm_files:?}, this is a bug",
+                        "Compilation produced multiple matching files: {asm_files:?}. Do you have several targets (library and binary) producing a file with the same name? Otherwise this is a bug",
                     );
                 }
                 let clean_opts = CleanOptions {
