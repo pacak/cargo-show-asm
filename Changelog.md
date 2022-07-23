@@ -1,5 +1,8 @@
 # Change Log
 
+# [0.1.11] - 2022-07-23
+## Improved crosscompilation support
+
 # [0.1.10] - 2022-07-05
 ## Upgrade cargo dependency
 
