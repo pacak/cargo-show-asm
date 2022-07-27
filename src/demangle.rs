@@ -33,10 +33,11 @@ struct Demangler {
 impl Replacer for Demangler {
     fn replace_append(&mut self, cap: &regex::Captures<'_>, dst: &mut std::string::String) {
         if let Ok(dem) = rustc_demangle::try_demangle(&cap[1]) {
+            use std::fmt::Write;
             if self.full_name {
-                dst.push_str(&format!("{:?}", color!(dem, OwoColorize::green)));
+                write!(dst, "{:?}", color!(dem, OwoColorize::green)).unwrap();
             } else {
-                dst.push_str(&format!("{:#?}", color!(dem, OwoColorize::green)));
+                write!(dst, "{:#?}", color!(dem, OwoColorize::green)).unwrap();
             }
         } else {
             dst.push_str(&cap[0]);
