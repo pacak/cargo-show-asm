@@ -96,7 +96,7 @@ fn main() -> anyhow::Result<()> {
     owo_colors::set_override(opts.format.color);
 
     let target_name = opts.function.as_deref().unwrap_or("");
-    let target_function = (target_name, opts.nth);
+    let mut target_function = (target_name, opts.nth);
 
     loop {
         let comp = compile(&ws, &compile_opts)?;
@@ -168,6 +168,10 @@ fn main() -> anyhow::Result<()> {
         let mut existing = Vec::new();
         let mut asm_files = glob::glob(&file_mask)?.collect::<Vec<_>>();
 
+        // this variable exists to deal with the case where there's only
+        // one matching function - we might as well show it to the user directly
+        let mut single_target;
+
         let seen = match asm_files.len() {
             0 => {
                 anyhow::bail!(
@@ -177,21 +181,34 @@ fn main() -> anyhow::Result<()> {
             1 => {
                 let file = asm_files.remove(0)?;
 
-                match opts.syntax {
-                    opts::Syntax::Intel | opts::Syntax::Att => asm::dump_function(
-                        target_function,
-                        &file,
-                        &target_info.sysroot,
-                        &opts.format,
-                        &mut existing,
-                    )?,
-                    opts::Syntax::Llvm => {
-                        llvm::dump_function(target_function, &file, &opts.format, &mut existing)?
-                    }
-                    opts::Syntax::Mir => {
-                        mir::dump_function(target_function, &file, &opts.format, &mut existing)?
+                let mut seen;
+
+                loop {
+                    seen = match opts.syntax {
+                        opts::Syntax::Intel | opts::Syntax::Att => asm::dump_function(
+                            target_function,
+                            &file,
+                            &target_info.sysroot,
+                            &opts.format,
+                            &mut existing,
+                        ),
+                        opts::Syntax::Llvm => {
+                            llvm::dump_function(target_function, &file, &opts.format, &mut existing)
+                        }
+                        opts::Syntax::Mir => {
+                            mir::dump_function(target_function, &file, &opts.format, &mut existing)
+                        }
+                    }?;
+                    if seen {
+                        return Ok(());
+                    } else if existing.len() == 1 {
+                        single_target = existing[0].name.clone();
+                        target_function = (&single_target, 0);
+                    } else {
+                        break;
                     }
                 }
+                seen
             }
             _ => {
                 if retrying {
