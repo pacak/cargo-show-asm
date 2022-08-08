@@ -12,7 +12,7 @@ readme = "README.md"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-anyhow = "1.0.59"
+anyhow = "1.0.60"
 bpaf = { version = "0.4.7", features = ["bpaf_derive"] }
 cargo = "0.63.1"
 glob = "0.3.0"
