@@ -1,5 +1,11 @@
 # Change Log
 
+# [0.1.13] - 2022-08-16
+## Upgrade cargo dependency
+
+# [0.1.12] - 2022-08-01
+## Dump single match as is
+
 # [0.1.11] - 2022-07-23
 ## Improved crosscompilation support
 
