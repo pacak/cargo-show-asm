@@ -33,7 +33,7 @@ pub struct Options {
 
     // how to compile
     /// Custom target directory for generated artifacts
-    #[bpaf(argument_os("DIR"))]
+    #[bpaf(external)] // bpaf(argument_os("DIR"))] - TODO, swap back with env
     pub target_dir: Option<PathBuf>,
     /// Produce a build plan instead of actually building
     pub dry: bool,
@@ -67,6 +67,15 @@ pub struct Options {
     pub function: Option<String>,
     #[bpaf(positional("INDEX"), from_str(usize), fallback(0))]
     pub nth: usize,
+}
+
+fn target_dir() -> Parser<Option<PathBuf>> {
+    long("target_dir")
+        .env("CARGO_TARGET_DIR")
+        .help("Custom target directory for generated artifacts")
+        .argument_os("DIR")
+        .map(PathBuf::from)
+        .optional()
 }
 
 #[derive(Bpaf, Clone, Debug)]
