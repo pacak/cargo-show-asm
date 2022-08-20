@@ -1,5 +1,8 @@
 # Change Log
 
+# [0.1.14] - 2022-08-20
+## Also accept target dir from env:CARGO_TARGET_DIR
+
 # [0.1.13] - 2022-08-16
 ## Upgrade cargo dependency
 
