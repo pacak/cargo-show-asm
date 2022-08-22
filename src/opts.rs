@@ -6,6 +6,16 @@ use cargo::{
 };
 use std::path::PathBuf;
 
+fn check_target_dir(path: std::ffi::OsString) -> anyhow::Result<PathBuf> {
+    let path = PathBuf::from(path);
+    if path.is_dir() {
+        Ok(path)
+    } else {
+        std::fs::create_dir(&path)?;
+        Ok(std::fs::canonicalize(path)?)
+    }
+}
+
 #[derive(Clone, Debug, Bpaf)]
 #[bpaf(options("asm"), version)]
 #[allow(clippy::struct_excessive_bools)]
@@ -32,8 +42,13 @@ pub struct Options {
     pub focus: Option<Focus>,
 
     // how to compile
-    /// Custom target directory for generated artifacts
-    #[bpaf(external)] // bpaf(argument_os("DIR"))] - TODO, swap back with env
+    /// Use custom target directory for generated artifacts, create if missing
+    #[bpaf(
+        env("CARGO_TARGET_DIR"),
+        argument_os("DIR"),
+        parse(check_target_dir),
+        optional
+    )]
     pub target_dir: Option<PathBuf>,
     /// Produce a build plan instead of actually building
     pub dry: bool,
@@ -67,15 +82,6 @@ pub struct Options {
     pub function: Option<String>,
     #[bpaf(positional("INDEX"), from_str(usize), fallback(0))]
     pub nth: usize,
-}
-
-fn target_dir() -> Parser<Option<PathBuf>> {
-    long("target_dir")
-        .env("CARGO_TARGET_DIR")
-        .help("Custom target directory for generated artifacts")
-        .argument_os("DIR")
-        .map(PathBuf::from)
-        .optional()
 }
 
 #[derive(Bpaf, Clone, Debug)]
@@ -116,7 +122,7 @@ impl From<CompileMode> for InternedString {
     }
 }
 
-fn verbose() -> Parser<u32> {
+fn verbose() -> impl Parser<u32> {
     short('v')
         .long("verbose")
         .help("more verbose output, can be specified multiple times")
@@ -125,7 +131,7 @@ fn verbose() -> Parser<u32> {
         .map(|v| v.len().min(u32::MAX as usize) as u32)
 }
 
-fn parse_manifest_path() -> Parser<PathBuf> {
+fn parse_manifest_path() -> impl Parser<PathBuf> {
     long("manifest-path")
         .help("Path to Cargo.toml")
         .argument_os("PATH")
@@ -195,7 +201,7 @@ impl Syntax {
     }
 }
 
-fn color_detection() -> Parser<bool> {
+fn color_detection() -> impl Parser<bool> {
     let yes = long("color")
         .help("Enable color highlighting")
         .req_flag(true);
