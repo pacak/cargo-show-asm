@@ -1,5 +1,8 @@
 # Change Log
 
+# [0.1.15] - 2022-08-23
+## Update bpaf to 0.5.2, should start give more user fiendly suggestions
+
 # [0.1.14] - 2022-08-20
 ## Also accept target dir from env:CARGO_TARGET_DIR
 
