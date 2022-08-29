@@ -63,9 +63,9 @@ dependencies = [
 
 [[package]]
 name = "bpaf"
-version = "0.5.2"
+version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d39c5561b82f4046dabab533b4fcd64cd80a53bc241a724f39911aba900ac34"
+checksum = "5bc4edadbe572432600093bff71624216ea5f8f9ac5e5968f03753d3512c8d5e"
 dependencies = [
  "bpaf_derive",
 ]
