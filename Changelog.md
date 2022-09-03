@@ -1,5 +1,10 @@
 # Change Log
 
+# [0.1.16] - 2022-09-03
+- Fix parsing of file directive on nightly
+- Bump bpaf
+Thanks to @yotamofek
+
 # [0.1.15] - 2022-08-23
 ## Update bpaf to 0.5.2, should start give more user fiendly suggestions
 
