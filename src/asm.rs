@@ -109,7 +109,11 @@ mod statements {
 
     impl std::fmt::Display for File<'_> {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            write!(f, "\t.file\t{} {}", self.index, self.path)
+            write!(f, "\t.file\t{} {}", self.index, self.path)?;
+            if let Some(md5) = self.md5 {
+                write!(f, " {md5}")?;
+            }
+            Ok(())
         }
     }
 
@@ -226,6 +230,7 @@ mod statements {
     pub struct File<'a> {
         pub index: u64,
         pub path: FilePath<'a>,
+        pub md5: Option<&'a str>,
     }
 
     impl<'a> File<'a> {
@@ -241,8 +246,9 @@ mod statements {
                     space1,
                     filename,
                     opt(tuple((space1, filename))),
+                    opt(tuple((space1, complete::hex_digit1))),
                 )),
-                |(_, fileno, _, filepath, filename)| File {
+                |(_, fileno, _, filepath, filename, md5)| File {
                     index: fileno,
                     path: match filename {
                         Some((_, filename)) => FilePath::PathAndFileName {
@@ -251,6 +257,7 @@ mod statements {
                         },
                         None => FilePath::FullPath(filepath),
                     },
+                    md5: md5.map(|(_, md5)| md5),
                 },
             )(input)
         }
@@ -328,7 +335,8 @@ mod statements {
             file,
             File {
                 index: 9,
-                path: FilePath::FullPath("/home/ubuntu/buf-test/src/main.rs")
+                path: FilePath::FullPath("/home/ubuntu/buf-test/src/main.rs"),
+                md5: None
             }
         );
         assert_eq!(
@@ -346,7 +354,29 @@ mod statements {
                 path: FilePath::PathAndFileName {
                     path: "/home/ubuntu/buf-test",
                     name: "src/main.rs"
-                }
+                },
+                md5: None,
+            }
+        );
+        assert_eq!(
+            file.path.as_full_path(),
+            Path::new("/home/ubuntu/buf-test/src/main.rs")
+        );
+
+        let (rest, file) = File::parse(
+            "\t.file\t9 \"/home/ubuntu/buf-test\" \"src/main.rs\" 74ab618651b843a815bf806bd6c50c19",
+        )
+        .unwrap();
+        assert!(rest.is_empty());
+        assert_eq!(
+            file,
+            File {
+                index: 9,
+                path: FilePath::PathAndFileName {
+                    path: "/home/ubuntu/buf-test",
+                    name: "src/main.rs"
+                },
+                md5: Some("74ab618651b843a815bf806bd6c50c19"),
             }
         );
         assert_eq!(
