@@ -6,6 +6,9 @@ use crate::opts::Format;
 
 // {{{
 mod statements {
+    use std::borrow::Cow;
+    use std::path::Path;
+
     use nom::branch::alt;
     use nom::bytes::complete::{tag, take_while, take_while1};
     use nom::character::complete;
@@ -98,9 +101,15 @@ mod statements {
         }
     }
 
+    impl std::fmt::Display for FilePath<'_> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            std::fmt::Display::fmt(&self.as_full_path().display(), f)
+        }
+    }
+
     impl std::fmt::Display for File<'_> {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            write!(f, "\t.file\t{} {}", self.index, self.name)
+            write!(f, "\t.file\t{} {}", self.index, self.path)
         }
     }
 
@@ -198,6 +207,55 @@ mod statements {
         }
     }
 
+    #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+    pub enum FilePath<'a> {
+        FullPath(&'a str),
+        PathAndFileName { path: &'a str, name: &'a str },
+    }
+
+    impl FilePath<'_> {
+        pub fn as_full_path(&self) -> Cow<'_, Path> {
+            match self {
+                FilePath::FullPath(path) => Cow::Borrowed(Path::new(path)),
+                FilePath::PathAndFileName { path, name } => Cow::Owned(Path::new(path).join(name)),
+            }
+        }
+    }
+
+    #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+    pub struct File<'a> {
+        pub index: u64,
+        pub path: FilePath<'a>,
+    }
+
+    impl<'a> File<'a> {
+        pub fn parse(input: &'a str) -> IResult<&'a str, Self> {
+            fn filename<'a>(input: &'a str) -> IResult<&'a str, &'a str> {
+                delimited(tag("\""), take_while1(|c| c != '"'), tag("\""))(input)
+            }
+
+            map(
+                tuple((
+                    tag("\t.file\t"),
+                    complete::u64,
+                    space1,
+                    filename,
+                    opt(tuple((space1, filename))),
+                )),
+                |(_, fileno, _, filepath, filename)| File {
+                    index: fileno,
+                    path: match filename {
+                        Some((_, filename)) => FilePath::PathAndFileName {
+                            path: filepath,
+                            name: filename,
+                        },
+                        None => FilePath::FullPath(filepath),
+                    },
+                },
+            )(input)
+        }
+    }
+
     #[test]
     fn test_parse_label() {
         assert_eq!(
@@ -262,6 +320,41 @@ mod statements {
         );
     }
 
+    #[test]
+    fn test_parse_file() {
+        let (rest, file) = File::parse("\t.file\t9 \"/home/ubuntu/buf-test/src/main.rs\"").unwrap();
+        assert!(rest.is_empty());
+        assert_eq!(
+            file,
+            File {
+                index: 9,
+                path: FilePath::FullPath("/home/ubuntu/buf-test/src/main.rs")
+            }
+        );
+        assert_eq!(
+            file.path.as_full_path(),
+            Path::new("/home/ubuntu/buf-test/src/main.rs")
+        );
+
+        let (rest, file) =
+            File::parse("\t.file\t9 \"/home/ubuntu/buf-test\" \"src/main.rs\"").unwrap();
+        assert!(rest.is_empty());
+        assert_eq!(
+            file,
+            File {
+                index: 9,
+                path: FilePath::PathAndFileName {
+                    path: "/home/ubuntu/buf-test",
+                    name: "src/main.rs"
+                }
+            }
+        );
+        assert_eq!(
+            file.path.as_full_path(),
+            Path::new("/home/ubuntu/buf-test/src/main.rs")
+        );
+    }
+
     #[derive(Clone, Debug)]
     pub enum Directive<'a> {
         File(File<'a>),
@@ -272,28 +365,12 @@ mod statements {
     }
 
     #[derive(Clone, Debug)]
-    pub struct File<'a> {
-        pub index: u64,
-        pub name: &'a str,
-    }
-
-    #[derive(Clone, Debug)]
     pub struct GenericDirective<'a>(pub &'a str);
 
     pub fn parse_statement(input: &str) -> IResult<&str, Statement> {
         let label = map(Label::parse, Statement::Label);
 
-        let filename = delimited(tag("\""), take_while1(|c| c != '"'), tag("\""));
-
-        let file = map(
-            tuple((tag("\t.file\t"), complete::u64, space1, filename)),
-            |(_, fileno, _, filename)| {
-                Directive::File(File {
-                    index: fileno,
-                    name: filename,
-                })
-            },
-        );
+        let file = map(File::parse, Directive::File);
 
         let loc = map(Loc::parse, Directive::Loc);
 
@@ -431,18 +508,25 @@ pub fn dump_function(
                 continue;
             }
             files.entry(f.index).or_insert_with(|| {
-                if let Ok(payload) = std::fs::read_to_string(f.name) {
-                    return (f.name, CachedLines::without_ending(payload));
-                } else if f.name.starts_with("/rustc/") {
-                    if let Some(x) = f.name.splitn(4, '/').last() {
-                        let src = sysroot.join("lib/rustlib/src/rust").join(x);
+                let path = f.path.as_full_path();
+                if let Ok(payload) = std::fs::read_to_string(&path) {
+                    return (path, CachedLines::without_ending(payload));
+                } else if path.starts_with("/rustc/") {
+                    let relative_path = {
+                        let mut components = path.components();
+                        // skip first three dirs in path
+                        components.by_ref().take(3).for_each(|_| ());
+                        components.as_path()
+                    };
+                    if relative_path.file_name().is_some() {
+                        let src = sysroot.join("lib/rustlib/src/rust").join(relative_path);
                         if let Ok(payload) = std::fs::read_to_string(src) {
-                            return (f.name, CachedLines::without_ending(payload));
+                            return (path, CachedLines::without_ending(payload));
                         }
                     }
                 }
                 // if file is not found - ust create a dummy
-                (f.name, CachedLines::without_ending(String::new()))
+                (path, CachedLines::without_ending(String::new()))
             });
             continue;
         }
@@ -460,7 +544,7 @@ pub fn dump_function(
                 prev_loc = *loc;
                 if let Some((fname, file)) = files.get(&loc.file) {
                     let rust_line = &file[loc.line as usize - 1];
-                    let pos = format!("\t\t// {} : {}", fname, loc.line);
+                    let pos = format!("\t\t// {} : {}", fname.display(), loc.line);
                     println!("{}", color!(pos, OwoColorize::cyan));
                     println!(
                         "\t\t{}",
