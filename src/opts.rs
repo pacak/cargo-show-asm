@@ -86,8 +86,13 @@ pub struct Options {
 
 #[derive(Bpaf, Clone, Debug)]
 pub struct CliFeatures {
+    // Previous releases (mis)named this field `no_defaut_features`(sic), resulting in the command
+    // line option being `--no-defaut-features` and not the `--no-default-features` used by other
+    // Cargo subcommands and which users would normally expect. This attribute retains that as a
+    // hidden alias just in case users are still using the misspelt version in their scripts.
+    #[bpaf(long, long("no-defaut-features"))]
     /// Do not activate `default` feature
-    pub no_defaut_features: bool,
+    pub no_default_features: bool,
     /// Activate all available features
     pub all_features: bool,
     /// A feature to activate, can be used multiple times
@@ -99,7 +104,7 @@ impl TryFrom<CliFeatures> for cargo::core::resolver::features::CliFeatures {
     type Error = anyhow::Error;
 
     fn try_from(cf: CliFeatures) -> Result<Self, Self::Error> {
-        Self::from_command_line(&cf.feature, cf.all_features, !cf.no_defaut_features)
+        Self::from_command_line(&cf.feature, cf.all_features, !cf.no_default_features)
     }
 }
 
