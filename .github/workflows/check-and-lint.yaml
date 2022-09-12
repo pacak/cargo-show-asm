@@ -30,4 +30,11 @@ jobs:
       - name: Check formatting
         run: cargo fmt --all --check
 
+      - name: Native version works (Intel ASM)
+        run: cargo run -- --manifest-path sample/Cargo.toml --intel sample::main
 
+      - name: Native version works (LLVM)
+        run: cargo run -- --manifest-path sample/Cargo.toml --llvm sample::main
+
+      - name: Native version works (MIR)
+        run: cargo run -- --manifest-path sample/Cargo.toml --mir sample::main
