@@ -17,6 +17,7 @@ jobs:
         with:
           toolchain: stable
           components: rustfmt clippy
+          targets: armv7-unknown-linux-gnueabihf
 
       - name: Build allt the things
         run: cargo build --tests
@@ -30,11 +31,22 @@ jobs:
       - name: Check formatting
         run: cargo fmt --all --check
 
-      - name: Native version works (Intel ASM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --intel sample::main
+      - name: Native version of cargo-show-asm (Intel ASM)
+        run: >
+          cargo clean --manifest-path sample/Cargo.toml &&
+          cargo run -- --manifest-path sample/Cargo.toml --intel sample::main
 
-      - name: Native version works (LLVM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --llvm sample::main
+      - name: Native version of cargo-show-asm (LLVM)
+        run: >
+          cargo clean --manifest-path sample/Cargo.toml &&
+          cargo run -- --manifest-path sample/Cargo.toml --llvm sample::main
 
-      - name: Native version works (MIR)
-        run: cargo run -- --manifest-path sample/Cargo.toml --mir sample::main
+      - name: Native version of cargo-show-asm (MIR)
+        run: >
+          cargo clean --manifest-path sample/Cargo.toml &&
+          cargo run -- --manifest-path sample/Cargo.toml --mir "main() -> ()"
+
+      - name: Crosscompiled version of cargo-show-asm (Intel ASM)
+        run: >
+          cargo clean --manifest-path sample/Cargo.toml &&
+          cargo run -- --manifest-path sample/Cargo.toml --intel sample::main --target armv7-unknown-linux-gnueabihf
