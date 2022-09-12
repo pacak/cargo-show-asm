@@ -65,10 +65,11 @@ fn main() -> anyhow::Result<()> {
         compile_opts.filter = CompileFilter::from(focus);
     }
     compile_opts.cli_features = opts.cli_features.try_into()?;
+    compile_opts.build_config.requested_kinds = vec![kind];
     compile_opts.build_config.requested_profile = opts.compile_mode.into();
     compile_opts.build_config.force_rebuild = opts.force_rebuild;
 
-    let mut rustc_args = vec![
+    let rustc_args = vec![
         // so only one file gets created
         String::from("-C"),
         String::from("codegen-units=1"),
@@ -81,14 +82,6 @@ fn main() -> anyhow::Result<()> {
         String::from("-C"),
         String::from("debuginfo=2"),
     ];
-    if let Some(target) = &opts.target {
-        rustc_args.push(String::from("--target"));
-        rustc_args.push(target.to_string());
-        if let Ok(linker) = cfg.get::<String>(&format!("target.{target}.linker")) {
-            rustc_args.push(String::from("-C"));
-            rustc_args.push(format!("linker={linker}"));
-        }
-    }
     compile_opts.target_rustc_args = Some(rustc_args);
     compile_opts.build_config.build_plan = opts.dry;
 
