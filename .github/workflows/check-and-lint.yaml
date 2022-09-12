@@ -18,13 +18,16 @@ jobs:
           toolchain: stable
           components: rustfmt clippy
 
-      - name: Tests
+      - name: Build allt the things
+        run: cargo build --tests
+
+      - name: Run unit tests
         run: cargo test --all-features
 
       - name: Clippy
         run: cargo clippy
 
-      - name: Formatting
-        run: cargo fmt --all check
+      - name: Check formatting
+        run: cargo fmt --all --check
 
 
