@@ -176,7 +176,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-show-asm"
-version = "0.1.16"
+version = "0.1.17"
 dependencies = [
  "anyhow",
  "bpaf",

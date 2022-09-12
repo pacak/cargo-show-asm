@@ -1,5 +1,11 @@
 # Change Log
 
+# [0.1.17] - 2022-09-12
+- fix typo in default features
+Thanks to @mooli
+- fix more crosscompilation issues
+Thanks to @WIgor
+
 # [0.1.16] - 2022-09-03
 - Fix parsing of file directive on nightly
 - Bump bpaf
