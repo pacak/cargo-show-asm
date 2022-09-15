@@ -307,7 +307,15 @@ impl Focus {
 
 pub fn select_package(opts: &Options, ws: &Workspace) -> String {
     let package = match (ws.root_maybe(), &opts.package) {
-        (MaybePackage::Package(p), _) => p,
+        (_, Some(p)) => {
+            if let Some(package) = ws.members().find(|package| package.name().as_str() == p) {
+                package
+            } else {
+                // give up and let rustc to handle the rest
+                return p.to_string();
+            }
+        }
+        (MaybePackage::Package(p), None) => p,
         (MaybePackage::Virtual(_), None) => {
             if let Some(focus) = &opts.focus {
                 let mut candidates = Vec::new();
@@ -340,14 +348,6 @@ pub fn select_package(opts: &Options, ws: &Workspace) -> String {
                     eprintln!("\t-p {}", package.name());
                 }
                 std::process::exit(1);
-            }
-        }
-        (MaybePackage::Virtual(_), Some(p)) => {
-            if let Some(package) = ws.members().find(|package| package.name().as_str() == p) {
-                package
-            } else {
-                // give up and let rustc to handle the rest
-                return p.to_string();
             }
         }
     };
