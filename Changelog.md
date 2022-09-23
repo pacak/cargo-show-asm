@@ -1,5 +1,8 @@
 # Change Log
 
+## [0.1.19] - 2022-09-23
+- detect missing sources and suggest to install them
+
 ## [0.1.18] - 2022-09-15
 - bugfix to package selection in non-virtual workspaces
 
