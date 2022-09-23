@@ -235,7 +235,7 @@ mod statements {
 
     impl<'a> File<'a> {
         pub fn parse(input: &'a str) -> IResult<&'a str, Self> {
-            fn filename<'a>(input: &'a str) -> IResult<&'a str, &'a str> {
+            fn filename(input: &str) -> IResult<&str, &str> {
                 delimited(tag("\""), take_while1(|c| c != '"'), tag("\""))(input)
             }
 
@@ -550,6 +550,11 @@ pub fn dump_function(
                     };
                     if relative_path.file_name().is_some() {
                         let src = sysroot.join("lib/rustlib/src/rust").join(relative_path);
+                        if !src.exists() {
+                            eprintln!("You need to install rustc sources to be able to see the rust annotations, try\n\
+                                       \trustup component add rust-src");
+                            std::process::exit(1);
+                        }
                         if let Ok(payload) = std::fs::read_to_string(src) {
                             return (path, CachedLines::without_ending(payload));
                         }
