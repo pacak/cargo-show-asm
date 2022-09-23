@@ -550,6 +550,11 @@ pub fn dump_function(
                     };
                     if relative_path.file_name().is_some() {
                         let src = sysroot.join("lib/rustlib/src/rust").join(relative_path);
+                        if !src.exists() {
+                            eprintln!("You need to install rustc sources to be able to see the rust annotations, try\n\
+                                       \trustup component add rust-src");
+                            std::process::exit(1);
+                        }
                         if let Ok(payload) = std::fs::read_to_string(src) {
                             return (path, CachedLines::without_ending(payload));
                         }
