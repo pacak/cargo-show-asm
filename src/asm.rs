@@ -235,7 +235,7 @@ mod statements {
 
     impl<'a> File<'a> {
         pub fn parse(input: &'a str) -> IResult<&'a str, Self> {
-            fn filename<'a>(input: &'a str) -> IResult<&'a str, &'a str> {
+            fn filename(input: &str) -> IResult<&str, &str> {
                 delimited(tag("\""), take_while1(|c| c != '"'), tag("\""))(input)
             }
 
