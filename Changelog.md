@@ -1,5 +1,9 @@
 # Change Log
 
+## [0.1.20] - 2022-09-24
+- Update cargo version to 0.65
+- Bump bpaf
+
 ## [0.1.19] - 2022-09-23
 - detect missing sources and suggest to install them
 
