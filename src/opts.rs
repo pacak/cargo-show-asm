@@ -6,8 +6,7 @@ use cargo::{
 };
 use std::path::PathBuf;
 
-fn check_target_dir(path: std::ffi::OsString) -> anyhow::Result<PathBuf> {
-    let path = PathBuf::from(path);
+fn check_target_dir(path: PathBuf) -> anyhow::Result<PathBuf> {
     if path.is_dir() {
         Ok(path)
     } else {
@@ -45,7 +44,7 @@ pub struct Options {
     /// Use custom target directory for generated artifacts, create if missing
     #[bpaf(
         env("CARGO_TARGET_DIR"),
-        argument_os("DIR"),
+        argument("DIR"),
         parse(check_target_dir),
         optional
     )]
@@ -80,7 +79,7 @@ pub struct Options {
     // what to display
     #[bpaf(positional("FUNCTION"), optional)]
     pub function: Option<String>,
-    #[bpaf(positional("INDEX"), from_str(usize), fallback(0))]
+    #[bpaf(positional::<usize>("INDEX"), fallback(0))]
     pub nth: usize,
 }
 
@@ -139,8 +138,7 @@ fn verbose() -> impl Parser<u32> {
 fn parse_manifest_path() -> impl Parser<PathBuf> {
     long("manifest-path")
         .help("Path to Cargo.toml")
-        .argument_os("PATH")
-        .map(PathBuf::from)
+        .argument::<PathBuf>("PATH")
         .parse(|p| {
             if p.is_absolute() {
                 Ok(p)
