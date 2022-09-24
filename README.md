@@ -15,9 +15,9 @@ cargo install cargo-show-asm
   - OS: Linux and MacOSX. Limited support for Windows
   - Rust: nightly and stable.
   - Architectures: x86, x86_64, aarch64, probably more but untested.
-  - Crosscompilation support.
+  - Cross-compilation support.
 
-Missing operating systems and architenctures might be supported by accident, please make a
+Missing operating systems and architectures might be supported by accident, please make a
 ticket if something not working for your favorite platform
 
 - Displaying:
@@ -35,7 +35,7 @@ defining several targets (lib, binaries, examples) you need to specify exactly w
 use. In a workspace `cargo asm` lists only workspace members as suggestions but any crate from
 workspace tree is available.
 
-Once `cargo asm` focues on a single target it will run rustc producing assembly file and will
+Once `cargo asm` focuses on a single target it will run rustc producing assembly file and will
 try to list of available public functions:
 
 ```ignore
@@ -76,6 +76,18 @@ instead of a full one and only matching functions will be listed
 ```
 % cargo asm --lib Debug
 ```
+
+# What about `cargo-asm`?
+
+`cargo-asm` is not maintained: https://github.com/gnzlbg/cargo-asm/issues/244. This crate is a reimplementation which addresses a number of its shortcomings, including:
+
+* `cargo-asm` calls rustc directly. It recompiles everything every time with 1 codegen unit, which is slow and also not necessarily what is in your release profile. `cargo-show-asm` lets cargo run rustc.
+
+* Because of how `cargo-asm` handles demangling the output looks like asm but isn't actually asm. It contains a whole bunch of extra commas which makes reusing it more annoying.
+
+* `cargo-asm` always uses colors unless you pass a flag while `cargo-show-asm` changes its default behavior if output is not sent to a terminal.
+
+* `cargo-show-asm` also supports MIR (note that the formatting of human-readable MIR is not stable).
 
 # License
 This project is licensed under either of
