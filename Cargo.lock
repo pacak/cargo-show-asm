@@ -182,6 +182,7 @@ dependencies = [
  "anyhow",
  "bpaf",
  "cargo",
+ "git2",
  "glob",
  "line-span",
  "nix",

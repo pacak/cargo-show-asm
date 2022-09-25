@@ -15,6 +15,7 @@ license = "MIT OR Apache-2.0"
 anyhow = "1"
 bpaf = { version = "0.6", features = ["bpaf_derive"] }
 cargo = "0.65"
+git2 = { version = "0.14.2", optional = true } # same version as used by cargo
 glob = "0.3"
 line-span = "0.1"
 nom = "7"
@@ -29,6 +30,7 @@ nix = { version = "0.25", default-features = false, features = ["signal"] }
 
 [features]
 vendored-openssl = ["cargo/vendored-openssl"]
+vendored-libgit2 = ["git2/vendored-libgit2"]
 
 [[bin]]
 name = "cargo-asm"
