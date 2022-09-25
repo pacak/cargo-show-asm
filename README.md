@@ -4,8 +4,8 @@ A cargo subcommand that displays the Assembly, LLVM-IR and MIR generated for Rus
 
 # Install
 
-```
-cargo install cargo-show-asm
+```console
+$ cargo install cargo-show-asm
 ```
 
 # Features
@@ -38,15 +38,15 @@ workspace tree is available.
 Once `cargo asm` focuses on a single target it will run rustc producing assembly file and will
 try to list of available public functions:
 
-```ignore
-% cargo asm --lib
+```console,ignore
+$ cargo asm --lib
 Try one of those
 "<&T as core::fmt::Display>::fmt" [17, 12, 12, 12, 12, 19, 19, 12]
 "<&mut W as core::fmt::Write>::write_char" [20]
 "<&mut W as core::fmt::Write>::write_fmt" [38]
 "<&mut W as core::fmt::Write>::write_str" [90]
 "<F as nom::internal::Parser<I,O,E>>::parse" [263]
-...
+# ...
 ```
 
 Name in quotes is demangled rust name, numbers in square brackets represent number of lines
@@ -54,27 +54,27 @@ in asm file. Function with the same name can be present in several instances.
 
 Specifying exact function name will print its assembly code
 
-```ignore
-% cargo asm --lib "cargo_show_asm::opts::focus::{{closure}}"
+```console,ignore
+$ cargo asm --lib "cargo_show_asm::opts::focus::{{closure}}"
 ```
 To pick between different alternatives you can either specify the index
 
-```ignore
-% cargo asm --lib "cargo_show_asm::opts::focus::{{closure}}" 2
+```console,ignore
+$ cargo asm --lib "cargo_show_asm::opts::focus::{{closure}}" 2
 ```
 Or start using full names with hex included:
 
-```ignore
-% cargo asm --lib --full-name
-....
-% cargo asm --lib "once_cell::imp::OnceCell<T>::initialize::h9c5c7d5bd745000b"
+```console,ignore
+$ cargo asm --lib --full-name
+# ...
+$ cargo asm --lib "once_cell::imp::OnceCell<T>::initialize::h9c5c7d5bd745000b"
 ```
 
 `cargo-show-asm` comes with a built in search function. Just pass partial name
 instead of a full one and only matching functions will be listed
 
-```
-% cargo asm --lib Debug
+```console
+$ cargo asm --lib Debug
 ```
 
 # What about `cargo-asm`?
