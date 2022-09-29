@@ -5,6 +5,7 @@
 - documentation improvements
 Thanks to @dtolnay, @matthiasbeyer and @saethlin
 - support --native and --target-cpu
+- when dumping a function - dump full section
 
 ## [0.1.20] - 2022-09-24
 - Update cargo version to 0.65
