@@ -67,6 +67,10 @@ pub struct Options {
     #[bpaf(argument("TRIPLE"))]
     pub target: Option<String>,
 
+    /// Generate code for a specific CPU
+    #[bpaf(external)]
+    pub target_cpu: Option<String>,
+
     // how to display
     #[bpaf(external(format))]
     pub format: Format,
@@ -81,6 +85,16 @@ pub struct Options {
     pub function: Option<String>,
     #[bpaf(positional::<usize>("INDEX"), fallback(0))]
     pub nth: usize,
+}
+
+fn target_cpu() -> impl Parser<Option<String>> {
+    let native = long("native")
+        .help("Optimize for the CPU running the compiler")
+        .req_flag("native".to_string());
+    let cpu = long("target-cpu")
+        .help("Optimize code for a specific CPU, see 'rustc --print target-cpus'")
+        .argument::<String>("CPU");
+    construct!([native, cpu]).optional()
 }
 
 #[derive(Bpaf, Clone, Debug)]

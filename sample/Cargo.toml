@@ -7,3 +7,5 @@ edition = "2021"
 
 [dependencies]
 rand_core = "0.6"
+
+[workspace]
