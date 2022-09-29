@@ -89,6 +89,14 @@ $ cargo asm --lib Debug
 
 * `cargo-show-asm` also supports MIR (note that the formatting of human-readable MIR is not stable).
 
+# I'm on MacOS and `cargo-show-asm` fails to compile for me
+
+In case you encounter a problem with openssl and libgit - you can try enabling one or both:
+```console
+cargo install cargo-show-asm --features vendored-openssl,vendored-libgit2
+
+```
+
 # License
 This project is licensed under either of
 
