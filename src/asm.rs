@@ -70,7 +70,13 @@ mod statements {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             match self {
                 Statement::Label(l) => l.fmt(f),
-                Statement::Directive(d) => d.fmt(f),
+                Statement::Directive(d) => {
+                    if f.alternate() {
+                        write!(f, "{d:#}")
+                    } else {
+                        write!(f, "{d}")
+                    }
+                }
                 Statement::Instruction(i) => {
                     if f.alternate() {
                         write!(f, "\t{i:#}")
@@ -92,6 +98,14 @@ mod statements {
                 Directive::Generic(g) => g.fmt(f),
                 Directive::Set(g) => {
                     f.write_str(&format!(".set {}", color!(g, OwoColorize::bright_black)))
+                }
+                Directive::SectionStart(s) => {
+                    let dem = demangle::contents(s, f.alternate());
+                    f.write_str(&format!(
+                        "{} {}",
+                        color!(".section", OwoColorize::bright_black),
+                        dem
+                    ))
                 }
                 Directive::SubsectionsViaSym => f.write_str(&format!(
                     ".{}",
@@ -392,6 +406,7 @@ mod statements {
         Generic(GenericDirective<'a>),
         Set(&'a str),
         SubsectionsViaSym,
+        SectionStart(&'a str),
     }
 
     #[derive(Clone, Debug)]
@@ -404,6 +419,10 @@ mod statements {
 
         let loc = map(Loc::parse, Directive::Loc);
 
+        let section = map(
+            preceded(tag("\t.section"), take_while1(|c| c != '\n')),
+            |s: &str| Directive::SectionStart(s.trim()),
+        );
         let generic = map(preceded(tag("\t."), take_while1(|c| c != '\n')), |s| {
             Directive::Generic(GenericDirective(s))
         });
@@ -423,7 +442,10 @@ mod statements {
             Statement::Nothing
         });
 
-        let dir = map(alt((file, loc, set, ssvs, generic)), Statement::Directive);
+        let dir = map(
+            alt((file, loc, set, ssvs, section, generic)),
+            Statement::Directive,
+        );
 
         // use terminated on the subparsers so that if the subparser doesn't consume the whole line, it's discarded
         // we assume that each label/instruction/directive will only take one line
@@ -462,6 +484,10 @@ mod statements {
             } else {
                 false
             }
+        }
+
+        pub(crate) fn is_section_start(&self) -> bool {
+            matches!(self, Statement::Directive(Directive::SectionStart(_)))
         }
     }
 }
@@ -508,6 +534,9 @@ pub fn dump_function(
     let mut files = BTreeMap::new();
     let mut names = BTreeMap::new();
 
+    let mut stash = Vec::new();
+    let mut collect_lines = false;
+
     let mut current_item = None;
     for (ix, line) in parse_file(&contents)
         .expect("Should be able to parse file")
@@ -515,6 +544,14 @@ pub fn dump_function(
         .iter()
         .enumerate()
     {
+        if line.is_section_start() {
+            stash.clear();
+            collect_lines = true;
+        }
+        if collect_lines {
+            stash.push(line.clone());
+        }
+
         if let Statement::Label(label) = line {
             if let Some(dem) = demangle::demangled(label.id) {
                 let hashed = format!("{dem:?}");
@@ -522,6 +559,19 @@ pub fn dump_function(
                 let name_entry = names.entry(name.clone()).or_insert(0);
 
                 show = (name.as_ref(), *name_entry) == goal || hashed == goal.0;
+                if show {
+                    stash.pop();
+                    for line in stash.drain(0..) {
+                        if fmt.full_name {
+                            println!("{line:#}");
+                        } else {
+                            println!("{line}");
+                        }
+                    }
+                } else {
+                    stash.clear();
+                }
+                collect_lines = false;
                 current_item = Some(Item {
                     name,
                     hashed,
