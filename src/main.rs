@@ -69,7 +69,7 @@ fn main() -> anyhow::Result<()> {
     compile_opts.build_config.requested_profile = opts.compile_mode.into();
     compile_opts.build_config.force_rebuild = opts.force_rebuild;
 
-    let rustc_args = vec![
+    let mut rustc_args = vec![
         // so only one file gets created
         String::from("-C"),
         String::from("codegen-units=1"),
@@ -82,6 +82,10 @@ fn main() -> anyhow::Result<()> {
         String::from("-C"),
         String::from("debuginfo=2"),
     ];
+    if let Some(cpu) = &opts.target_cpu {
+        rustc_args.push(String::from("-C"));
+        rustc_args.push(format!("target-cpu={}", cpu));
+    }
     compile_opts.target_rustc_args = Some(rustc_args);
     compile_opts.build_config.build_plan = opts.dry;
 
