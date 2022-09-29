@@ -1,8 +1,14 @@
 # Change Log
 
+## [0.1.21] - 2022-09-29
+- options for vendored libgit2 and openssl
+- documentation improvements
+Thanks to @dtolnay, @matthiasbeyer and @saethlin
+
 ## [0.1.20] - 2022-09-24
 - Update cargo version to 0.65
 - Bump bpaf
+Thanks to @elichai
 
 ## [0.1.19] - 2022-09-23
 - detect missing sources and suggest to install them
