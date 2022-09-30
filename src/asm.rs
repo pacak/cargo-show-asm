@@ -6,17 +6,25 @@ use crate::opts::Format;
 
 mod statements;
 
-use nom::IResult;
 use owo_colors::OwoColorize;
 use statements::{parse_statement, Directive, Loc, Statement};
 use std::collections::BTreeMap;
 use std::path::Path;
 
-pub fn parse_file(input: &str) -> IResult<&str, Vec<Statement>> {
+pub fn parse_file(input: &str) -> anyhow::Result<Vec<Statement>> {
     // eat all statements until the eof, so we can report the proper errors on failed parse
-    let (input, (stmts, _eof)) =
-        nom::multi::many_till(parse_statement, nom::combinator::eof)(input)?;
-    Ok((input, stmts))
+    match nom::multi::many0(parse_statement)(input) {
+        Ok(("", stmts)) => Ok(stmts),
+        Ok((leftovers, _)) => {
+            if leftovers.len() < 1000 {
+                anyhow::bail!("Didn't consume everything, leftovers: {leftovers:?}")
+            } else {
+                let head = &leftovers[..leftovers.char_indices().nth(200).unwrap().0];
+                anyhow::bail!("Didn't consume everything, leftovers prefix: {head:?}");
+            }
+        }
+        Err(err) => anyhow::bail!("Couldn't parse the .s file: {err}"),
+    }
 }
 
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
@@ -51,12 +59,8 @@ pub fn dump_function(
     let mut collect_lines = false;
 
     let mut current_item = None;
-    for (ix, line) in parse_file(&contents)
-        .expect("Should be able to parse file")
-        .1
-        .iter()
-        .enumerate()
-    {
+    let file = parse_file(&contents)?;
+    for (ix, line) in file.iter().enumerate() {
         if line.is_section_start() {
             stash.clear();
             collect_lines = true;
