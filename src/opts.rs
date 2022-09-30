@@ -173,8 +173,11 @@ pub struct Format {
     #[bpaf(external(color_detection))]
     pub color: bool,
 
-    /// include full demangled name instead of just prefix
+    /// Include full demangled name instead of just prefix
     pub full_name: bool,
+
+    /// Keep all the original labels
+    pub keep_labels: bool,
 }
 
 #[derive(Debug, Clone, Bpaf)]

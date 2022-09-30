@@ -1,4 +1,5 @@
 #![allow(clippy::missing_errors_doc)]
+use crate::asm::statements::{Instruction, Label};
 use crate::cached_lines::CachedLines;
 use crate::{color, demangle};
 // TODO, use https://sourceware.org/binutils/docs/as/index.html
@@ -9,6 +10,7 @@ mod statements;
 use owo_colors::OwoColorize;
 use statements::{parse_statement, Directive, Loc, Statement};
 use std::collections::BTreeMap;
+use std::ops::Range;
 use std::path::Path;
 
 pub fn parse_file(input: &str) -> anyhow::Result<Vec<Statement>> {
@@ -39,67 +41,80 @@ pub struct Item {
     pub len: usize,
 }
 
-/// try to print `goal` from `path`, collect available items otherwise
-pub fn dump_function(
-    goal: (&str, usize),
-    path: &Path,
-    sysroot: &Path,
-    fmt: &Format,
-    items: &mut Vec<Item>,
-) -> anyhow::Result<bool> {
-    let contents = std::fs::read_to_string(path)?;
-    let mut show = false;
-    let mut seen = false;
-    let mut prev_loc = Loc::default();
+fn find_items(lines: &[Statement]) -> BTreeMap<Item, Range<usize>> {
+    let mut res = BTreeMap::new();
 
-    let mut files = BTreeMap::new();
+    let mut sec_start = 0;
+    let mut item = None;
     let mut names = BTreeMap::new();
 
-    let mut stash = Vec::new();
-    let mut collect_lines = false;
-
-    let mut current_item = None;
-    let file = parse_file(&contents)?;
-    for (ix, line) in file.iter().enumerate() {
+    for (ix, line) in lines.iter().enumerate() {
         if line.is_section_start() {
-            stash.clear();
-            collect_lines = true;
-        }
-        if collect_lines {
-            stash.push(line.clone());
-        }
-
-        if let Statement::Label(label) = line {
+            sec_start = ix;
+        } else if line.is_end_of_fn() {
+            let sec_end = ix;
+            let range = sec_start..sec_end;
+            if let Some(item) = item.take() {
+                res.insert(item, range);
+            }
+        } else if let Statement::Label(label) = line {
             if let Some(dem) = demangle::demangled(label.id) {
                 let hashed = format!("{dem:?}");
                 let name = format!("{dem:#?}");
                 let name_entry = names.entry(name.clone()).or_insert(0);
-
-                show = (name.as_ref(), *name_entry) == goal || hashed == goal.0;
-                if show {
-                    stash.pop();
-                    for line in stash.drain(0..) {
-                        if fmt.full_name {
-                            println!("{line:#}");
-                        } else {
-                            println!("{line}");
-                        }
-                    }
-                } else {
-                    stash.clear();
-                }
-                collect_lines = false;
-                current_item = Some(Item {
+                item = Some(Item {
                     name,
                     hashed,
                     index: *name_entry,
                     len: ix,
                 });
                 *name_entry += 1;
-                seen |= show;
             }
         }
+    }
+    res
+}
 
+pub fn used_labels<'a>(stmts: &'_ [Statement<'a>]) -> BTreeMap<&'a str, usize> {
+    let labels = stmts
+        .iter()
+        .filter_map(|i| {
+            if let Statement::Label(Label { local: true, id }) = i {
+                Some(id)
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+
+    let mut used_labels = BTreeMap::new();
+
+    for (ix, item) in stmts.iter().enumerate() {
+        if let Statement::Instruction(Instruction {
+            args: Some(args), ..
+        }) = item
+        {
+            for &label in &labels {
+                if args.contains(label) {
+                    used_labels.insert(*label, ix);
+                }
+            }
+        }
+    }
+    used_labels
+}
+
+pub fn dump_range(sysroot: &Path, fmt: &Format, stmts: &[Statement]) -> anyhow::Result<()> {
+    let mut files = BTreeMap::new();
+    let mut prev_loc = Loc::default();
+
+    let used = if fmt.keep_labels {
+        BTreeMap::new()
+    } else {
+        used_labels(stmts)
+    };
+
+    for line in stmts.iter() {
         if let Statement::Directive(Directive::File(f)) = line {
             if !fmt.rust {
                 continue;
@@ -131,49 +146,73 @@ pub fn dump_function(
                 (path, CachedLines::without_ending(String::new()))
             });
             continue;
-        }
-        if show {
-            if let Statement::Directive(Directive::Loc(loc)) = &line {
-                if !fmt.rust {
+        } else if let Statement::Directive(Directive::Loc(loc)) = &line {
+            if !fmt.rust {
+                continue;
+            }
+            if loc.line == 0 {
+                continue;
+            }
+            if loc == &prev_loc {
+                continue;
+            }
+            prev_loc = *loc;
+            if let Some((fname, file)) = files.get(&loc.file) {
+                let rust_line = &file[loc.line as usize - 1];
+                let pos = format!("\t\t// {} : {}", fname.display(), loc.line);
+                println!("{}", color!(pos, OwoColorize::cyan));
+                println!(
+                    "\t\t{}",
+                    color!(rust_line.trim_start(), OwoColorize::bright_red)
+                );
+            }
+        } else {
+            if !fmt.keep_labels {
+                if let Statement::Label(Label { local: true, id }) = line {
+                    if used.contains_key(id) {
+                        println!("{line}");
+                    } else {
+                        println!();
+                    }
                     continue;
-                }
-                if loc.line == 0 {
-                    continue;
-                }
-                if loc == &prev_loc {
-                    continue;
-                }
-                prev_loc = *loc;
-                if let Some((fname, file)) = files.get(&loc.file) {
-                    let rust_line = &file[loc.line as usize - 1];
-                    let pos = format!("\t\t// {} : {}", fname.display(), loc.line);
-                    println!("{}", color!(pos, OwoColorize::cyan));
-                    println!(
-                        "\t\t{}",
-                        color!(rust_line.trim_start(), OwoColorize::bright_red)
-                    );
-                }
-            } else {
-                #[allow(clippy::collapsible_else_if)]
-                if fmt.full_name {
-                    println!("{line:#}");
-                } else {
-                    println!("{line}");
                 }
             }
-        }
 
-        if line.is_end_of_fn() {
-            if let Some(mut cur) = current_item.take() {
-                cur.len = ix - cur.len;
-                if goal.0.is_empty() || cur.name.contains(goal.0) {
-                    items.push(cur);
-                }
-            }
-            if seen {
-                return Ok(true);
+            #[allow(clippy::collapsible_else_if)]
+            if fmt.full_name {
+                println!("{line:#}");
+            } else {
+                println!("{line}");
             }
         }
     }
-    Ok(seen)
+    Ok(())
+}
+
+/// try to print `goal` from `path`, collect available items otherwise
+pub fn dump_function(
+    goal: (&str, usize),
+    path: &Path,
+    sysroot: &Path,
+    fmt: &Format,
+    items: &mut Vec<Item>,
+) -> anyhow::Result<bool> {
+    let contents = std::fs::read_to_string(path)?;
+    let file = parse_file(&contents)?;
+    let functions = find_items(&file);
+
+    for (item, range) in &functions {
+        if (item.name.as_ref(), item.index) == goal || item.hashed == goal.0 {
+            dump_range(sysroot, fmt, &file[range.clone()])?;
+            return Ok(true);
+        }
+    }
+
+    *items = functions
+        .keys()
+        .filter(|i| i.name.contains(goal.0))
+        .cloned()
+        .collect::<Vec<_>>();
+
+    Ok(false)
 }
