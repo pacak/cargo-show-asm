@@ -163,6 +163,9 @@ fn main() -> anyhow::Result<()> {
         );
 
         let mut existing = Vec::new();
+        if opts.verbosity > 0 {
+            println!("Looking for {file_mask:?}");
+        }
         let mut asm_files = glob::glob(&file_mask)?.collect::<Vec<_>>();
 
         // this variable exists to deal with the case where there's only

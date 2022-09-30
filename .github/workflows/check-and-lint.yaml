@@ -34,12 +34,12 @@ jobs:
       - name: Native version of cargo-show-asm (Intel ASM)
         run: >
           cargo clean --manifest-path sample/Cargo.toml &&
-          cargo run -- --manifest-path sample/Cargo.toml --intel sample::main
+          cargo run -vvv -- --manifest-path sample/Cargo.toml --intel sample::main
 
       - name: Native version of cargo-show-asm (Intel ASM) + native CPU
         run: >
           cargo clean --manifest-path sample/Cargo.toml &&
-          cargo run -- --manifest-path sample/Cargo.toml --native --intel sample::main
+          cargo run -vvv -- --manifest-path sample/Cargo.toml --native --intel sample::main
 
       - name: Native version of cargo-show-asm (Intel ASM) + atom
         run: >
