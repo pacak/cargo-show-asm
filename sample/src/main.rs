@@ -23,6 +23,7 @@ impl SeedableRng for MyRngCore {
 
 fn main() {
     let mut rng = BlockRng::<MyRngCore>::seed_from_u64(0);
-    println!("First value: {}", rng.next_u32());
+    for ix in 0..10 {
+        println!("{ix} rng values: {}", rng.next_u32());
+    }
 }
-
