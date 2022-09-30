@@ -1,5 +1,9 @@
 # Change Log
 
+## [0.1.22] - unreleased
+- strip redundant labels by default
+- cleaning up
+
 ## [0.1.21] - 2022-09-29
 - options for vendored libgit2 and openssl
 - documentation improvements
