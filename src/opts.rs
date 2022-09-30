@@ -173,8 +173,11 @@ pub struct Format {
     #[bpaf(external(color_detection))]
     pub color: bool,
 
-    /// include full demangled name instead of just prefix
+    /// Include full demangled name instead of just prefix
     pub full_name: bool,
+
+    /// Keep all the original labels
+    pub keep_labels: bool,
 }
 
 #[derive(Debug, Clone, Bpaf)]
@@ -306,13 +309,10 @@ impl Focus {
 
     #[must_use]
     /// a path relative to output directory for this focus item
-    pub const fn correction(&self) -> &'static str {
+    pub const fn correction(&self) -> Option<&'static str> {
         match self {
-            #[cfg(not(windows))]
-            Focus::Example(_) => "../examples/",
-            #[cfg(windows)]
-            Focus::Example(_) => "..\\examples\\",
-            Focus::Lib | Focus::Test(_) | Focus::Bench(_) | Focus::Bin(_) => "",
+            Focus::Example(_) => Some("examples"),
+            Focus::Lib | Focus::Test(_) | Focus::Bench(_) | Focus::Bin(_) => None,
         }
     }
 }
