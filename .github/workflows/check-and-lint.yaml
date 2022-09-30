@@ -5,7 +5,7 @@ on:
       - master
 
 jobs:
-  check:
+  linux:
     name: Check and Lint
     runs-on: ubuntu-latest
     steps:
@@ -60,3 +60,54 @@ jobs:
           #        run: >
           #          cargo clean --manifest-path sample/Cargo.toml &&
           #          cargo run -- --manifest-path sample/Cargo.toml --intel sample::main --target armv7-unknown-linux-gnueabihf
+
+  windows:
+    runs-on: windows-latest
+    name: Check windows
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: rustfmt clippy
+          targets: armv7-unknown-linux-gnueabihf
+
+      - name: Build allt the things
+        run: cargo build --tests
+
+      - name: Run unit tests
+        run: cargo test --all-features
+
+      - name: Clippy
+        run: cargo clippy
+
+      - name: Check formatting
+        run: cargo fmt --all --check
+
+      - name: Native version of cargo-show-asm (Intel ASM)
+        run: >
+          cargo clean --manifest-path sample/Cargo.toml &&
+          cargo run -- --manifest-path sample/Cargo.toml --intel sample::main
+
+      - name: Native version of cargo-show-asm (Intel ASM) + native CPU
+        run: >
+          cargo clean --manifest-path sample/Cargo.toml &&
+          cargo run -- --manifest-path sample/Cargo.toml --native --intel sample::main
+
+      - name: Native version of cargo-show-asm (Intel ASM) + atom
+        run: >
+          cargo clean --manifest-path sample/Cargo.toml &&
+          cargo run -- --manifest-path sample/Cargo.toml --target-cpu atom --intel sample::main
+
+      - name: Native version of cargo-show-asm (LLVM)
+        run: >
+          cargo clean --manifest-path sample/Cargo.toml &&
+          cargo run -- --manifest-path sample/Cargo.toml --llvm sample::main
+
+      - name: Native version of cargo-show-asm (MIR)
+        run: >
+          cargo clean --manifest-path sample/Cargo.toml &&
+          cargo run -- --manifest-path sample/Cargo.toml --mir "main() -> ()"
