@@ -6,7 +6,7 @@ on:
 
 jobs:
   linux:
-    name: Check and Lint
+    name: Tests on Linux
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
@@ -63,7 +63,7 @@ jobs:
 
   windows:
     runs-on: windows-latest
-    name: Check windows
+    name: Tests on windows
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
