@@ -309,13 +309,10 @@ impl Focus {
 
     #[must_use]
     /// a path relative to output directory for this focus item
-    pub const fn correction(&self) -> &'static str {
+    pub const fn correction(&self) -> Option<&'static str> {
         match self {
-            #[cfg(not(windows))]
-            Focus::Example(_) => "../examples/",
-            #[cfg(windows)]
-            Focus::Example(_) => "..\\examples\\",
-            Focus::Lib | Focus::Test(_) | Focus::Bench(_) | Focus::Bin(_) => "",
+            Focus::Example(_) => Some("examples"),
+            Focus::Lib | Focus::Test(_) | Focus::Bench(_) | Focus::Bin(_) => None,
         }
     }
 }

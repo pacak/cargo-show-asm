@@ -8,8 +8,7 @@ use cargo::{
 };
 use cargo_show_asm::{
     asm::{self, Item},
-    color, llvm, mir,
-    opts::{self, Focus},
+    color, llvm, mir, opts,
 };
 use std::collections::BTreeMap;
 
@@ -59,10 +58,8 @@ fn main() -> anyhow::Result<()> {
 
     compile_opts.spec = Packages::Packages(vec![package.clone()]);
 
-    let correction = opts.focus.as_ref().map_or("", Focus::correction);
-
-    if let Some(focus) = opts.focus {
-        compile_opts.filter = CompileFilter::from(focus);
+    if let Some(focus) = &opts.focus {
+        compile_opts.filter = CompileFilter::from(focus.clone());
     }
     compile_opts.cli_features = opts.cli_features.try_into()?;
     compile_opts.build_config.requested_kinds = vec![kind];
@@ -134,52 +131,53 @@ fn main() -> anyhow::Result<()> {
             path
         };
 
-        let root;
-        #[cfg(not(windows))]
-        {
-            root = output.display();
-        }
-        #[cfg(windows)]
-        {
-            let full = output.canonicalize()?.display().to_string();
-            let cur = std::env::current_dir()?
-                .canonicalize()?
-                .display()
-                .to_string();
-            let relative = &full[cur.len()..];
-            root = format!(
-                ".{}{}",
-                if relative.starts_with("\\") { "" } else { "\\" },
-                relative
-            );
-        }
+        let output = match opts.focus.clone().and_then(|f| f.correction()) {
+            Some(path) => output.with_file_name(path),
+            None => output.clone(),
+        };
 
-        let file_mask = format!(
-            "{root}{}{}{}-*.{}",
-            std::path::MAIN_SEPARATOR,
-            correction,
-            &comp.root_crate_names[0],
-            opts.syntax.ext(),
-        );
+        if opts.verbosity > 0 {
+            println!("Scanning {:?}", output);
+        }
+        let mut source_files = Vec::new();
+        let name = &comp.root_crate_names[0];
+        for entry in std::fs::read_dir(&output)? {
+            let entry = entry?;
+            let path = entry.path();
+
+            let ext = match path.extension() {
+                Some(ext) => ext,
+                None => continue,
+            };
+
+            let fname = match path.file_name().and_then(|s| s.to_str()) {
+                Some(ext) => ext,
+                None => continue,
+            };
+
+            if ext == opts.syntax.ext() && fname.starts_with(name) {
+                source_files.push(path.to_owned());
+            }
+        }
 
         let mut existing = Vec::new();
         if opts.verbosity > 0 {
-            println!("Looking for {file_mask:?}");
+            println!("Found some files: {:?}", source_files);
         }
-        let mut asm_files = glob::glob(&file_mask)?.collect::<Vec<_>>();
 
         // this variable exists to deal with the case where there's only
         // one matching function - we might as well show it to the user directly
         let mut single_target;
 
-        let seen = match asm_files.len() {
+        let seen = match source_files.len() {
             0 => {
                 anyhow::bail!(
-                    "Compilation produced no files satisfying {file_mask}, this is a bug"
+                    "Compilation produced no files satisfying {:?}, this is a bug",
+                    output.with_file_name("*").with_extension(opts.syntax.ext())
                 );
             }
             1 => {
-                let file = asm_files.remove(0)?;
+                let file = source_files.remove(0);
 
                 let mut seen;
 
@@ -213,7 +211,7 @@ fn main() -> anyhow::Result<()> {
             _ => {
                 if retrying {
                     anyhow::bail!(
-                        "Compilation produced multiple matching files: {asm_files:?}. Do you have several targets (library and binary) producing a file with the same name? Otherwise this is a bug",
+                        "Compilation produced multiple matching files: {source_files:?}. Do you have several targets (library and binary) producing a file with the same name? Otherwise this is a bug",
                     );
                 }
                 let clean_opts = CleanOptions {
