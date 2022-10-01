@@ -10,7 +10,7 @@ use cargo_show_asm::{
     asm::{self, Item},
     color, llvm, mir, opts,
 };
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, ffi::OsStr};
 
 /// This should be called before calling any cli method or printing any output.
 fn reset_signal_pipe_handler() -> anyhow::Result<()> {
@@ -154,13 +154,13 @@ fn main() -> anyhow::Result<()> {
                 None => continue,
             };
 
-            let fname = match path.file_name().and_then(|s| s.to_str()) {
-                Some(ext) => ext,
+            let file_name = match path.file_name().and_then(OsStr::to_str) {
+                Some(file_name) => file_name,
                 None => continue,
             };
 
-            if ext == opts.syntax.ext() && fname.starts_with(name) {
-                source_files.push(path.to_owned());
+            if ext == opts.syntax.ext() && file_name.starts_with(name) {
+                source_files.push(path);
             }
         }
 

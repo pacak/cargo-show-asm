@@ -166,6 +166,7 @@ fn manifest_path() -> impl Parser<PathBuf> {
         .fallback_with(|| std::env::current_dir().map(|x| x.join("Cargo.toml")))
 }
 
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Bpaf)]
 pub struct Format {
     /// Print interleaved Rust code
