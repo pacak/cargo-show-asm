@@ -34,7 +34,7 @@ fn main() -> anyhow::Result<()> {
 
     let mut cfg = Config::default()?;
     cfg.configure(
-        opts.verbosity,
+        opts.format.verbosity,
         false,
         None,
         opts.frozen,
@@ -140,7 +140,7 @@ fn main() -> anyhow::Result<()> {
             None => output.clone(),
         };
 
-        if opts.verbosity > 0 {
+        if opts.format.verbosity > 0 {
             println!("Scanning {:?}", output);
         }
         let mut source_files = Vec::new();
@@ -165,7 +165,7 @@ fn main() -> anyhow::Result<()> {
         }
 
         let mut existing = Vec::new();
-        if opts.verbosity > 0 {
+        if opts.format.verbosity > 0 {
             println!("Found some files: {:?}", source_files);
         }
 

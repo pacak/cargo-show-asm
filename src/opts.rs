@@ -74,9 +74,6 @@ pub struct Options {
     // how to display
     #[bpaf(external)]
     pub format: Format,
-    /// more verbose output, can be specified multiple times
-    #[bpaf(external)]
-    pub verbosity: u32,
     #[bpaf(external)]
     pub syntax: Syntax,
 
@@ -182,6 +179,10 @@ pub struct Format {
 
     /// Keep all the original labels
     pub keep_labels: bool,
+
+    /// more verbose output, can be specified multiple times
+    #[bpaf(external)]
+    pub verbosity: u32,
 }
 
 #[derive(Debug, Clone, Bpaf)]

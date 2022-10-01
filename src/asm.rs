@@ -107,8 +107,11 @@ fn used_labels<'a>(stmts: &'_ [Statement<'a>]) -> BTreeSet<&'a str> {
     used_labels
 }
 
-pub fn dump_range(sysroot: &Path, fmt: &Format, stmts: &[Statement]) -> anyhow::Result<()> {
-    let mut files = BTreeMap::new();
+pub fn dump_range(
+    files: &BTreeMap<u64, (std::borrow::Cow<Path>, CachedLines)>,
+    fmt: &Format,
+    stmts: &[Statement],
+) -> anyhow::Result<()> {
     let mut prev_loc = Loc::default();
 
     let used = if fmt.keep_labels {
@@ -119,37 +122,10 @@ pub fn dump_range(sysroot: &Path, fmt: &Format, stmts: &[Statement]) -> anyhow::
 
     let mut empty_line = false;
     for line in stmts.iter() {
-        if let Statement::Directive(Directive::File(f)) = line {
-            if !fmt.rust {
-                continue;
-            }
-            files.entry(f.index).or_insert_with(|| {
-                let path = f.path.as_full_path();
-                if let Ok(payload) = std::fs::read_to_string(&path) {
-                    return (path, CachedLines::without_ending(payload));
-                } else if path.starts_with("/rustc/") {
-                    let relative_path = {
-                        let mut components = path.components();
-                        // skip first three dirs in path
-                        components.by_ref().take(3).for_each(|_| ());
-                        components.as_path()
-                    };
-                    if relative_path.file_name().is_some() {
-                        let src = sysroot.join("lib/rustlib/src/rust").join(relative_path);
-                        if !src.exists() {
-                            eprintln!("You need to install rustc sources to be able to see the rust annotations, try\n\
-                                       \trustup component add rust-src");
-                            std::process::exit(1);
-                        }
-                        if let Ok(payload) = std::fs::read_to_string(src) {
-                            return (path, CachedLines::without_ending(payload));
-                        }
-                    }
-                }
-                // if file is not found - ust create a dummy
-                (path, CachedLines::without_ending(String::new()))
-            });
-            continue;
+        if fmt.verbosity > 2 {
+            println!("{line:?}");
+        }
+        if let Statement::Directive(Directive::File(_)) = &line {
         } else if let Statement::Directive(Directive::Loc(loc)) = &line {
             if !fmt.rust {
                 continue;
@@ -202,9 +178,48 @@ pub fn dump_function(
     let file = parse_file(&contents)?;
     let functions = find_items(&file);
 
+    let mut files = BTreeMap::new();
+    if fmt.rust {
+        for line in &file {
+            if let Statement::Directive(Directive::File(f)) = line {
+                files.entry(f.index).or_insert_with(|| {
+                let path = f.path.as_full_path();
+                if fmt.verbosity > 1 {
+                    println!("Reading {:?}", path);
+                }
+                if let Ok(payload) = std::fs::read_to_string(&path) {
+                    return (path, CachedLines::without_ending(payload));
+                } else if path.starts_with("/rustc/") {
+                    let relative_path = {
+                        let mut components = path.components();
+                        // skip first three dirs in path
+                        components.by_ref().take(3).for_each(|_| ());
+                        components.as_path()
+                    };
+                    if relative_path.file_name().is_some() {
+                        let src = sysroot.join("lib/rustlib/src/rust").join(relative_path);
+                        if !src.exists() {
+                            eprintln!("You need to install rustc sources to be able to see the rust annotations, try\n\
+                                       \trustup component add rust-src");
+                            std::process::exit(1);
+                        }
+                        if let Ok(payload) = std::fs::read_to_string(src) {
+                            return (path, CachedLines::without_ending(payload));
+                        }
+                    }
+                } else if fmt.verbosity > 0 {
+                    println!("File not found {:?}", path);
+                }
+                // if file is not found - ust create a dummy
+                (path, CachedLines::without_ending(String::new()))
+            });
+            }
+        }
+    }
+
     for (item, range) in &functions {
         if (item.name.as_ref(), item.index) == goal || item.hashed == goal.0 {
-            dump_range(sysroot, fmt, &file[range.clone()])?;
+            dump_range(&files, fmt, &file[range.clone()])?;
             return Ok(true);
         }
     }
