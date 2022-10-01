@@ -4,6 +4,7 @@
 - strip redundant labels by default
 - cleaning up
 - removing glob in favor of std::fs - windows CI now works
+- document completions
 
 ## [0.1.21] - 2022-09-29
 - options for vendored libgit2 and openssl
