@@ -106,8 +106,10 @@ pub struct CliFeatures {
     #[bpaf(long, long("no-defaut-features"))]
     /// Do not activate `default` feature
     pub no_default_features: bool,
+
     /// Activate all available features
     pub all_features: bool,
+
     /// A feature to activate, can be used multiple times
     #[bpaf(argument("FEATURE"))]
     pub feature: Vec<String>,
