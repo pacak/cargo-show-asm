@@ -32,12 +32,12 @@ fn check_target_dir(path: PathBuf) -> anyhow::Result<PathBuf> {
 ///      % cargo asm -p isin --lib isin::base36::from_alphanum
 pub struct Options {
     // what to compile
-    #[bpaf(external(parse_manifest_path))]
+    #[bpaf(external)]
     pub manifest_path: PathBuf,
     /// Package to use if ambigous
     #[bpaf(long, short, argument("SPEC"))]
     pub package: Option<String>,
-    #[bpaf(external(focus), optional)]
+    #[bpaf(external, optional)]
     pub focus: Option<Focus>,
 
     // how to compile
@@ -61,7 +61,7 @@ pub struct Options {
     pub force_rebuild: bool,
     #[bpaf(external)]
     pub cli_features: CliFeatures,
-    #[bpaf(external, fallback(CompileMode::Release))]
+    #[bpaf(external)]
     pub compile_mode: CompileMode,
     /// Build for the target triple
     #[bpaf(argument("TRIPLE"))]
@@ -72,18 +72,18 @@ pub struct Options {
     pub target_cpu: Option<String>,
 
     // how to display
-    #[bpaf(external(format))]
+    #[bpaf(external)]
     pub format: Format,
     /// more verbose output, can be specified multiple times
-    #[bpaf(external(verbose))]
+    #[bpaf(external)]
     pub verbosity: u32,
-    #[bpaf(external, fallback(Syntax::Intel))]
+    #[bpaf(external)]
     pub syntax: Syntax,
 
     // what to display
     #[bpaf(positional("FUNCTION"), optional)]
     pub function: Option<String>,
-    #[bpaf(positional::<usize>("INDEX"), fallback(0))]
+    #[bpaf(positional("INDEX"), fallback(0))]
     pub nth: usize,
 }
 
@@ -124,6 +124,7 @@ impl TryFrom<CliFeatures> for cargo::core::resolver::features::CliFeatures {
 // feature, no_defaut_features, all_features
 
 #[derive(Bpaf, Copy, Clone, Debug)]
+#[bpaf(fallback(CompileMode::Release))]
 pub enum CompileMode {
     /// Compile in release mode (default)
     Release,
@@ -140,7 +141,7 @@ impl From<CompileMode> for InternedString {
     }
 }
 
-fn verbose() -> impl Parser<u32> {
+fn verbosity() -> impl Parser<u32> {
     short('v')
         .long("verbose")
         .help("more verbose output, can be specified multiple times")
@@ -149,7 +150,7 @@ fn verbose() -> impl Parser<u32> {
         .map(|v| v.len().min(u32::MAX as usize) as u32)
 }
 
-fn parse_manifest_path() -> impl Parser<PathBuf> {
+fn manifest_path() -> impl Parser<PathBuf> {
     long("manifest-path")
         .help("Path to Cargo.toml")
         .argument::<PathBuf>("PATH")
@@ -181,6 +182,7 @@ pub struct Format {
 }
 
 #[derive(Debug, Clone, Bpaf)]
+#[bpaf(fallback(Syntax::Intel))]
 pub enum Syntax {
     /// Show assembly using Intel style
     #[bpaf(long("intel"), long("asm"))]
