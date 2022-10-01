@@ -72,13 +72,17 @@ fn main() -> anyhow::Result<()> {
         String::from("codegen-units=1"),
         // we care about asm
         String::from("--emit"),
-        opts.syntax.emit(),
-        String::from("-C"),
-        opts.syntax.format(),
+        String::from(opts.syntax.emit()),
         // debug info is needed to map to rust source
         String::from("-C"),
         String::from("debuginfo=2"),
     ];
+
+    if let Some(asm_syntax) = opts.syntax.format() {
+        rustc_args.push(String::from("-C"));
+        rustc_args.push(String::from(asm_syntax));
+    }
+
     if let Some(cpu) = &opts.target_cpu {
         rustc_args.push(String::from("-C"));
         rustc_args.push(format!("target-cpu={}", cpu));

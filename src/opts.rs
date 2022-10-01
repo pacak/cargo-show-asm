@@ -197,24 +197,25 @@ pub enum Syntax {
 
 impl Syntax {
     #[must_use]
-    pub fn format(&self) -> String {
-        String::from(match self {
-            Syntax::Intel => "llvm-args=-x86-asm-syntax=intel",
-            Syntax::Att | Syntax::Mir | Syntax::Llvm => "llvm-args=-x86-asm-syntax=att",
-        })
+    pub fn format(&self) -> Option<&str> {
+        match self {
+            Syntax::Intel => Some("llvm-args=-x86-asm-syntax=intel"),
+            Syntax::Att => Some("llvm-args=-x86-asm-syntax=att"),
+            Syntax::Mir | Syntax::Llvm => None,
+        }
     }
 
     #[must_use]
-    pub fn emit(&self) -> String {
-        String::from(match self {
+    pub fn emit(&self) -> &str {
+        match self {
             Syntax::Intel | Syntax::Att => "asm",
             Syntax::Llvm => "llvm-ir",
             Syntax::Mir => "mir",
-        })
+        }
     }
 
     #[must_use]
-    pub const fn ext(&self) -> &str {
+    pub fn ext(&self) -> &str {
         match self {
             Syntax::Intel | Syntax::Att => "s",
             Syntax::Llvm => "ll",
@@ -311,7 +312,7 @@ impl Focus {
 
     #[must_use]
     /// a path relative to output directory for this focus item
-    pub const fn correction(&self) -> Option<&'static str> {
+    pub fn correction(&self) -> Option<&'static str> {
         match self {
             Focus::Example(_) => Some("examples"),
             Focus::Lib | Focus::Test(_) | Focus::Bench(_) | Focus::Bin(_) => None,
