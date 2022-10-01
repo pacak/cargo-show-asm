@@ -13,11 +13,13 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Range;
 use std::path::Path;
 
-pub fn parse_file(input: &str) -> anyhow::Result<Vec<Statement>> {
+fn parse_file(input: &str) -> anyhow::Result<Vec<Statement>> {
     // eat all statements until the eof, so we can report the proper errors on failed parse
     match nom::multi::many0(parse_statement)(input) {
         Ok(("", stmts)) => Ok(stmts),
-        Ok((leftovers, _)) => {
+        Ok((leftovers, _)) =>
+        {
+            #[allow(clippy::redundant_else)]
             if leftovers.len() < 1000 {
                 anyhow::bail!("Didn't consume everything, leftovers: {leftovers:?}")
             } else {
@@ -178,6 +180,7 @@ pub fn dump_range(sysroot: &Path, fmt: &Format, stmts: &[Statement]) -> anyhow::
             }
         } else {
             empty_line = false;
+            #[allow(clippy::match_bool)]
             match fmt.full_name {
                 true => println!("{line:#}"),
                 false => println!("{line}"),

@@ -10,7 +10,7 @@ use cargo_show_asm::{
     asm::{self, Item},
     color, llvm, mir, opts,
 };
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, ffi::OsStr};
 
 /// This should be called before calling any cli method or printing any output.
 fn reset_signal_pipe_handler() -> anyhow::Result<()> {
@@ -72,13 +72,17 @@ fn main() -> anyhow::Result<()> {
         String::from("codegen-units=1"),
         // we care about asm
         String::from("--emit"),
-        opts.syntax.emit(),
-        String::from("-C"),
-        opts.syntax.format(),
+        String::from(opts.syntax.emit()),
         // debug info is needed to map to rust source
         String::from("-C"),
         String::from("debuginfo=2"),
     ];
+
+    if let Some(asm_syntax) = opts.syntax.format() {
+        rustc_args.push(String::from("-C"));
+        rustc_args.push(String::from(asm_syntax));
+    }
+
     if let Some(cpu) = &opts.target_cpu {
         rustc_args.push(String::from("-C"));
         rustc_args.push(format!("target-cpu={}", cpu));
@@ -150,13 +154,13 @@ fn main() -> anyhow::Result<()> {
                 None => continue,
             };
 
-            let fname = match path.file_name().and_then(|s| s.to_str()) {
-                Some(ext) => ext,
+            let file_name = match path.file_name().and_then(OsStr::to_str) {
+                Some(file_name) => file_name,
                 None => continue,
             };
 
-            if ext == opts.syntax.ext() && fname.starts_with(name) {
-                source_files.push(path.to_owned());
+            if ext == opts.syntax.ext() && file_name.starts_with(name) {
+                source_files.push(path);
             }
         }
 
