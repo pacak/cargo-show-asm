@@ -45,7 +45,7 @@ fn find_items(lines: &[Statement]) -> BTreeMap<Item, Range<usize>> {
     let mut res = BTreeMap::new();
 
     let mut sec_start = 0;
-    let mut item = None;
+    let mut item: Option<Item> = None;
     let mut names = BTreeMap::new();
 
     for (ix, line) in lines.iter().enumerate() {
@@ -54,7 +54,8 @@ fn find_items(lines: &[Statement]) -> BTreeMap<Item, Range<usize>> {
         } else if line.is_end_of_fn() {
             let sec_end = ix;
             let range = sec_start..sec_end;
-            if let Some(item) = item.take() {
+            if let Some(mut item) = item.take() {
+                item.len = ix - item.len;
                 res.insert(item, range);
             }
         } else if let Statement::Label(label) = line {
