@@ -9,7 +9,7 @@ mod statements;
 
 use owo_colors::OwoColorize;
 use statements::{parse_statement, Directive, Loc, Statement};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Range;
 use std::path::Path;
 
@@ -45,7 +45,7 @@ fn find_items(lines: &[Statement]) -> BTreeMap<Item, Range<usize>> {
     let mut res = BTreeMap::new();
 
     let mut sec_start = 0;
-    let mut item = None;
+    let mut item: Option<Item> = None;
     let mut names = BTreeMap::new();
 
     for (ix, line) in lines.iter().enumerate() {
@@ -54,7 +54,8 @@ fn find_items(lines: &[Statement]) -> BTreeMap<Item, Range<usize>> {
         } else if line.is_end_of_fn() {
             let sec_end = ix;
             let range = sec_start..sec_end;
-            if let Some(item) = item.take() {
+            if let Some(mut item) = item.take() {
+                item.len = ix - item.len;
                 res.insert(item, range);
             }
         } else if let Statement::Label(label) = line {
@@ -75,7 +76,7 @@ fn find_items(lines: &[Statement]) -> BTreeMap<Item, Range<usize>> {
     res
 }
 
-pub fn used_labels<'a>(stmts: &'_ [Statement<'a>]) -> BTreeMap<&'a str, usize> {
+fn used_labels<'a>(stmts: &'_ [Statement<'a>]) -> BTreeSet<&'a str> {
     let labels = stmts
         .iter()
         .filter_map(|i| {
@@ -87,16 +88,16 @@ pub fn used_labels<'a>(stmts: &'_ [Statement<'a>]) -> BTreeMap<&'a str, usize> {
         })
         .collect::<Vec<_>>();
 
-    let mut used_labels = BTreeMap::new();
+    let mut used_labels = BTreeSet::new();
 
-    for (ix, item) in stmts.iter().enumerate() {
+    for item in stmts.iter() {
         if let Statement::Instruction(Instruction {
             args: Some(args), ..
         }) = item
         {
             for &label in &labels {
                 if args.contains(label) {
-                    used_labels.insert(*label, ix);
+                    used_labels.insert(*label);
                 }
             }
         }
@@ -109,11 +110,12 @@ pub fn dump_range(sysroot: &Path, fmt: &Format, stmts: &[Statement]) -> anyhow::
     let mut prev_loc = Loc::default();
 
     let used = if fmt.keep_labels {
-        BTreeMap::new()
+        BTreeSet::new()
     } else {
         used_labels(stmts)
     };
 
+    let mut empty_line = false;
     for line in stmts.iter() {
         if let Statement::Directive(Directive::File(f)) = line {
             if !fmt.rust {
@@ -166,23 +168,19 @@ pub fn dump_range(sysroot: &Path, fmt: &Format, stmts: &[Statement]) -> anyhow::
                     color!(rust_line.trim_start(), OwoColorize::bright_red)
                 );
             }
-        } else {
-            if !fmt.keep_labels {
-                if let Statement::Label(Label { local: true, id }) = line {
-                    if used.contains_key(id) {
-                        println!("{line}");
-                    } else {
-                        println!();
-                    }
-                    continue;
-                }
-            }
-
-            #[allow(clippy::collapsible_else_if)]
-            if fmt.full_name {
-                println!("{line:#}");
-            } else {
+            empty_line = false;
+        } else if let Statement::Label(Label { local: true, id }) = line {
+            if fmt.keep_labels || used.contains(id) {
                 println!("{line}");
+            } else if !empty_line {
+                println!();
+                empty_line = true;
+            }
+        } else {
+            empty_line = false;
+            match fmt.full_name {
+                true => println!("{line:#}"),
+                false => println!("{line}"),
             }
         }
     }
