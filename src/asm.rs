@@ -114,6 +114,7 @@ pub fn dump_range(sysroot: &Path, fmt: &Format, stmts: &[Statement]) -> anyhow::
         used_labels(stmts)
     };
 
+    let mut empty_line = false;
     for line in stmts.iter() {
         if let Statement::Directive(Directive::File(f)) = line {
             if !fmt.rust {
@@ -171,12 +172,14 @@ pub fn dump_range(sysroot: &Path, fmt: &Format, stmts: &[Statement]) -> anyhow::
                 if let Statement::Label(Label { local: true, id }) = line {
                     if used.contains_key(id) {
                         println!("{line}");
-                    } else {
+                    } else if !empty_line {
                         println!();
+                        empty_line = true;
                     }
                     continue;
                 }
             }
+            empty_line = false;
 
             #[allow(clippy::collapsible_else_if)]
             if fmt.full_name {
