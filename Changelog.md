@@ -1,6 +1,6 @@
 # Change Log
 
-## [0.1.22] - unreleased
+## [0.1.22] - 2022-10-03
 - strip redundant labels by default
 - cleaning up
 - removing glob in favor of std::fs - windows CI now works
