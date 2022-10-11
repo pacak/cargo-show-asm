@@ -1,5 +1,9 @@
 # Change Log
 
+## [0.1.23] - 2022-10-11
+- update dependenies + bpaf
+- optional colorful command line parser output
+
 ## [0.1.22] - 2022-10-03
 - strip redundant labels by default
 - cleaning up
