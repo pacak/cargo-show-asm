@@ -110,6 +110,15 @@ $ cargo-asm --bpaf-complete-style-elvish
 
 You'll need to use it as `cargo-asm` command rather than `cargo asm` to take advantage of it.
 
+
+# Colorful line parser output
+
+You can install `cargo-show-asm` with one of two features to get prettier command line
+```console
+cargo install cargo-show-asm -F bright-color
+cargo install cargo-show-asm -F dull-color
+```
+
 # License
 This project is licensed under either of
 
