@@ -68,6 +68,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e00fda84cbedef551de0c8c1e248b048cb82c377d95cb7cd9a78664cc935233d"
 dependencies = [
  "bpaf_derive",
+ "owo-colors",
 ]
 
 [[package]]
