@@ -185,7 +185,7 @@ pub fn dump_function(
                 files.entry(f.index).or_insert_with(|| {
                 let path = f.path.as_full_path();
                 if fmt.verbosity > 1 {
-                    println!("Reading {:?}", path);
+                    println!("Reading file #{} {:?}", f.index, path);
                 }
                 if let Ok(payload) = std::fs::read_to_string(&path) {
                     return (path, CachedLines::without_ending(payload));
