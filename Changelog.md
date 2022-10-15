@@ -1,6 +1,6 @@
 # Change Log
 
-## [0.1.24] - unreleased
+## [0.1.24] - 2022-10-15
 - support custom profiles
 - support reading rust sources from registries
 
