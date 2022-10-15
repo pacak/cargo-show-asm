@@ -1,7 +1,7 @@
 use rand_core::block::{BlockRng, BlockRngCore};
 use rand_core::{RngCore, SeedableRng};
 
-struct MyRngCore([u8; 32]);
+pub struct MyRngCore(pub [u8; 32]);
 
 impl BlockRngCore for MyRngCore {
     type Item = u32;
@@ -21,7 +21,7 @@ impl SeedableRng for MyRngCore {
     }
 }
 
-fn main() {
+pub fn main() {
     let mut rng = BlockRng::<MyRngCore>::seed_from_u64(0);
     for ix in 0..10 {
         println!("{ix} rng values: {}", rng.next_u32());
