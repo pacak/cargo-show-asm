@@ -26,4 +26,14 @@ pub fn main() {
     for ix in 0..10 {
         println!("{ix} rng values: {}", rng.next_u32());
     }
+
+    use hashbrown::HashSet;
+    let mut set = HashSet::new();
+    set.insert("a");
+    set.insert("b");
+
+    // Will print in an arbitrary order.
+    for x in set.iter() {
+        println!("{}", x);
+    }
 }
