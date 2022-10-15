@@ -190,6 +190,9 @@ pub fn dump_function(
                 if let Ok(payload) = std::fs::read_to_string(&path) {
                     return (path, CachedLines::without_ending(payload));
                 } else if path.starts_with("/rustc/") {
+                    // file looks like this and is located in rustlib sysroot
+                    // /rustc/a55dd71d5fb0ec5a6a3a9e8c27b2127ba491ce52/library/core/src/iter/range.rs
+
                     let relative_path = {
                         let mut components = path.components();
                         // skip first three dirs in path
@@ -206,6 +209,23 @@ pub fn dump_function(
                         if let Ok(payload) = std::fs::read_to_string(src) {
                             return (path, CachedLines::without_ending(payload));
                         }
+                    }
+                } else if path.starts_with("/cargo/registry/") {
+                    // file looks like this and located ~/.cargo/registry/ ...
+                    // /cargo/registry/src/github.com-1ecc6299db9ec823/hashbrown-0.12.3/src/raw/bitmask.rs
+
+                    // It does what I want as far as *nix is concerned, might not work for Windows...
+                    #[allow(deprecated)]
+                    let mut homedir = std::env::home_dir().expect("No home dir?");
+
+                    let mut components = path.components();
+                    // drop `/cargo` part
+                        components.by_ref().take(2).for_each(|_| ());
+                    homedir.push(".cargo");
+                    let src = homedir.join(components.as_path());
+
+                    if let Ok(payload) = std::fs::read_to_string(src) {
+                       return (path, CachedLines::without_ending(payload));
                     }
                 } else if fmt.verbosity > 0 {
                     println!("File not found {:?}", path);
