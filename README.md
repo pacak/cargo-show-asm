@@ -77,6 +77,12 @@ instead of a full one and only matching functions will be listed
 $ cargo asm --lib Debug
 ```
 
+# My function isn't there!
+
+`rustc` will only generate the code for your function if it know what type is it and
+if it's not inlined. If your function takes a generic parameter - try making a monomorphic
+wrapper around it and make it `pub` and `#[inline(never)]`.
+
 # What about `cargo-asm`?
 
 `cargo-asm` is not maintained: https://github.com/gnzlbg/cargo-asm/issues/244. This crate is a reimplementation which addresses a number of its shortcomings, including:

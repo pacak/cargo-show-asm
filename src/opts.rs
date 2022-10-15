@@ -122,20 +122,28 @@ impl TryFrom<CliFeatures> for cargo::core::resolver::features::CliFeatures {
 
 // feature, no_defaut_features, all_features
 
-#[derive(Bpaf, Copy, Clone, Debug)]
+#[derive(Bpaf, Clone, Debug)]
 #[bpaf(fallback(CompileMode::Release))]
 pub enum CompileMode {
     /// Compile in release mode (default)
     Release,
     /// Compile in dev mode
     Dev,
+    Custom(
+        /// Build for this specific profile
+        #[bpaf(long("profile"), argument("PROFILE"))]
+        String,
+    ),
 }
 
-impl From<CompileMode> for InternedString {
-    fn from(mode: CompileMode) -> Self {
+impl From<&CompileMode> for InternedString {
+    fn from(mode: &CompileMode) -> Self {
         InternedString::new(match mode {
             CompileMode::Release => "release",
             CompileMode::Dev => "dev",
+            // InternedString wants a static str which we don't have - the only option is to leak
+            // it, multiple times even - 2-3 times, but that's fine
+            CompileMode::Custom(s) => Box::leak(s.clone().into_boxed_str()),
         })
     }
 }

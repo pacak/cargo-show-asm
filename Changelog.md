@@ -1,5 +1,9 @@
 # Change Log
 
+## [0.1.24] - 2022-10-15
+- support custom profiles
+- support reading rust sources from registries
+
 ## [0.1.23] - 2022-10-11
 - update dependenies + bpaf
 - optional colorful command line parser output
