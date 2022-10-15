@@ -4,6 +4,7 @@ use cargo::{
         Workspace,
     },
     ops::{compile, CleanOptions, CompileFilter, CompileOptions, Packages},
+    util::interning::InternedString,
     Config,
 };
 use cargo_show_asm::{
@@ -63,7 +64,7 @@ fn main() -> anyhow::Result<()> {
     }
     compile_opts.cli_features = opts.cli_features.try_into()?;
     compile_opts.build_config.requested_kinds = vec![kind];
-    compile_opts.build_config.requested_profile = opts.compile_mode.into();
+    compile_opts.build_config.requested_profile = InternedString::from(&opts.compile_mode);
     compile_opts.build_config.force_rebuild = opts.force_rebuild;
 
     let mut rustc_args = vec![
@@ -223,7 +224,7 @@ fn main() -> anyhow::Result<()> {
                     spec: vec![package.clone()],
                     targets: clean_targets,
                     profile_specified: false,
-                    requested_profile: opts.compile_mode.into(),
+                    requested_profile: InternedString::from(&opts.compile_mode),
                     doc: false,
                 };
                 cargo::ops::clean(&ws, &clean_opts)?;
