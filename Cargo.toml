@@ -13,7 +13,7 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 anyhow = "1"
-bpaf = { version = "0.7.0", features = ["bpaf_derive", "autocomplete"] }
+bpaf = { version = "0.7.1", features = ["bpaf_derive", "autocomplete"] }
 cargo = "0.65"
 git2 = { version = "0.14.2", optional = true } # same version as used by cargo
 line-span = "0.1"
