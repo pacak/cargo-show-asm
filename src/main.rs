@@ -32,14 +32,29 @@ fn main() -> anyhow::Result<()> {
     let cargo_path = std::env::var("CARGO").unwrap_or_else(|_| "cargo".into());
     let rustc_path = std::env::var("RUSTC").unwrap_or_else(|_| "rustc".into());
 
-    let sysroot = std::process::Command::new(&rustc_path)
-        .arg("--print=sysroot")
-        .stdin(Stdio::null())
-        .stderr(Stdio::inherit())
-        .stdout(Stdio::null())
-        .output()?
-        .stdout;
-    let sysroot = PathBuf::from(String::from_utf8(sysroot)?);
+    let sysroot = {
+        let output = std::process::Command::new(&rustc_path)
+            .arg("--print=sysroot")
+            .stdin(Stdio::null())
+            .stderr(Stdio::inherit())
+            .stdout(Stdio::piped())
+            .output()?;
+        if !output.status.success() {
+            anyhow::bail!(
+                "Failed to get sysroot. '{} --print=sysroot' exited with {}",
+                rustc_path,
+                output.status,
+            );
+        }
+        let mut stdout = String::from_utf8(output.stdout)?;
+        if stdout.ends_with('\n') {
+            stdout.pop();
+        }
+        PathBuf::from(stdout)
+    };
+    if opts.format.verbosity > 0 {
+        eprintln!("Found sysroot: {}", sysroot.display());
+    }
 
     let metadata = MetadataCommand::new()
         .cargo_path(&cargo_path)
