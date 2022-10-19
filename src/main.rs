@@ -81,38 +81,81 @@ fn main() -> anyhow::Result<()> {
         },
     };
 
-    let mut rustc_args = vec![
-        // so only one file gets created
-        String::from("-C"),
-        String::from("codegen-units=1"),
-        // we care about asm
-        String::from("--emit"),
-        String::from(opts.syntax.emit()),
-        // debug info is needed to map to rust source
-        String::from("-C"),
-        String::from("debuginfo=2"),
-    ];
-    if let Some(asm_syntax) = opts.syntax.format() {
-        rustc_args.push(String::from("-C"));
-        rustc_args.push(String::from(asm_syntax));
-    }
-    if let Some(cpu) = &opts.target_cpu {
-        rustc_args.push(String::from("-C"));
-        rustc_args.push(format!("target-cpu={}", cpu));
-    }
+    let mut cargo_child = {
+        use std::ffi::OsStr;
 
-    let mut cargo_child = std::process::Command::new(&cargo_path)
-        .args(["rustc", "--message-format=json"])
-        .arg("--manifest-path")
-        .arg(opts.manifest_path)
-        .args(["--package", &focus_package.name])
-        .args(focus_artifact.as_cargo_args())
-        .arg("--")
-        .args(rustc_args)
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::inherit())
-        .spawn()?;
+        let mut cmd = std::process::Command::new(&cargo_path);
+
+        // Cargo flags.
+        cmd.arg("rustc")
+            // General.
+            .args([
+                "--message-format=json",
+                "--color",
+                if opts.format.color { "always" } else { "never" },
+            ])
+            .args(std::iter::repeat("-v").take(opts.format.verbosity as usize))
+            // Workspace location.
+            .arg("--manifest-path")
+            .arg(opts.manifest_path)
+            // Artifact selectors.
+            .args(["--package", &focus_package.name])
+            .args(focus_artifact.as_cargo_args())
+            // Compile options.
+            .args(opts.dry.then_some("--dry"))
+            .args(opts.frozen.then_some("--frozen"))
+            .args(opts.locked.then_some("--locked"))
+            .args(opts.offline.then_some("--offline"))
+            .args(opts.target.iter().flat_map(|t| ["--target", t]))
+            .args(
+                opts.target_dir
+                    .iter()
+                    .flat_map(|t| [OsStr::new("--target-dir"), t.as_ref()]),
+            )
+            .args(
+                opts.cli_features
+                    .no_default_features
+                    .then_some("--no-default-features"),
+            )
+            .args(opts.cli_features.all_features.then_some("--all-features"))
+            .args(
+                opts.cli_features
+                    .feature
+                    .iter()
+                    .flat_map(|feat| ["--feature", feat]),
+            );
+        match opts.compile_mode {
+            opts::CompileMode::Dev => {}
+            opts::CompileMode::Release => {
+                cmd.arg("--release");
+            }
+            opts::CompileMode::Custom(profile) => {
+                cmd.args(["--profile", &profile]);
+            }
+        }
+
+        // Cargo flags terminator.
+        cmd.arg("--");
+
+        // Rustc flags.
+        // We care about asm.
+        cmd.args(["--emit", opts.syntax.emit()])
+            // So only one file gets created.
+            .arg("-Ccodegen-units=1")
+            // Debug info is needed to map to rust source.
+            .arg("-Cdebuginfo=2")
+            .args(opts.syntax.format().iter().flat_map(|s| ["-C", s]))
+            .args(
+                opts.target_cpu
+                    .iter()
+                    .map(|cpu| format!("-Ctarget-cpu={}", cpu)),
+            );
+
+        cmd.stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::inherit())
+            .spawn()?
+    };
 
     let mut result_artifact = None;
     let mut success = false;
