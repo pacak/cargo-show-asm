@@ -46,11 +46,8 @@ fn main() -> anyhow::Result<()> {
                 output.status,
             );
         }
-        let mut stdout = String::from_utf8(output.stdout)?;
-        if stdout.ends_with('\n') {
-            stdout.pop();
-        }
-        PathBuf::from(stdout)
+        // `rustc` prints a trailing newline.
+        PathBuf::from(std::str::from_utf8(&output.stdout)?.trim_end())
     };
     if opts.format.verbosity > 0 {
         eprintln!("Found sysroot: {}", sysroot.display());
