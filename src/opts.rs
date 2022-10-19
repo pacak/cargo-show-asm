@@ -1,9 +1,4 @@
 use bpaf::{construct, long, short, Bpaf, Parser};
-use cargo::{
-    core::{MaybePackage, Target, TargetKind, Workspace},
-    ops::CompileFilter,
-    util::interning::InternedString,
-};
 use cargo_metadata::Artifact;
 use std::path::PathBuf;
 
@@ -113,14 +108,6 @@ pub struct CliFeatures {
     pub feature: Vec<String>,
 }
 
-impl TryFrom<CliFeatures> for cargo::core::resolver::features::CliFeatures {
-    type Error = anyhow::Error;
-
-    fn try_from(cf: CliFeatures) -> Result<Self, Self::Error> {
-        Self::from_command_line(&cf.feature, cf.all_features, !cf.no_default_features)
-    }
-}
-
 // feature, no_defaut_features, all_features
 
 #[derive(Bpaf, Clone, Debug)]
@@ -135,18 +122,6 @@ pub enum CompileMode {
         #[bpaf(long("profile"), argument("PROFILE"))]
         String,
     ),
-}
-
-impl From<&CompileMode> for InternedString {
-    fn from(mode: &CompileMode) -> Self {
-        InternedString::new(match mode {
-            CompileMode::Release => "release",
-            CompileMode::Dev => "dev",
-            // InternedString wants a static str which we don't have - the only option is to leak
-            // it, multiple times even - 2-3 times, but that's fine
-            CompileMode::Custom(s) => Box::leak(s.clone().into_boxed_str()),
-        })
-    }
 }
 
 fn verbosity() -> impl Parser<u32> {
@@ -279,26 +254,6 @@ pub enum Focus {
     ),
 }
 
-impl From<Focus> for CompileFilter {
-    fn from(focus: Focus) -> Self {
-        let mut lib_only = false;
-        let mut bins = Vec::new();
-        let mut tests = Vec::new();
-        let mut examples = Vec::new();
-        let mut benches = Vec::new();
-        match focus {
-            Focus::Lib => lib_only = true,
-            Focus::Test(t) => tests = vec![t],
-            Focus::Bench(b) => benches = vec![b],
-            Focus::Example(e) => examples = vec![e],
-            Focus::Bin(b) => bins = vec![b],
-        }
-        Self::from_raw_arguments(
-            lib_only, bins, false, tests, false, examples, false, benches, false, false,
-        )
-    }
-}
-
 impl TryFrom<&'_ cargo_metadata::Target> for Focus {
     type Error = anyhow::Error;
 
@@ -314,39 +269,7 @@ impl TryFrom<&'_ cargo_metadata::Target> for Focus {
     }
 }
 
-impl std::fmt::Display for Focus {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Focus::Lib => f.write_str("--lib"),
-            Focus::Test(t) => write!(f, "--test {}", t),
-            Focus::Bench(b) => write!(f, "--bench {}", b),
-            Focus::Example(e) => write!(f, "--example {}", e),
-            Focus::Bin(b) => write!(f, "--bin {b}"),
-        }
-    }
-}
-
 impl Focus {
-    #[must_use]
-    pub fn matches(&self, target: &Target) -> bool {
-        match self {
-            Focus::Lib => target.is_lib(),
-            Focus::Test(t) => target.is_test() && target.name() == t,
-            Focus::Bench(b) => target.is_bench() && target.name() == b,
-            Focus::Example(e) => target.is_example() && target.name() == e,
-            Focus::Bin(b) => target.is_bin() && target.name() == b,
-        }
-    }
-
-    #[must_use]
-    /// a path relative to output directory for this focus item
-    pub fn correction(&self) -> Option<&'static str> {
-        match self {
-            Focus::Example(_) => Some("examples"),
-            Focus::Lib | Focus::Test(_) | Focus::Bench(_) | Focus::Bin(_) => None,
-        }
-    }
-
     #[must_use]
     pub fn as_parts(&self) -> (&str, Option<&str>) {
         match self {
@@ -370,73 +293,4 @@ impl Focus {
         let (kind, name) = self.as_parts();
         artifact.target.kind == [kind] && name.map_or(true, |name| artifact.target.name == *name)
     }
-}
-
-pub fn select_package(opts: &Options, ws: &Workspace) -> String {
-    let package = match (ws.root_maybe(), &opts.package) {
-        (_, Some(p)) => {
-            if let Some(package) = ws.members().find(|package| package.name().as_str() == p) {
-                package
-            } else {
-                // give up and let rustc to handle the rest
-                return p.to_string();
-            }
-        }
-        (MaybePackage::Package(p), None) => p,
-        (MaybePackage::Virtual(_), None) => {
-            if let Some(focus) = &opts.focus {
-                let mut candidates = Vec::new();
-                for p in ws.members() {
-                    for t in p.targets() {
-                        if focus.matches(t) {
-                            candidates.push(p.name());
-                        }
-                    }
-                }
-                match candidates.len() {
-                    0 => {
-                        eprintln!("Target specification {focus} didn't match any packages");
-                        std::process::exit(1);
-                    }
-                    1 => return candidates.remove(0).to_string(),
-                    _ => {
-                        eprintln!(
-                            "There's multiple targets that match {focus}. Try narrowing the focus by specifying one of those packages:"
-                        );
-                        for cand in &candidates {
-                            eprintln!("\t-p {cand}");
-                        }
-                        std::process::exit(1);
-                    }
-                }
-            } else {
-                eprintln!("{:?} defines a virtual workspace package, you need to specify which member to use with -p xxxx", opts.manifest_path);
-                for package in ws.members() {
-                    eprintln!("\t-p {}", package.name());
-                }
-                std::process::exit(1);
-            }
-        }
-    };
-
-    if package.targets().len() > 1 && opts.focus.is_none() {
-        eprintln!(
-            "{} defines multiple targets, you need to specify which one to use:",
-            package.name()
-        );
-        for t in package.targets().iter() {
-            match t.kind() {
-                TargetKind::Lib(_) => eprint!("--lib"),
-                TargetKind::Bin => eprint!("--bin {}", t.name()),
-                TargetKind::Test => eprint!("--test {}", t.name()),
-                TargetKind::Bench => eprint!("--bench {}", t.name()),
-                TargetKind::ExampleBin => eprint!("--example {}", t.name()),
-                TargetKind::ExampleLib(_) | TargetKind::CustomBuild => continue,
-            }
-            eprintln!("\tfor {}: {:?}", t.description_named(), t.src_path());
-        }
-
-        std::process::exit(1);
-    }
-    package.name().to_string()
 }
