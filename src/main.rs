@@ -1,5 +1,5 @@
 use anyhow::Context;
-use cargo_metadata::{Message, MetadataCommand};
+use cargo_metadata::{Artifact, Message, MetadataCommand};
 use cargo_show_asm::{
     asm::{self, Item},
     color, llvm, mir, opts,
@@ -182,40 +182,7 @@ fn main() -> anyhow::Result<()> {
         eprintln!("Artifact files: {:?}", artifact.filenames);
     }
 
-    let asm_path = artifact
-        .filenames
-        .iter()
-        // For lib, test or bench artifacts, it provides paths under `deps` with extra-filename.
-        // We could locate asm files precisely.
-        // [..]/target/debug/deps/libfoo-01234567.rmeta # lib
-        // [..]/target/debug/deps/foo-01234567          # test & bench
-        // <->
-        // [..]/target/debug/deps/foo-01234567.s
-        .find_map(|path| {
-            if path.parent()?.file_name()? != "deps" {
-                return None;
-            }
-            let path = path.with_extension(opts.syntax.ext());
-            if path.exists() {
-                return Some(path);
-            }
-            let path_without_lib =
-                path.with_file_name(path.file_name().unwrap().strip_prefix("lib")?);
-            if path_without_lib.exists() {
-                return Some(path_without_lib);
-            }
-            None
-        })
-        // For bin or example artifacts, the filenames are missing extra-filename (the hash part).
-        // [..]/target/debug/foobin
-        // [..]/target/debug/examples/fooexample
-        // <->
-        // [..]/target/debug/deps/foobin-01234567.s
-        // [..]/target/debug/examples/fooexample-01234567.s
-        .or_else(|| todo!())
-        .context("Cannot find asm file")?
-        .into_std_path_buf();
-
+    let asm_path = locate_asm_path_via_artifact(&artifact, opts.syntax.ext())?;
     if opts.format.verbosity > 0 {
         eprintln!("Asm file: {}", asm_path.display());
     }
@@ -260,6 +227,76 @@ fn main() -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+fn locate_asm_path_via_artifact(artifact: &Artifact, expect_ext: &str) -> anyhow::Result<PathBuf> {
+    // For lib, test, bench, lib-type example, `filenames` hint the file stem of the asm file.
+    // We could locate asm files precisely.
+    //
+    // `filenames`:
+    // [..]/target/debug/deps/libfoo-01234567.rmeta         # lib by-product
+    // [..]/target/debug/deps/foo-01234567                  # test & bench
+    // [..]/target/debug/deps/example/libfoo-01234567.rmeta # lib-type example by-product
+    // Asm files:
+    // [..]/target/debug/deps/foo-01234567.s
+    // [..]/target/debug/deps/example/foo-01234567.s
+    if let Some(path) = artifact
+        .filenames
+        .iter()
+        .filter(|path| {
+            matches!(
+                path.parent().unwrap().file_name(),
+                Some("deps" | "examples")
+            )
+        })
+        .find_map(|path| {
+            let path = path.with_extension(expect_ext);
+            if path.exists() {
+                return Some(path);
+            }
+            let path = path.with_file_name(path.file_name()?.strip_prefix("lib")?);
+            if path.exists() {
+                return Some(path);
+            }
+            None
+        })
+    {
+        return Ok(path.into_std_path_buf());
+    }
+
+    // For bin or bin-type example artifacts, `filenames` provide hard-linked paths
+    // without extra-filename.
+    // We scans all possible original artifacts by checking hard links,
+    // in order to retrieve the correct extra-filename, and then locate asm files.
+    //
+    // `filenames`, also `executable`:
+    // [..]/target/debug/foobin                    <+
+    // [..]/target/debug/examples/fooexample        | <+ Hard linked.
+    // Origins:                                     |  |
+    // [..]/target/debug/deps/foobin-01234567      <+  |
+    // [..]/target/debug/examples/fooexample-01234567 <+
+    // Asm files:
+    // [..]/target/debug/deps/foobin-01234567.s
+    // [..]/target/debug/examples/fooexample-01234567.s
+    if let Some(exe_path) = &artifact.executable {
+        let parent = exe_path.parent().unwrap();
+        let deps_dir = if parent.file_name() == Some("examples") {
+            parent.to_owned()
+        } else {
+            exe_path.with_file_name("deps")
+        };
+        for entry in deps_dir.read_dir()? {
+            let maybe_origin = entry?.path();
+            if same_file::is_same_file(&exe_path, &maybe_origin)? {
+                let asm_file = maybe_origin.with_extension(expect_ext);
+                if asm_file.exists() {
+                    return Ok(asm_file);
+                }
+            }
+        }
+    }
+
+    anyhow::bail!("Cannot locate the path to the asm file");
 }
 
 fn suggest_name(search: &str, full: bool, items: &[Item]) -> anyhow::Result<()> {
