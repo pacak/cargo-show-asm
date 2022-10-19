@@ -4,6 +4,7 @@ use cargo::{
     ops::CompileFilter,
     util::interning::InternedString,
 };
+use cargo_metadata::Artifact;
 use std::path::PathBuf;
 
 fn check_target_dir(path: PathBuf) -> anyhow::Result<PathBuf> {
@@ -298,6 +299,21 @@ impl From<Focus> for CompileFilter {
     }
 }
 
+impl TryFrom<&'_ cargo_metadata::Target> for Focus {
+    type Error = anyhow::Error;
+
+    fn try_from(target: &cargo_metadata::Target) -> Result<Self, Self::Error> {
+        match target.kind.first().map(|s| &**s) {
+            Some("lib") => Ok(Focus::Lib),
+            Some("test") => Ok(Focus::Test(target.name.clone())),
+            Some("bench") => Ok(Focus::Bench(target.name.clone())),
+            Some("example") => Ok(Focus::Example(target.name.clone())),
+            Some("bin") => Ok(Focus::Bin(target.name.clone())),
+            _ => anyhow::bail!("Unknow target kind: {:?}", target.kind),
+        }
+    }
+}
+
 impl std::fmt::Display for Focus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -329,6 +345,30 @@ impl Focus {
             Focus::Example(_) => Some("examples"),
             Focus::Lib | Focus::Test(_) | Focus::Bench(_) | Focus::Bin(_) => None,
         }
+    }
+
+    #[must_use]
+    pub fn as_parts(&self) -> (&str, Option<&str>) {
+        match self {
+            Focus::Lib => ("lib", None),
+            Focus::Test(name) => ("test", Some(name)),
+            Focus::Bench(name) => ("bench", Some(name)),
+            Focus::Example(name) => ("example", Some(name)),
+            Focus::Bin(name) => ("bin", Some(name)),
+        }
+    }
+
+    pub fn as_cargo_args(&self) -> impl Iterator<Item = String> {
+        let (kind, name) = self.as_parts();
+        Some(format!("--{}", kind))
+            .into_iter()
+            .chain(name.map(|s| s.to_owned()))
+    }
+
+    #[must_use]
+    pub fn matches_artifact(&self, artifact: &Artifact) -> bool {
+        let (kind, name) = self.as_parts();
+        artifact.target.kind == [kind] && name.map_or(true, |name| artifact.target.name == *name)
     }
 }
 
