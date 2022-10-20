@@ -19,7 +19,7 @@ jobs:
           components: rustfmt clippy rust-src
           targets: armv7-unknown-linux-gnueabihf
 
-      - name: Build allt the things
+      - name: Build all the things
         run: cargo build --tests
 
       - name: Run unit tests
@@ -32,29 +32,22 @@ jobs:
         run: cargo fmt --all --check
 
       - name: Native version of cargo-show-asm (Intel ASM)
-        run: >
-          cargo clean --manifest-path sample/Cargo.toml &&
-          cargo run -vvv -- --manifest-path sample/Cargo.toml --intel sample::main --rust
+        run: cargo run -vvv -- --manifest-path sample/Cargo.toml --intel sample::main --rust
 
       - name: Native version of cargo-show-asm (Intel ASM) + native CPU
-        run: >
-          cargo clean --manifest-path sample/Cargo.toml &&
-          cargo run -vvv -- --manifest-path sample/Cargo.toml --native --intel sample::main --rust
+        run: cargo run -vvv -- --manifest-path sample/Cargo.toml --native --intel sample::main --rust
+
+      - name: Native version of cargo-show-asm (Intel ASM) + native CPU + no default features
+        run: cargo run -vvv -- --manifest-path sample/Cargo.toml --native --intel sample::main --rust --no-default-features
 
       - name: Native version of cargo-show-asm (Intel ASM) + atom
-        run: >
-          cargo clean --manifest-path sample/Cargo.toml &&
-          cargo run -- --manifest-path sample/Cargo.toml --target-cpu atom --intel sample::main --rust
+        run: cargo run -- --manifest-path sample/Cargo.toml --target-cpu atom --intel sample::main --rust
 
       - name: Native version of cargo-show-asm (LLVM)
-        run: >
-          cargo clean --manifest-path sample/Cargo.toml &&
-          cargo run -- --manifest-path sample/Cargo.toml --llvm sample::main
+        run: cargo run -- --manifest-path sample/Cargo.toml --llvm sample::main
 
       - name: Native version of cargo-show-asm (MIR)
-        run: >
-          cargo clean --manifest-path sample/Cargo.toml &&
-          cargo run -- --manifest-path sample/Cargo.toml --mir "main() -> ()"
+        run: cargo run -- --manifest-path sample/Cargo.toml --mir "main() -> ()"
 
           #      - name: Crosscompiled version of cargo-show-asm (Intel ASM)
           #        run: >
@@ -75,7 +68,7 @@ jobs:
           components: rustfmt clippy rust-src
           targets: armv7-unknown-linux-gnueabihf
 
-      - name: Build allt the things
+      - name: Build all the things
         run: cargo build --tests
 
       - name: Run unit tests
@@ -88,26 +81,19 @@ jobs:
         run: cargo fmt --all --check
 
       - name: Native version of cargo-show-asm (Intel ASM)
-        run: >
-          cargo clean --manifest-path sample/Cargo.toml &&
-          cargo run -- --manifest-path sample/Cargo.toml --intel sample::main --rust
+        run: cargo run -- --manifest-path sample/Cargo.toml --intel sample::main --rust
 
       - name: Native version of cargo-show-asm (Intel ASM) + native CPU
-        run: >
-          cargo clean --manifest-path sample/Cargo.toml &&
-          cargo run -- --manifest-path sample/Cargo.toml --native --intel sample::main --rust
+        run: cargo run -- --manifest-path sample/Cargo.toml --native --intel sample::main --rust
+
+      - name: Native version of cargo-show-asm (Intel ASM) + native CPU + no default features
+        run: cargo run -vvv -- --manifest-path sample/Cargo.toml --native --intel sample::main --rust --no-default-features
 
       - name: Native version of cargo-show-asm (Intel ASM) + atom
-        run: >
-          cargo clean --manifest-path sample/Cargo.toml &&
-          cargo run -- --manifest-path sample/Cargo.toml --target-cpu atom --intel sample::main --rust
+        run: cargo run -- --manifest-path sample/Cargo.toml --target-cpu atom --intel sample::main --rust
 
       - name: Native version of cargo-show-asm (LLVM)
-        run: >
-          cargo clean --manifest-path sample/Cargo.toml &&
-          cargo run -- --manifest-path sample/Cargo.toml --llvm sample::main
+        run: cargo run -- --manifest-path sample/Cargo.toml --llvm sample::main
 
       - name: Native version of cargo-show-asm (MIR)
-        run: >
-          cargo clean --manifest-path sample/Cargo.toml &&
-          cargo run -- --manifest-path sample/Cargo.toml --mir "main() -> ()"
+        run: cargo run -- --manifest-path sample/Cargo.toml --mir "main() -> ()"
