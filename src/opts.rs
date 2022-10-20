@@ -105,10 +105,8 @@ pub struct CliFeatures {
 
     /// A feature to activate, can be used multiple times
     #[bpaf(argument("FEATURE"))]
-    pub feature: Vec<String>,
+    pub features: Vec<String>,
 }
-
-// feature, no_defaut_features, all_features
 
 #[derive(Bpaf, Clone, Debug)]
 #[bpaf(fallback(CompileMode::Release))]

@@ -117,9 +117,9 @@ fn main() -> anyhow::Result<()> {
             .args(opts.cli_features.all_features.then_some("--all-features"))
             .args(
                 opts.cli_features
-                    .feature
+                    .features
                     .iter()
-                    .flat_map(|feat| ["--feature", feat]),
+                    .flat_map(|feat| ["--features", feat]),
             );
         match opts.compile_mode {
             opts::CompileMode::Dev => {}
