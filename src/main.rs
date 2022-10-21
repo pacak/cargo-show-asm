@@ -91,7 +91,7 @@ fn main() -> anyhow::Result<()> {
                 "--color",
                 if opts.format.color { "always" } else { "never" },
             ])
-            .args(std::iter::repeat("-v").take(opts.format.verbosity as usize))
+            .args(std::iter::repeat("-v").take(opts.format.verbosity))
             // Workspace location.
             .arg("--manifest-path")
             .arg(opts.manifest_path)
