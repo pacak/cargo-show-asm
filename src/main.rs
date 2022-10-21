@@ -305,6 +305,7 @@ fn locate_asm_path_via_artifact(artifact: &Artifact, expect_ext: &str) -> anyhow
         } else {
             exe_path.with_file_name("deps")
         };
+
         for entry in deps_dir.read_dir()? {
             let maybe_origin = entry?.path();
             if same_file::is_same_file(&exe_path, &maybe_origin)? {
