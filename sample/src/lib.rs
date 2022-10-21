@@ -21,7 +21,30 @@ impl SeedableRng for MyRngCore {
     }
 }
 
+#[cfg(not(feature = "superbanana"))]
+pub fn main() -> u32 {
+    1 + 1
+}
+
+#[cfg(feature = "superbanana")]
 pub fn main() {
+    let mut rng = BlockRng::<MyRngCore>::seed_from_u64(0);
+    for ix in 0..10 {
+        println!("{ix} rng values: {}", rng.next_u32());
+    }
+
+    use hashbrown::HashSet;
+    let mut set = HashSet::new();
+    set.insert("a");
+    set.insert("b");
+
+    // Will print in an arbitrary order.
+    for x in set.iter() {
+        println!("{}", x);
+    }
+}
+
+pub fn okay() {
     let mut rng = BlockRng::<MyRngCore>::seed_from_u64(0);
     for ix in 0..10 {
         println!("{ix} rng values: {}", rng.next_u32());

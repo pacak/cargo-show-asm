@@ -92,11 +92,6 @@ fn target_cpu() -> impl Parser<Option<String>> {
 
 #[derive(Bpaf, Clone, Debug)]
 pub struct CliFeatures {
-    // Previous releases (mis)named this field `no_defaut_features`(sic), resulting in the command
-    // line option being `--no-defaut-features` and not the `--no-default-features` used by other
-    // Cargo subcommands and which users would normally expect. This attribute retains that as a
-    // hidden alias just in case users are still using the misspelt version in their scripts.
-    #[bpaf(long, long("no-defaut-features"))]
     /// Do not activate `default` feature
     pub no_default_features: bool,
 
@@ -105,10 +100,8 @@ pub struct CliFeatures {
 
     /// A feature to activate, can be used multiple times
     #[bpaf(argument("FEATURE"))]
-    pub feature: Vec<String>,
+    pub features: Vec<String>,
 }
-
-// feature, no_defaut_features, all_features
 
 #[derive(Bpaf, Clone, Debug)]
 #[bpaf(fallback(CompileMode::Release))]
@@ -124,13 +117,13 @@ pub enum CompileMode {
     ),
 }
 
-fn verbosity() -> impl Parser<u32> {
+fn verbosity() -> impl Parser<usize> {
     short('v')
         .long("verbose")
         .help("more verbose output, can be specified multiple times")
         .req_flag(())
         .many()
-        .map(|v| v.len().min(u32::MAX as usize) as u32)
+        .map(|v| v.len())
 }
 
 fn manifest_path() -> impl Parser<PathBuf> {
@@ -166,7 +159,7 @@ pub struct Format {
 
     /// more verbose output, can be specified multiple times
     #[bpaf(external)]
-    pub verbosity: u32,
+    pub verbosity: usize,
 }
 
 #[derive(Debug, Clone, Bpaf)]
