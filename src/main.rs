@@ -1,17 +1,13 @@
-use cargo::{
-    core::{
-        compiler::{CompileKind, CompileTarget, TargetInfo},
-        Workspace,
-    },
-    ops::{compile, CleanOptions, CompileFilter, CompileOptions, Packages},
-    util::interning::InternedString,
-    Config,
-};
+use anyhow::Context;
+use cargo_metadata::{Artifact, Message, MetadataCommand};
 use cargo_show_asm::{
     asm::{self, Item},
     color, llvm, mir, opts,
 };
-use std::{collections::BTreeMap, ffi::OsStr};
+use std::collections::BTreeMap;
+use std::io::BufReader;
+use std::path::PathBuf;
+use std::process::Stdio;
 
 /// This should be called before calling any cli method or printing any output.
 fn reset_signal_pipe_handler() -> anyhow::Result<()> {
@@ -33,213 +29,274 @@ fn main() -> anyhow::Result<()> {
 
     let opts = opts::options().run();
 
-    let mut cfg = Config::default()?;
-    cfg.configure(
-        opts.format.verbosity,
-        false,
-        None,
-        opts.frozen,
-        opts.locked,
-        opts.offline,
-        &opts.target_dir,
-        &[],
-        &[],
-    )?;
+    let cargo_path = std::env::var("CARGO").unwrap_or_else(|_| "cargo".into());
+    let rustc_path = std::env::var("RUSTC").unwrap_or_else(|_| "rustc".into());
 
-    let ws = Workspace::new(&opts.manifest_path, &cfg)?;
-    let package = opts::select_package(&opts, &ws);
-    let rustc = cfg.load_global_rustc(Some(&ws))?;
-    let kind = match &opts.target {
-        Some(t) => CompileKind::Target(CompileTarget::new(t)?),
-        None => CompileKind::Host,
+    let sysroot = {
+        let output = std::process::Command::new(&rustc_path)
+            .arg("--print=sysroot")
+            .stdin(Stdio::null())
+            .stderr(Stdio::inherit())
+            .stdout(Stdio::piped())
+            .output()?;
+        if !output.status.success() {
+            anyhow::bail!(
+                "Failed to get sysroot. '{} --print=sysroot' exited with {}",
+                rustc_path,
+                output.status,
+            );
+        }
+        // `rustc` prints a trailing newline.
+        PathBuf::from(std::str::from_utf8(&output.stdout)?.trim_end())
     };
-    let target_info = TargetInfo::new(&cfg, &[CompileKind::Host], &rustc, kind)?;
-
-    let mut compile_opts = CompileOptions::new(&cfg, cargo::core::compiler::CompileMode::Build)?;
-
-    compile_opts.spec = Packages::Packages(vec![package.clone()]);
-
-    if let Some(focus) = &opts.focus {
-        compile_opts.filter = CompileFilter::from(focus.clone());
-    }
-    compile_opts.cli_features = opts.cli_features.try_into()?;
-    compile_opts.build_config.requested_kinds = vec![kind];
-    compile_opts.build_config.requested_profile = InternedString::from(&opts.compile_mode);
-    compile_opts.build_config.force_rebuild = opts.force_rebuild;
-
-    let mut rustc_args = vec![
-        // so only one file gets created
-        String::from("-C"),
-        String::from("codegen-units=1"),
-        // we care about asm
-        String::from("--emit"),
-        String::from(opts.syntax.emit()),
-        // debug info is needed to map to rust source
-        String::from("-C"),
-        String::from("debuginfo=2"),
-    ];
-
-    if let Some(asm_syntax) = opts.syntax.format() {
-        rustc_args.push(String::from("-C"));
-        rustc_args.push(String::from(asm_syntax));
+    if opts.format.verbosity > 0 {
+        eprintln!("Found sysroot: {}", sysroot.display());
     }
 
-    if let Some(cpu) = &opts.target_cpu {
-        rustc_args.push(String::from("-C"));
-        rustc_args.push(format!("target-cpu={}", cpu));
-    }
-    compile_opts.target_rustc_args = Some(rustc_args);
-    compile_opts.build_config.build_plan = opts.dry;
+    let metadata = MetadataCommand::new()
+        .cargo_path(&cargo_path)
+        .manifest_path(&opts.manifest_path)
+        .no_deps()
+        .exec()?;
 
-    let mut retrying = false;
-    owo_colors::set_override(opts.format.color);
+    let focus_package = match opts.package {
+        Some(name) => metadata
+            .packages
+            .iter()
+            .find(|p| p.name == name)
+            .with_context(|| format!("Package '{}' is not found", name))?,
+        None if metadata.packages.len() == 1 => &metadata.packages[0],
+        None => anyhow::bail!("Multiple packages found"),
+    };
+
+    let focus_artifact = match opts.focus {
+        Some(focus) => focus,
+        None => match focus_package.targets.len() {
+            0 => anyhow::bail!("No targets found"),
+            1 => opts::Focus::try_from(&focus_package.targets[0])?,
+            _ => anyhow::bail!("Multiple targets found"),
+        },
+    };
+
+    let mut cargo_child = {
+        use std::ffi::OsStr;
+
+        let mut cmd = std::process::Command::new(&cargo_path);
+
+        // Cargo flags.
+        cmd.arg("rustc")
+            // General.
+            .args([
+                "--message-format=json",
+                "--color",
+                if opts.format.color { "always" } else { "never" },
+            ])
+            .args(std::iter::repeat("-v").take(opts.format.verbosity as usize))
+            // Workspace location.
+            .arg("--manifest-path")
+            .arg(opts.manifest_path)
+            // Artifact selectors.
+            .args(["--package", &focus_package.name])
+            .args(focus_artifact.as_cargo_args())
+            // Compile options.
+            .args(opts.dry.then_some("--dry"))
+            .args(opts.frozen.then_some("--frozen"))
+            .args(opts.locked.then_some("--locked"))
+            .args(opts.offline.then_some("--offline"))
+            .args(opts.target.iter().flat_map(|t| ["--target", t]))
+            .args(
+                opts.target_dir
+                    .iter()
+                    .flat_map(|t| [OsStr::new("--target-dir"), t.as_ref()]),
+            )
+            .args(
+                opts.cli_features
+                    .no_default_features
+                    .then_some("--no-default-features"),
+            )
+            .args(opts.cli_features.all_features.then_some("--all-features"))
+            .args(
+                opts.cli_features
+                    .feature
+                    .iter()
+                    .flat_map(|feat| ["--feature", feat]),
+            );
+        match opts.compile_mode {
+            opts::CompileMode::Dev => {}
+            opts::CompileMode::Release => {
+                cmd.arg("--release");
+            }
+            opts::CompileMode::Custom(profile) => {
+                cmd.args(["--profile", &profile]);
+            }
+        }
+
+        // Cargo flags terminator.
+        cmd.arg("--");
+
+        // Rustc flags.
+        // We care about asm.
+        cmd.args(["--emit", opts.syntax.emit()])
+            // So only one file gets created.
+            .arg("-Ccodegen-units=1")
+            // Debug info is needed to map to rust source.
+            .arg("-Cdebuginfo=2")
+            .args(opts.syntax.format().iter().flat_map(|s| ["-C", s]))
+            .args(
+                opts.target_cpu
+                    .iter()
+                    .map(|cpu| format!("-Ctarget-cpu={}", cpu)),
+            );
+
+        cmd.stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::inherit())
+            .spawn()?
+    };
+
+    let mut result_artifact = None;
+    let mut success = false;
+    for msg in Message::parse_stream(BufReader::new(cargo_child.stdout.take().unwrap())) {
+        match msg? {
+            Message::CompilerArtifact(artifact) if focus_artifact.matches_artifact(&artifact) => {
+                result_artifact = Some(artifact);
+            }
+            Message::BuildFinished(fin) => {
+                success = fin.success;
+                break;
+            }
+            Message::CompilerMessage(msg) => {
+                eprintln!("{}", msg);
+            }
+            _ => {}
+        }
+    }
+    if !success {
+        let status = cargo_child.wait()?;
+        eprintln!("Cargo failed with {}", status);
+        std::process::exit(101);
+    }
+    let artifact = result_artifact.context("No artifact found")?;
+
+    if opts.format.verbosity > 0 {
+        eprintln!("Artifact files: {:?}", artifact.filenames);
+    }
+
+    let asm_path = locate_asm_path_via_artifact(&artifact, opts.syntax.ext())?;
+    if opts.format.verbosity > 0 {
+        eprintln!("Asm file: {}", asm_path.display());
+    }
 
     let target_name = opts.function.as_deref().unwrap_or("");
     let mut target_function = (target_name, opts.nth);
 
+    // this variable exists to deal with the case where there's only
+    // one matching function - we might as well show it to the user directly
+    let mut single_target;
+    let mut existing = Vec::new();
+    let mut seen;
+
     loop {
-        let comp = compile(&ws, &compile_opts)?;
-        if opts.dry {
+        seen = match opts.syntax {
+            opts::Syntax::Intel | opts::Syntax::Att => asm::dump_function(
+                target_function,
+                &asm_path,
+                &sysroot,
+                &opts.format,
+                &mut existing,
+            ),
+            opts::Syntax::Llvm => {
+                llvm::dump_function(target_function, &asm_path, &opts.format, &mut existing)
+            }
+            opts::Syntax::Mir => {
+                mir::dump_function(target_function, &asm_path, &opts.format, &mut existing)
+            }
+        }?;
+        if seen {
             return Ok(());
-        }
-
-        // I see no ways how there can be more than one, let's assert that
-        // and deal with the bug reports if any.
-        assert!(
-            [1, 2].contains(&comp.deps_output.len()),
-            "More than one custom target?"
-        );
-
-        // by default "clean" cleans only the host target, in case of crosscompilation
-        // we need to clean the crosscompiled one
-        let mut clean_targets = Vec::new();
-
-        // crosscompilation can produce files for kinds other than Host.
-        // If it's present - we prefer non host versions as more interesting one
-        // As a side effect this prevents cargo-show-asm from showing things
-        // used to compile proc macro. Proper approach would probably be looking
-        // for target crate files in both host and target folders, there
-        // should be only one. But then there's windows with odd glob crate andt
-        // testing that is very painful. Pull requests are welcome
-        let output = if comp.deps_output.len() == 1 {
-            &comp.deps_output[&CompileKind::Host]
+        } else if existing.len() == 1 {
+            single_target = existing[0].name.clone();
+            target_function = (&single_target, 0);
         } else {
-            let (cc, path) = comp
-                .deps_output
-                .iter()
-                .find(|(k, _v)| **k != CompileKind::Host)
-                .expect("There shouldn't be more than one host target");
-            match cc {
-                CompileKind::Host => unreachable!("We are filtering host out above..."),
-                CompileKind::Target(t) => clean_targets.push(t.short_name().to_string()),
-            }
-            path
-        };
-
-        let output = match opts.focus.clone().and_then(|f| f.correction()) {
-            Some(path) => output.with_file_name(path),
-            None => output.clone(),
-        };
-
-        if opts.format.verbosity > 0 {
-            println!("Scanning {:?}", output);
+            break;
         }
-        let mut source_files = Vec::new();
-        let name = &comp.root_crate_names[0];
-        for entry in std::fs::read_dir(&output)? {
-            let entry = entry?;
-            let path = entry.path();
+    }
 
-            let ext = match path.extension() {
-                Some(ext) => ext,
-                None => continue,
-            };
-
-            let file_name = match path.file_name().and_then(OsStr::to_str) {
-                Some(file_name) => file_name,
-                None => continue,
-            };
-
-            if ext == opts.syntax.ext() && file_name.starts_with(name) {
-                source_files.push(path);
-            }
-        }
-
-        let mut existing = Vec::new();
-        if opts.format.verbosity > 0 {
-            println!("Found some files: {:?}", source_files);
-        }
-
-        // this variable exists to deal with the case where there's only
-        // one matching function - we might as well show it to the user directly
-        let mut single_target;
-
-        let seen = match source_files.len() {
-            0 => {
-                anyhow::bail!(
-                    "Compilation produced no files satisfying {:?}, this is a bug",
-                    output.with_file_name("*").with_extension(opts.syntax.ext())
-                );
-            }
-            1 => {
-                let file = source_files.remove(0);
-
-                let mut seen;
-
-                loop {
-                    seen = match opts.syntax {
-                        opts::Syntax::Intel | opts::Syntax::Att => asm::dump_function(
-                            target_function,
-                            &file,
-                            &target_info.sysroot,
-                            &opts.format,
-                            &mut existing,
-                        ),
-                        opts::Syntax::Llvm => {
-                            llvm::dump_function(target_function, &file, &opts.format, &mut existing)
-                        }
-                        opts::Syntax::Mir => {
-                            mir::dump_function(target_function, &file, &opts.format, &mut existing)
-                        }
-                    }?;
-                    if seen {
-                        return Ok(());
-                    } else if existing.len() == 1 {
-                        single_target = existing[0].name.clone();
-                        target_function = (&single_target, 0);
-                    } else {
-                        break;
-                    }
-                }
-                seen
-            }
-            _ => {
-                if retrying {
-                    anyhow::bail!(
-                        "Compilation produced multiple matching files: {source_files:?}. Do you have several targets (library and binary) producing a file with the same name? Otherwise this is a bug",
-                    );
-                }
-                let clean_opts = CleanOptions {
-                    config: &cfg,
-                    spec: vec![package.clone()],
-                    targets: clean_targets,
-                    profile_specified: false,
-                    requested_profile: InternedString::from(&opts.compile_mode),
-                    doc: false,
-                };
-                cargo::ops::clean(&ws, &clean_opts)?;
-                retrying = true;
-                continue;
-            }
-        };
-
-        if !seen {
-            suggest_name(target_name, opts.format.full_name, &existing)?;
-        }
-        break;
+    if !seen {
+        suggest_name(target_name, opts.format.full_name, &existing)?;
     }
 
     Ok(())
+}
+
+fn locate_asm_path_via_artifact(artifact: &Artifact, expect_ext: &str) -> anyhow::Result<PathBuf> {
+    // For lib, test, bench, lib-type example, `filenames` hint the file stem of the asm file.
+    // We could locate asm files precisely.
+    //
+    // `filenames`:
+    // [..]/target/debug/deps/libfoo-01234567.rmeta         # lib by-product
+    // [..]/target/debug/deps/foo-01234567                  # test & bench
+    // [..]/target/debug/deps/example/libfoo-01234567.rmeta # lib-type example by-product
+    // Asm files:
+    // [..]/target/debug/deps/foo-01234567.s
+    // [..]/target/debug/deps/example/foo-01234567.s
+    if let Some(path) = artifact
+        .filenames
+        .iter()
+        .filter(|path| {
+            matches!(
+                path.parent().unwrap().file_name(),
+                Some("deps" | "examples")
+            )
+        })
+        .find_map(|path| {
+            let path = path.with_extension(expect_ext);
+            if path.exists() {
+                return Some(path);
+            }
+            let path = path.with_file_name(path.file_name()?.strip_prefix("lib")?);
+            if path.exists() {
+                return Some(path);
+            }
+            None
+        })
+    {
+        return Ok(path.into_std_path_buf());
+    }
+
+    // For bin or bin-type example artifacts, `filenames` provide hard-linked paths
+    // without extra-filename.
+    // We scans all possible original artifacts by checking hard links,
+    // in order to retrieve the correct extra-filename, and then locate asm files.
+    //
+    // `filenames`, also `executable`:
+    // [..]/target/debug/foobin                    <+
+    // [..]/target/debug/examples/fooexample        | <+ Hard linked.
+    // Origins:                                     |  |
+    // [..]/target/debug/deps/foobin-01234567      <+  |
+    // [..]/target/debug/examples/fooexample-01234567 <+
+    // Asm files:
+    // [..]/target/debug/deps/foobin-01234567.s
+    // [..]/target/debug/examples/fooexample-01234567.s
+    if let Some(exe_path) = &artifact.executable {
+        let parent = exe_path.parent().unwrap();
+        let deps_dir = if parent.file_name() == Some("examples") {
+            parent.to_owned()
+        } else {
+            exe_path.with_file_name("deps")
+        };
+        for entry in deps_dir.read_dir()? {
+            let maybe_origin = entry?.path();
+            if same_file::is_same_file(&exe_path, &maybe_origin)? {
+                let asm_file = maybe_origin.with_extension(expect_ext);
+                if asm_file.exists() {
+                    return Ok(asm_file);
+                }
+            }
+        }
+    }
+
+    anyhow::bail!("Cannot locate the path to the asm file");
 }
 
 fn suggest_name(search: &str, full: bool, items: &[Item]) -> anyhow::Result<()> {
