@@ -66,7 +66,16 @@ fn main() -> anyhow::Result<()> {
             .find(|p| p.name == name)
             .with_context(|| format!("Package '{}' is not found", name))?,
         None if metadata.packages.len() == 1 => &metadata.packages[0],
-        None => anyhow::bail!("Multiple packages found"),
+        None => {
+            eprintln!(
+                "{:?} refers to multiple packages, you need to specify which one to use",
+                opts.manifest_path
+            );
+            for package in &metadata.packages {
+                eprintln!("\t-p {}", package.name);
+            }
+            anyhow::bail!("Multiple packages found")
+        }
     };
 
     let focus_artifact = match opts.focus {
@@ -74,7 +83,18 @@ fn main() -> anyhow::Result<()> {
         None => match focus_package.targets.len() {
             0 => anyhow::bail!("No targets found"),
             1 => opts::Focus::try_from(&focus_package.targets[0])?,
-            _ => anyhow::bail!("Multiple targets found"),
+            _ => {
+                eprintln!(
+                    "{} defines multiple targets, you need to specify which one to use:",
+                    focus_package.name
+                );
+                for target in &focus_package.targets {
+                    if let Ok(focus) = opts::Focus::try_from(target) {
+                        eprintln!("\t{}", focus.as_cargo_args().collect::<Vec<_>>().join(" "));
+                    }
+                }
+                anyhow::bail!("Multiple targets found")
+            }
         },
     };
 
