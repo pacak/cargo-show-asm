@@ -16,7 +16,7 @@ enum State {
 
 /// try to print `goal` from `path`, collect available items overwise
 pub fn dump_function(
-    goal: (&str, usize),
+    goal: Option<(&str, usize)>,
     path: &Path,
     _fmt: &Format,
     items: &mut Vec<Item>,
@@ -46,7 +46,9 @@ pub fn dump_function(
                     let name = name.as_str().to_owned();
                     let name_entry = names.entry(name.clone()).or_insert(0);
                     let hashed = format!("{name}:{name_entry}");
-                    seen = (name.as_ref(), *name_entry) == goal || hashed == goal.0;
+                    seen = goal.map_or(true, |goal| {
+                        (name.as_ref(), *name_entry) == goal || hashed == goal.0
+                    });
                     current_item = Some(Item {
                         index: *name_entry,
                         len: block_start.take().unwrap_or(ix),
@@ -75,7 +77,8 @@ pub fn dump_function(
                     state = State::Skipping;
                     if let Some(mut cur) = current_item.take() {
                         cur.len = ix - cur.len;
-                        if goal.0.is_empty() || cur.name.contains(goal.0) {
+                        if goal.map_or(true, |goal| goal.0.is_empty() || cur.name.contains(goal.0))
+                        {
                             items.push(cur);
                         }
                     }

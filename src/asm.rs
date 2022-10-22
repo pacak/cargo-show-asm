@@ -161,7 +161,7 @@ pub fn dump_range(
 
 /// try to print `goal` from `path`, collect available items otherwise
 pub fn dump_function(
-    goal: (&str, usize),
+    goal: Option<(&str, usize)>,
     path: &Path,
     sysroot: &Path,
     fmt: &Format,
@@ -230,18 +230,26 @@ pub fn dump_function(
         }
     }
 
-    for (item, range) in &functions {
-        if (item.name.as_ref(), item.index) == goal || item.hashed == goal.0 {
-            dump_range(&files, fmt, &file[range.clone()])?;
-            return Ok(true);
+    match goal {
+        Some(goal) => {
+            for (item, range) in &functions {
+                if (item.name.as_ref(), item.index) == goal || item.hashed == goal.0 {
+                    dump_range(&files, fmt, &file[range.clone()])?;
+                    return Ok(true);
+                }
+            }
+
+            *items = functions
+                .keys()
+                .filter(|i| i.name.contains(goal.0))
+                .cloned()
+                .collect::<Vec<_>>();
+
+            Ok(false)
+        }
+        None => {
+            dump_range(&files, fmt, &file)?;
+            Ok(true)
         }
     }
-
-    *items = functions
-        .keys()
-        .filter(|i| i.name.contains(goal.0))
-        .cloned()
-        .collect::<Vec<_>>();
-
-    Ok(false)
 }

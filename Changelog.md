@@ -1,10 +1,11 @@
 # Change Log
 
-## [0.2.0] - 2022-10-21
+## [0.2.0] - 2022-10-22
 - replaced libcargo with invoking cargo
 Thanks to @oxalica
 - renamed `--feature` -> `--features`
 - dropped backward compatibility `-no-defaut-features`
+- implemented `--everything` to dump the whole file demangled
 
 ## [0.1.24] - 2022-10-15
 - support custom profiles

@@ -73,11 +73,24 @@ pub struct Options {
     #[bpaf(external)]
     pub syntax: Syntax,
 
+    #[bpaf(external)]
     // what to display
-    #[bpaf(positional("FUNCTION"), optional)]
-    pub function: Option<String>,
-    #[bpaf(positional("INDEX"), fallback(0))]
-    pub nth: usize,
+    pub to_dump: ToDump,
+}
+
+#[derive(Debug, Clone, Bpaf)]
+pub enum ToDump {
+    /// Dump the whole asm file
+    Everything,
+    Function {
+        /// Dump function with that specific name / filter functions containing this string
+        #[bpaf(positional("FUNCTION"), optional)]
+        function: Option<String>,
+
+        /// Select specific function when there's several with the same name
+        #[bpaf(positional("INDEX"), fallback(0))]
+        nth: usize,
+    },
 }
 
 fn target_cpu() -> impl Parser<Option<String>> {

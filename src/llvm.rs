@@ -29,7 +29,7 @@ enum State {
 ///
 ///
 pub fn dump_function(
-    goal: (&str, usize),
+    goal: Option<(&str, usize)>,
     path: &Path,
     fmt: &Format,
     items: &mut Vec<Item>,
@@ -83,7 +83,9 @@ pub fn dump_function(
                     {
                         let hashed = format!("{hashed:?}");
                         let name_entry = names.entry(name.clone()).or_insert(0);
-                        seen = (name.as_ref(), *name_entry) == goal || hashed == goal.0;
+                        seen = goal.map_or(true, |goal| {
+                            (name.as_ref(), *name_entry) == goal || hashed == goal.0
+                        });
 
                         current_item = Some(Item {
                             name: name.clone(),
@@ -112,7 +114,8 @@ pub fn dump_function(
                 if line == "}" {
                     if let Some(mut cur) = current_item.take() {
                         cur.len = ix - cur.len;
-                        if goal.0.is_empty() || cur.name.contains(goal.0) {
+                        if goal.map_or(true, |goal| goal.0.is_empty() || cur.name.contains(goal.0))
+                        {
                             items.push(cur);
                         }
                     }
