@@ -1,5 +1,5 @@
 use crate::color;
-use once_cell::sync::OnceCell;
+use once_cell::sync::Lazy;
 use owo_colors::OwoColorize;
 use regex::{Regex, Replacer};
 use rustc_demangle::Demangle;
@@ -21,11 +21,8 @@ pub fn demangled(input: &str) -> Option<Demangle> {
     Some(name)
 }
 
-fn reg() -> &'static Regex {
-    static INSTANCE: OnceCell<Regex> = OnceCell::new();
-    INSTANCE
-        .get_or_init(|| regex::Regex::new(r"_?(_[a-zA-Z0-9_$.]+)").expect("regexp should be valid"))
-}
+static REGEXP: Lazy<Regex> =
+    Lazy::new(|| regex::Regex::new(r"_?(_[a-zA-Z0-9_$.]+)").expect("regexp should be valid"));
 
 struct Demangler {
     full_name: bool,
@@ -47,7 +44,7 @@ impl Replacer for Demangler {
 
 #[must_use]
 pub fn contents(input: &str, full_name: bool) -> Cow<'_, str> {
-    reg().replace_all(input, Demangler { full_name })
+    REGEXP.replace_all(input, Demangler { full_name })
 }
 
 #[cfg(test)]
