@@ -297,7 +297,7 @@ impl Focus {
         let (kind, name) = self.as_parts();
         Some(format!("--{}", kind))
             .into_iter()
-            .chain(name.map(|s| s.to_owned()))
+            .chain(name.map(ToOwned::to_owned))
     }
 
     #[must_use]

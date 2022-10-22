@@ -82,7 +82,7 @@ fn used_labels<'a>(stmts: &'_ [Statement<'a>]) -> BTreeSet<&'a str> {
     stmts
         .iter()
         .filter_map(|stmt| match stmt {
-            Statement::Label(_) => None,
+            Statement::Label(_) | Statement::Nothing => None,
             Statement::Directive(dir) => match dir {
                 Directive::File(_)
                 | Directive::Loc(_)
@@ -92,7 +92,6 @@ fn used_labels<'a>(stmts: &'_ [Statement<'a>]) -> BTreeSet<&'a str> {
                 Directive::SectionStart(ss) => Some(*ss),
             },
             Statement::Instruction(i) => i.args,
-            Statement::Nothing => None,
             Statement::Dunno(s) => Some(s),
         })
         .flat_map(crate::demangle::local_labels)
@@ -230,26 +229,23 @@ pub fn dump_function(
         }
     }
 
-    match goal {
-        Some(goal) => {
-            for (item, range) in &functions {
-                if (item.name.as_ref(), item.index) == goal || item.hashed == goal.0 {
-                    dump_range(&files, fmt, &file[range.clone()])?;
-                    return Ok(true);
-                }
+    if let Some(goal) = goal {
+        for (item, range) in &functions {
+            if (item.name.as_ref(), item.index) == goal || item.hashed == goal.0 {
+                dump_range(&files, fmt, &file[range.clone()])?;
+                return Ok(true);
             }
-
-            *items = functions
-                .keys()
-                .filter(|i| i.name.contains(goal.0))
-                .cloned()
-                .collect::<Vec<_>>();
-
-            Ok(false)
         }
-        None => {
-            dump_range(&files, fmt, &file)?;
-            Ok(true)
-        }
+
+        *items = functions
+            .keys()
+            .filter(|i| i.name.contains(goal.0))
+            .cloned()
+            .collect::<Vec<_>>();
+
+        Ok(false)
+    } else {
+        dump_range(&files, fmt, &file)?;
+        Ok(true)
     }
 }

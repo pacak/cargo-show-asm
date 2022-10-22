@@ -15,6 +15,9 @@ enum State {
 }
 
 /// try to print `goal` from `path`, collect available items overwise
+///
+/// # Errors
+/// anyhow handles all the possible issues
 pub fn dump_function(
     goal: Option<(&str, usize)>,
     path: &Path,
