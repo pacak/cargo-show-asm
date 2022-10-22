@@ -52,7 +52,7 @@ Try one of those
 Name in quotes is demangled rust name, numbers in square brackets represent number of lines
 in asm file. Function with the same name can be present in several instances.
 
-Specifying exact function name will print its assembly code
+Specifying exact function name or a uniquely identifying part of it will print its assembly code
 
 ```console,ignore
 $ cargo asm --lib "cargo_show_asm::opts::focus::{{closure}}"
@@ -87,20 +87,13 @@ wrapper around it and make it `pub` and `#[inline(never)]`.
 
 `cargo-asm` is not maintained: https://github.com/gnzlbg/cargo-asm/issues/244. This crate is a reimplementation which addresses a number of its shortcomings, including:
 
-* `cargo-asm` calls rustc directly. It recompiles everything every time with 1 codegen unit, which is slow and also not necessarily what is in your release profile. `cargo-show-asm` lets cargo run rustc.
+* `cargo-asm` recompiles everything every time with 1 codegen unit, which is slow and also not necessarily what is in your release profile. `cargo-show-asm` avoids that.
 
 * Because of how `cargo-asm` handles demangling the output looks like asm but isn't actually asm. It contains a whole bunch of extra commas which makes reusing it more annoying.
 
 * `cargo-asm` always uses colors unless you pass a flag while `cargo-show-asm` changes its default behavior if output is not sent to a terminal.
 
 * `cargo-show-asm` also supports MIR (note that the formatting of human-readable MIR is not stable).
-
-# I'm on MacOS and `cargo-show-asm` fails to compile for me
-
-In case you encounter a problem with openssl and libgit - you can try enabling one or both:
-```console
-cargo install cargo-show-asm --features vendored-openssl,vendored-libgit2
-```
 
 # Shell completion
 

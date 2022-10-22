@@ -2,7 +2,8 @@ use anyhow::Context;
 use cargo_metadata::{Artifact, Message, MetadataCommand};
 use cargo_show_asm::{
     asm::{self, Item},
-    color, llvm, mir, opts,
+    color, llvm, mir,
+    opts::{self, ToDump},
 };
 use std::collections::BTreeMap;
 use std::io::BufReader;
@@ -207,8 +208,10 @@ fn main() -> anyhow::Result<()> {
         eprintln!("Asm file: {}", asm_path.display());
     }
 
-    let target_name = opts.function.as_deref().unwrap_or("");
-    let mut target_function = (target_name, opts.nth);
+    let mut target_function = match &opts.to_dump {
+        ToDump::Everything => None,
+        ToDump::Function { function, nth } => Some((function.as_deref().unwrap_or(""), *nth)),
+    };
 
     // this variable exists to deal with the case where there's only
     // one matching function - we might as well show it to the user directly
@@ -236,14 +239,18 @@ fn main() -> anyhow::Result<()> {
             return Ok(());
         } else if existing.len() == 1 {
             single_target = existing[0].name.clone();
-            target_function = (&single_target, 0);
+            target_function = Some((&single_target, 0));
         } else {
             break;
         }
     }
 
-    if !seen {
-        suggest_name(target_name, opts.format.full_name, &existing)?;
+    if let (false, ToDump::Function { function, .. }) = (seen, &opts.to_dump) {
+        suggest_name(
+            function.as_deref().unwrap_or(""),
+            opts.format.full_name,
+            &existing,
+        )?;
     }
 
     Ok(())
@@ -305,6 +312,7 @@ fn locate_asm_path_via_artifact(artifact: &Artifact, expect_ext: &str) -> anyhow
         } else {
             exe_path.with_file_name("deps")
         };
+
         for entry in deps_dir.read_dir()? {
             let maybe_origin = entry?.path();
             if same_file::is_same_file(&exe_path, &maybe_origin)? {

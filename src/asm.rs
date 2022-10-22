@@ -1,5 +1,5 @@
 #![allow(clippy::missing_errors_doc)]
-use crate::asm::statements::{Instruction, Label};
+use crate::asm::statements::Label;
 use crate::cached_lines::CachedLines;
 use crate::{color, demangle};
 // TODO, use https://sourceware.org/binutils/docs/as/index.html
@@ -79,32 +79,24 @@ fn find_items(lines: &[Statement]) -> BTreeMap<Item, Range<usize>> {
 }
 
 fn used_labels<'a>(stmts: &'_ [Statement<'a>]) -> BTreeSet<&'a str> {
-    let labels = stmts
+    stmts
         .iter()
-        .filter_map(|i| {
-            if let Statement::Label(Label { local: true, id }) = i {
-                Some(id)
-            } else {
-                None
-            }
+        .filter_map(|stmt| match stmt {
+            Statement::Label(_) | Statement::Nothing => None,
+            Statement::Directive(dir) => match dir {
+                Directive::File(_)
+                | Directive::Loc(_)
+                | Directive::SubsectionsViaSym
+                | Directive::Set(_) => None,
+                Directive::Generic(g) => Some(g.0),
+                Directive::SectionStart(ss) => Some(*ss),
+            },
+            Statement::Instruction(i) => i.args,
+            Statement::Dunno(s) => Some(s),
         })
-        .collect::<Vec<_>>();
-
-    let mut used_labels = BTreeSet::new();
-
-    for item in stmts.iter() {
-        if let Statement::Instruction(Instruction {
-            args: Some(args), ..
-        }) = item
-        {
-            for &label in &labels {
-                if args.contains(label) {
-                    used_labels.insert(*label);
-                }
-            }
-        }
-    }
-    used_labels
+        .flat_map(crate::demangle::local_labels)
+        .map(|m| m.as_str())
+        .collect::<BTreeSet<_>>()
 }
 
 pub fn dump_range(
@@ -168,7 +160,7 @@ pub fn dump_range(
 
 /// try to print `goal` from `path`, collect available items otherwise
 pub fn dump_function(
-    goal: (&str, usize),
+    goal: Option<(&str, usize)>,
     path: &Path,
     sysroot: &Path,
     fmt: &Format,
@@ -237,18 +229,23 @@ pub fn dump_function(
         }
     }
 
-    for (item, range) in &functions {
-        if (item.name.as_ref(), item.index) == goal || item.hashed == goal.0 {
-            dump_range(&files, fmt, &file[range.clone()])?;
-            return Ok(true);
+    if let Some(goal) = goal {
+        for (item, range) in &functions {
+            if (item.name.as_ref(), item.index) == goal || item.hashed == goal.0 {
+                dump_range(&files, fmt, &file[range.clone()])?;
+                return Ok(true);
+            }
         }
+
+        *items = functions
+            .keys()
+            .filter(|i| i.name.contains(goal.0))
+            .cloned()
+            .collect::<Vec<_>>();
+
+        Ok(false)
+    } else {
+        dump_range(&files, fmt, &file)?;
+        Ok(true)
     }
-
-    *items = functions
-        .keys()
-        .filter(|i| i.name.contains(goal.0))
-        .cloned()
-        .collect::<Vec<_>>();
-
-    Ok(false)
 }

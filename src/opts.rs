@@ -28,7 +28,7 @@ fn check_target_dir(path: PathBuf) -> anyhow::Result<PathBuf> {
 ///      % cargo asm -p isin --lib isin::base36::from_alphanum
 pub struct Options {
     // what to compile
-    #[bpaf(external)]
+    #[bpaf(external, hide_usage)]
     pub manifest_path: PathBuf,
     /// Package to use if ambigous
     #[bpaf(long, short, argument("SPEC"))]
@@ -42,20 +42,23 @@ pub struct Options {
         env("CARGO_TARGET_DIR"),
         argument("DIR"),
         parse(check_target_dir),
-        optional
+        optional,
+        hide_usage
     )]
     pub target_dir: Option<PathBuf>,
     /// Produce a build plan instead of actually building
+    #[bpaf(hide_usage)]
     pub dry: bool,
     /// Requires Cargo.lock and cache are up to date
+    #[bpaf(hide_usage)]
     pub frozen: bool,
     /// Requires Cargo.lock is up to date
+    #[bpaf(hide_usage)]
     pub locked: bool,
     /// Run without accessing the network
+    #[bpaf(hide_usage)]
     pub offline: bool,
-    /// Force Cargo to do a full rebuild and treat each target as changed
-    pub force_rebuild: bool,
-    #[bpaf(external)]
+    #[bpaf(external, hide_usage)]
     pub cli_features: CliFeatures,
     #[bpaf(external)]
     pub compile_mode: CompileMode,
@@ -73,11 +76,24 @@ pub struct Options {
     #[bpaf(external)]
     pub syntax: Syntax,
 
+    #[bpaf(external)]
     // what to display
-    #[bpaf(positional("FUNCTION"), optional)]
-    pub function: Option<String>,
-    #[bpaf(positional("INDEX"), fallback(0))]
-    pub nth: usize,
+    pub to_dump: ToDump,
+}
+
+#[derive(Debug, Clone, Bpaf)]
+pub enum ToDump {
+    /// Dump the whole asm file
+    Everything,
+    Function {
+        /// Dump function with that specific name / filter functions containing this string
+        #[bpaf(positional("FUNCTION"), optional)]
+        function: Option<String>,
+
+        /// Select specific function when there's several with the same name
+        #[bpaf(positional("INDEX"), fallback(0))]
+        nth: usize,
+    },
 }
 
 fn target_cpu() -> impl Parser<Option<String>> {
@@ -124,6 +140,7 @@ fn verbosity() -> impl Parser<usize> {
         .req_flag(())
         .many()
         .map(|v| v.len())
+        .hide_usage()
 }
 
 fn manifest_path() -> impl Parser<PathBuf> {
@@ -148,13 +165,15 @@ pub struct Format {
     /// Print interleaved Rust code
     pub rust: bool,
 
-    #[bpaf(external(color_detection))]
+    #[bpaf(external(color_detection), hide_usage)]
     pub color: bool,
 
     /// Include full demangled name instead of just prefix
+    #[bpaf(hide_usage)]
     pub full_name: bool,
 
     /// Keep all the original labels
+    #[bpaf(hide_usage)]
     pub keep_labels: bool,
 
     /// more verbose output, can be specified multiple times
@@ -278,7 +297,7 @@ impl Focus {
         let (kind, name) = self.as_parts();
         Some(format!("--{}", kind))
             .into_iter()
-            .chain(name.map(|s| s.to_owned()))
+            .chain(name.map(ToOwned::to_owned))
     }
 
     #[must_use]
