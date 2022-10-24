@@ -14,7 +14,7 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 anyhow = "1"
 bpaf = { version = "0.7.1", features = ["bpaf_derive", "autocomplete"] }
-cargo_metadata = "0.15.0"
+cargo_metadata = "0.15.1"
 line-span = "0.1"
 nom = "7"
 once_cell = "1"
