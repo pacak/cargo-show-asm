@@ -14,11 +14,8 @@ $ cargo install cargo-show-asm
 
   - OS: Linux and MacOSX. Limited support for Windows
   - Rust: nightly and stable.
-  - Architectures: x86, x86_64, aarch64, probably more but untested.
+  - Architectures: `x86`, `x86_64`, `aarch64`, etc.
   - Cross-compilation support.
-
-Missing operating systems and architectures might be supported by accident, please make a
-ticket if something not working for your favorite platform
 
 - Displaying:
 
@@ -79,8 +76,9 @@ $ cargo asm --lib Debug
 
 # My function isn't there!
 
-`rustc` will only generate the code for your function if it know what type is it and
-if it's not inlined. If your function takes a generic parameter - try making a monomorphic
+`rustc` will only generate the code for your function if it knows what type it is, including
+generic parameters and if it is exported (in case of a library) and not inlined (in case of a
+binary, example, test, etc). If your function takes a generic parameter - try making a monomorphic
 wrapper around it and make it `pub` and `#[inline(never)]`.
 
 # What about `cargo-asm`?
