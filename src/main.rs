@@ -5,10 +5,10 @@ use cargo_show_asm::{
     color, llvm, mir,
     opts::{self, ToDump},
 };
-use std::collections::BTreeMap;
 use std::io::BufReader;
 use std::path::PathBuf;
 use std::process::Stdio;
+use std::{collections::BTreeMap, path::Path};
 
 /// This should be called before calling any cli method or printing any output.
 fn reset_signal_pipe_handler() -> anyhow::Result<()> {
@@ -315,7 +315,9 @@ fn locate_asm_path_via_artifact(artifact: &Artifact, expect_ext: &str) -> anyhow
 
         for entry in deps_dir.read_dir()? {
             let maybe_origin = entry?.path();
-            if same_file::is_same_file(&exe_path, &maybe_origin)? {
+            if same_file::is_same_file(&exe_path, &maybe_origin)?
+                || same_contents(exe_path.as_std_path(), &maybe_origin)?
+            {
                 let asm_file = maybe_origin.with_extension(expect_ext);
                 if asm_file.exists() {
                     return Ok(asm_file);
@@ -325,6 +327,11 @@ fn locate_asm_path_via_artifact(artifact: &Artifact, expect_ext: &str) -> anyhow
     }
 
     anyhow::bail!("Cannot locate the path to the asm file");
+}
+
+fn same_contents(a: &Path, b: &Path) -> anyhow::Result<bool> {
+    Ok(std::fs::metadata(a)?.len() == std::fs::metadata(b)?.len()
+        && std::fs::read(a)? == std::fs::read(b)?)
 }
 
 fn suggest_name(search: &str, full: bool, items: &[Item]) -> anyhow::Result<()> {
