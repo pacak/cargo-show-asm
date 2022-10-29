@@ -173,6 +173,10 @@ pub fn dump_function(
     fmt: &Format,
     items: &mut Vec<Item>,
 ) -> anyhow::Result<bool> {
+    if fmt.verbosity > 2 {
+        println!("goal: {:?}", goal);
+    }
+
     let contents = std::fs::read_to_string(path)?;
     let file = parse_file(&contents)?;
     let functions = find_items(&file);
@@ -237,8 +241,15 @@ pub fn dump_function(
     }
 
     if let Some(goal) = goal {
+        if fmt.verbosity > 2 {
+            println!("{:?}", functions);
+        }
         for (item, range) in &functions {
             if (item.name.as_ref(), item.index) == goal || item.hashed == goal.0 {
+                if fmt.verbosity > 1 {
+                    println!("dumping range: {:?} of 0..{}", range, file.len());
+                }
+
                 dump_range(&files, fmt, &file[range.clone()])?;
                 return Ok(true);
             }
@@ -252,6 +263,12 @@ pub fn dump_function(
 
         Ok(false)
     } else {
+        if fmt.verbosity > 2 {
+            println!("{:?}", functions);
+        }
+        if fmt.verbosity > 0 {
+            println!("Going to print the whole file");
+        }
         dump_range(&files, fmt, &file)?;
         Ok(true)
     }
