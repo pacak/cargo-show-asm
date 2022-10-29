@@ -1,5 +1,10 @@
 # Change Log
 
+## [0.2.1] - 2022-10-29
+- number of MacOS specific bugfixes
+- update deps
+- more detailed output with verbosity flags
+
 ## [0.2.0] - 2022-10-22
 - replaced libcargo with invoking cargo
 Thanks to @oxalica
