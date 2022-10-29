@@ -32,13 +32,13 @@ jobs:
         run: cargo fmt --all --check
 
       - name: Native version of cargo-show-asm (Intel ASM)
-        run: cargo run -vvv -- --manifest-path sample/Cargo.toml --intel sample::main --rust
+        run: cargo run -- --manifest-path sample/Cargo.toml --intel sample::main --rust
 
       - name: Native version of cargo-show-asm (Intel ASM) + native CPU
-        run: cargo run -vvv -- --manifest-path sample/Cargo.toml --native --intel sample::main --rust
+        run: cargo run -- --manifest-path sample/Cargo.toml --native --intel sample::main --rust
 
       - name: Native version of cargo-show-asm (Intel ASM) + native CPU + no default features
-        run: cargo run -vvv -- --manifest-path sample/Cargo.toml --native --intel sample::main --rust --no-default-features
+        run: cargo run -- -vvv --manifest-path sample/Cargo.toml --native --intel sample::main --rust --no-default-features
 
       - name: Native version of cargo-show-asm (Intel ASM) + atom
         run: cargo run -- --manifest-path sample/Cargo.toml --target-cpu atom --intel sample::main --rust
@@ -85,7 +85,55 @@ jobs:
         run: cargo run -- --manifest-path sample/Cargo.toml --native --intel sample::main --rust
 
       - name: Native version of cargo-show-asm (Intel ASM) + native CPU + no default features
-        run: cargo run -vvv -- --manifest-path sample/Cargo.toml --native --intel sample::main --rust --no-default-features
+        run: cargo run -- -vvv --manifest-path sample/Cargo.toml --native --intel sample::main --rust --no-default-features
+
+      - name: Native version of cargo-show-asm (Intel ASM) + atom
+        run: cargo run -- --manifest-path sample/Cargo.toml --target-cpu atom --intel sample::main --rust
+
+      - name: Native version of cargo-show-asm (LLVM)
+        run: cargo run -- --manifest-path sample/Cargo.toml --llvm sample::main
+
+      - name: Native version of cargo-show-asm (MIR)
+        run: cargo run -- --manifest-path sample/Cargo.toml --mir "main() -> ()"
+
+      - name: Crosscompiled version of cargo-show-asm (Intel ASM)
+        run: cargo run -- --manifest-path sample/Cargo.toml --intel sample::main --target armv7-unknown-linux-gnueabihf
+
+
+  macos:
+    runs-on: macos-latest
+    name: Tests on MacOS
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: rustfmt clippy rust-src
+          targets: armv7-unknown-linux-gnueabihf
+
+      - name: Build all the things
+        run: cargo build --tests
+
+      - name: Run unit tests
+        run: cargo test --all-features
+
+      - name: Clippy
+        run: cargo clippy
+
+      - name: Check formatting
+        run: cargo fmt --all --check
+
+      - name: Native version of cargo-show-asm (Intel ASM)
+        run: cargo run -- --manifest-path sample/Cargo.toml --intel sample::main --rust
+
+      - name: Native version of cargo-show-asm (Intel ASM) + native CPU
+        run: cargo run -- --manifest-path sample/Cargo.toml --native --intel sample::main --rust
+
+      - name: Native version of cargo-show-asm (Intel ASM) + native CPU + no default features
+        run: cargo run -- -vvv --manifest-path sample/Cargo.toml --native --intel sample::main --rust --no-default-features
 
       - name: Native version of cargo-show-asm (Intel ASM) + atom
         run: cargo run -- --manifest-path sample/Cargo.toml --target-cpu atom --intel sample::main --rust
