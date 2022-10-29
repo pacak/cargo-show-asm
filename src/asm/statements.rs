@@ -479,4 +479,13 @@ impl Statement<'_> {
     pub(crate) fn is_section_start(&self) -> bool {
         matches!(self, Statement::Directive(Directive::SectionStart(_)))
     }
+
+    pub(crate) fn is_global(&self) -> bool {
+        match self {
+            Statement::Directive(Directive::Generic(GenericDirective(dir))) => {
+                dir.starts_with("globl\t")
+            }
+            _ => false,
+        }
+    }
 }

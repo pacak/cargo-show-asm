@@ -51,7 +51,14 @@ fn find_items(lines: &[Statement]) -> BTreeMap<Item, Range<usize>> {
     let mut names = BTreeMap::new();
 
     for (ix, line) in lines.iter().enumerate() {
+        #[allow(clippy::if_same_then_else)]
         if line.is_section_start() {
+            sec_start = ix;
+        } else if line.is_global() && sec_start + 3 < ix {
+            // on Linux and Windows every global function gets it's own section
+            // on Mac for some reason this is not the case so we have to look for
+            // global variables. This little hack allows to include full section
+            // on Windows/Linux but still capture full function body on Mac
             sec_start = ix;
         } else if line.is_end_of_fn() {
             let sec_end = ix;
