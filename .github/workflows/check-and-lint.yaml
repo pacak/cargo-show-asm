@@ -32,13 +32,13 @@ jobs:
         run: cargo fmt --all --check
 
       - name: Native version of cargo-show-asm (Intel ASM)
-        run: cargo run -vvv -- --manifest-path sample/Cargo.toml --intel sample::main --rust
+        run: cargo run -- --manifest-path sample/Cargo.toml --intel sample::main --rust
 
       - name: Native version of cargo-show-asm (Intel ASM) + native CPU
-        run: cargo run -vvv -- --manifest-path sample/Cargo.toml --native --intel sample::main --rust
+        run: cargo run -- --manifest-path sample/Cargo.toml --native --intel sample::main --rust
 
       - name: Native version of cargo-show-asm (Intel ASM) + native CPU + no default features
-        run: cargo run -vvv -- --manifest-path sample/Cargo.toml --native --intel sample::main --rust --no-default-features
+        run: cargo run -- -vvv --manifest-path sample/Cargo.toml --native --intel sample::main --rust --no-default-features
 
       - name: Native version of cargo-show-asm (Intel ASM) + atom
         run: cargo run -- --manifest-path sample/Cargo.toml --target-cpu atom --intel sample::main --rust
@@ -85,7 +85,7 @@ jobs:
         run: cargo run -- --manifest-path sample/Cargo.toml --native --intel sample::main --rust
 
       - name: Native version of cargo-show-asm (Intel ASM) + native CPU + no default features
-        run: cargo run -vvv -- --manifest-path sample/Cargo.toml --native --intel sample::main --rust --no-default-features
+        run: cargo run -- -vvv --manifest-path sample/Cargo.toml --native --intel sample::main --rust --no-default-features
 
       - name: Native version of cargo-show-asm (Intel ASM) + atom
         run: cargo run -- --manifest-path sample/Cargo.toml --target-cpu atom --intel sample::main --rust
@@ -133,7 +133,7 @@ jobs:
         run: cargo run -- --manifest-path sample/Cargo.toml --native --intel sample::main --rust
 
       - name: Native version of cargo-show-asm (Intel ASM) + native CPU + no default features
-        run: cargo run -vvv -- --manifest-path sample/Cargo.toml --native --intel sample::main --rust --no-default-features
+        run: cargo run -- -vvv --manifest-path sample/Cargo.toml --native --intel sample::main --rust --no-default-features
 
       - name: Native version of cargo-show-asm (Intel ASM) + atom
         run: cargo run -- --manifest-path sample/Cargo.toml --target-cpu atom --intel sample::main --rust
