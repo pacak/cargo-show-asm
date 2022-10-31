@@ -181,6 +181,10 @@ pub fn dump_function(
     let file = parse_file(&contents)?;
     let functions = find_items(&file);
 
+    if fmt.verbosity > 2 {
+        println!("{:?}", functions);
+    }
+
     let mut files = BTreeMap::new();
     if fmt.rust {
         for line in &file {
@@ -241,9 +245,6 @@ pub fn dump_function(
     }
 
     if let Some(goal) = goal {
-        if fmt.verbosity > 2 {
-            println!("{:?}", functions);
-        }
         for (item, range) in &functions {
             if (item.name.as_ref(), item.index) == goal || item.hashed == goal.0 {
                 if fmt.verbosity > 1 {
@@ -263,9 +264,6 @@ pub fn dump_function(
 
         Ok(false)
     } else {
-        if fmt.verbosity > 2 {
-            println!("{:?}", functions);
-        }
         if fmt.verbosity > 0 {
             println!("Going to print the whole file");
         }

@@ -66,6 +66,7 @@ pub fn dump_function(
             }
             State::Body => {
                 if seen {
+                    #[allow(clippy::iter_with_drain)] // false positive
                     for p in prefix.drain(..) {
                         println!("{p}");
                     }
