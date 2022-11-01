@@ -29,6 +29,7 @@ fn main() -> anyhow::Result<()> {
     reset_signal_pipe_handler()?;
 
     let opts = opts::options().run();
+    owo_colors::set_override(opts.format.color);
 
     let cargo_path = std::env::var("CARGO").unwrap_or_else(|_| "cargo".into());
     let rustc_path = std::env::var("RUSTC").unwrap_or_else(|_| "rustc".into());
