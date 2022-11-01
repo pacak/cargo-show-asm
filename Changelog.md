@@ -1,5 +1,8 @@
 # Change Log
 
+## [0.2.2] - 2022-11-01
+- fix `--color` and `--no-color`, regression since 0.2.0
+
 ## [0.2.1] - 2022-10-29
 - number of MacOS specific bugfixes
 - update deps
