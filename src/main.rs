@@ -292,6 +292,41 @@ fn locate_asm_path_via_artifact(artifact: &Artifact, expect_ext: &str) -> anyhow
         return Ok(path.into_std_path_buf());
     }
 
+    // then there's rlib with filenames as following:
+    // `filenames`:
+    // [..]/target/debug/libfoo.a              <+
+    // [..]/target/debug/libfoo.rlib            | <+ Hard linked.
+    // Asm files:                               |  | Or same contents at least
+    // [..]/target/debug/libfoo-01234567.a     <+  |
+    // [..]/target/debug/libfoo-01234567.rlib     <+
+    // [..]/target/debug/foo-01234567.s
+
+    if artifact.target.kind.iter().any(|k| k == "rlib") {
+        let rlib_path = artifact
+            .filenames
+            .iter()
+            .find(|f| f.extension().map_or(false, |e| e == "rlib"))
+            .expect("No rlib?");
+        let deps_dir = rlib_path.with_file_name("deps");
+
+        for entry in deps_dir.read_dir()? {
+            let maybe_origin = entry?.path();
+            if same_contents(&rlib_path, &maybe_origin)? {
+                let name = maybe_origin
+                    .file_name()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .strip_prefix("lib")
+                    .unwrap();
+                let asm_file = maybe_origin.with_file_name(name).with_extension(expect_ext);
+                if asm_file.exists() {
+                    return Ok(asm_file);
+                }
+            }
+        }
+    }
+
     // For bin or bin-type example artifacts, `filenames` provide hard-linked paths
     // without extra-filename.
     // We scans all possible original artifacts by checking hard links,

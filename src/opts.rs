@@ -271,7 +271,7 @@ impl TryFrom<&'_ cargo_metadata::Target> for Focus {
 
     fn try_from(target: &cargo_metadata::Target) -> Result<Self, Self::Error> {
         match target.kind.first().map(|s| &**s) {
-            Some("lib") => Ok(Focus::Lib),
+            Some("lib" | "rlib") => Ok(Focus::Lib),
             Some("test") => Ok(Focus::Test(target.name.clone())),
             Some("bench") => Ok(Focus::Bench(target.name.clone())),
             Some("example") => Ok(Focus::Example(target.name.clone())),
@@ -303,6 +303,9 @@ impl Focus {
     #[must_use]
     pub fn matches_artifact(&self, artifact: &Artifact) -> bool {
         let (kind, name) = self.as_parts();
-        artifact.target.kind == [kind] && name.map_or(true, |name| artifact.target.name == *name)
+        let somewhat_matches = kind == "lib" && artifact.target.kind.iter().any(|i| i == "rlib");
+        let kind_matches = artifact.target.kind == [kind];
+        (somewhat_matches || kind_matches)
+            && name.map_or(true, |name| artifact.target.name == *name)
     }
 }
