@@ -52,6 +52,9 @@ jobs:
       - name: Crosscompiled version of cargo-show-asm (Intel ASM)
         run: cargo run -- --manifest-path sample/Cargo.toml --intel sample::main --target armv7-unknown-linux-gnueabihf
 
+      - name: Rlib project, AT&T asm
+        run: cargo run -- --manifest-path sample_rlib/Cargo.toml --att
+
   windows:
     runs-on: windows-latest
     name: Tests on windows
@@ -99,6 +102,8 @@ jobs:
       - name: Crosscompiled version of cargo-show-asm (Intel ASM)
         run: cargo run -- --manifest-path sample/Cargo.toml --intel sample::main --target armv7-unknown-linux-gnueabihf
 
+      - name: Rlib project, AT&T asm
+        run: cargo run -- --manifest-path sample_rlib/Cargo.toml --att
 
   macos:
     runs-on: macos-latest
@@ -146,3 +151,6 @@ jobs:
 
       - name: Crosscompiled version of cargo-show-asm (Intel ASM)
         run: cargo run -- --manifest-path sample/Cargo.toml --intel sample::main --target armv7-unknown-linux-gnueabihf
+
+      - name: Rlib project, AT&T asm
+        run: cargo run -- --manifest-path sample_rlib/Cargo.toml --att

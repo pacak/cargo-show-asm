@@ -1,0 +1,13 @@
+[package]
+name = "shadow-rs"
+version = "2.2.0"
+edition = "2021"
+publish = false
+
+[lib]
+path = "lib.rs"
+# the rlib crate is so that we build and run doctests
+crate-type = ["rlib", "staticlib"]
+
+[workspace]
+
