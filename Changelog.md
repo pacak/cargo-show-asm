@@ -1,5 +1,8 @@
 # Change Log
 
+## [0.2.3] - 2022-11-05
+- support rlib projects + tests
+
 ## [0.2.2] - 2022-11-01
 - fix `--color` and `--no-color`, regression since 0.2.0
 
