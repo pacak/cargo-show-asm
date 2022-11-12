@@ -1,5 +1,9 @@
 # Change Log
 
+## [0.2.4] - 2022-11-12
+- `--simplify` option - to strip some of the things that are not cpu instructions
+   from the asm output
+
 ## [0.2.3] - 2022-11-05
 - support rlib projects + tests
 
