@@ -179,6 +179,9 @@ pub struct Format {
     /// more verbose output, can be specified multiple times
     #[bpaf(external)]
     pub verbosity: usize,
+
+    /// Try to strip some of the non-assembly instruction information
+    pub simplify: bool,
 }
 
 #[derive(Debug, Clone, Bpaf)]

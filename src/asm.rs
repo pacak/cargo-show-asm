@@ -154,6 +154,10 @@ pub fn dump_range(
                 empty_line = true;
             }
         } else {
+            if fmt.simplify && matches!(line, Statement::Directive(_) | Statement::Dunno(_)) {
+                continue;
+            }
+
             empty_line = false;
             #[allow(clippy::match_bool)]
             match fmt.full_name {
