@@ -1,6 +1,6 @@
 # Change Log
 
-## [0.2.5] - unreleased
+## [0.2.5] - 2022-11-14
 - include README.md into docs.rs docs
 - dump function by index as well as by name
 
