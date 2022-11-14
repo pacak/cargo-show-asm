@@ -1,3 +1,4 @@
+#![doc = include_str!("../README.md")]
 pub mod asm;
 pub mod cached_lines;
 pub mod demangle;
