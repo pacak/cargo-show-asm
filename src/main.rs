@@ -211,6 +211,7 @@ fn main() -> anyhow::Result<()> {
 
     let mut target_function = match &opts.to_dump {
         ToDump::Everything => None,
+        ToDump::ByIndex { .. } => Some(("", 0)),
         ToDump::Function { function, nth } => Some((function.as_deref().unwrap_or(""), *nth)),
     };
 
@@ -241,6 +242,13 @@ fn main() -> anyhow::Result<()> {
         } else if existing.len() == 1 {
             single_target = existing[0].name.clone();
             target_function = Some((&single_target, 0));
+        } else if let ToDump::ByIndex { value } = opts.to_dump {
+            if value < existing.len() {
+                single_target = existing[value].name.clone();
+                target_function = Some((&single_target, 0))
+            } else {
+                break;
+            }
         } else {
             break;
         }
@@ -385,12 +393,13 @@ fn suggest_name(search: &str, full: bool, items: &[Item]) -> anyhow::Result<()> 
             anyhow::bail!("No matching functions, try relaxing your search request")
         }
     }
-    println!("Try one of those");
-    for (name, lens) in &names {
+    println!("Try one of those by name or a sequence number");
+    for (ix, (name, lens)) in names.iter().enumerate() {
         println!(
-            "{:?} {:?}",
+            "{ix:width$} {:?} {:?}",
             color!(name, owo_colors::OwoColorize::green),
-            color!(lens, owo_colors::OwoColorize::cyan)
+            color!(lens, owo_colors::OwoColorize::cyan),
+            width = (names.len() as f64).log10().ceil() as usize,
         );
     }
 

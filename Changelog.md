@@ -1,5 +1,9 @@
 # Change Log
 
+## [0.2.5] - 2022-11-14
+- include README.md into docs.rs docs
+- dump function by index as well as by name
+
 ## [0.2.4] - 2022-11-12
 - `--simplify` option - to strip some of the things that are not cpu instructions
    from the asm output

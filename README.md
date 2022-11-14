@@ -83,7 +83,7 @@ wrapper around it and make it `pub` and `#[inline(never)]`.
 
 # What about `cargo-asm`?
 
-`cargo-asm` is not maintained: https://github.com/gnzlbg/cargo-asm/issues/244. This crate is a reimplementation which addresses a number of its shortcomings, including:
+`cargo-asm` is not maintained: <https://github.com/gnzlbg/cargo-asm/issues/244>. This crate is a reimplementation which addresses a number of its shortcomings, including:
 
 * `cargo-asm` recompiles everything every time with 1 codegen unit, which is slow and also not necessarily what is in your release profile. `cargo-show-asm` avoids that.
 
@@ -119,8 +119,8 @@ cargo install cargo-show-asm -F dull-color
 # License
 This project is licensed under either of
 
-* Apache License, Version 2.0, (LICENSE-APACHE or http://www.apache.org/licenses/LICENSE-2.0)
-* MIT license (LICENSE-MIT or http://opensource.org/licenses/MIT)
+* Apache License, Version 2.0, (LICENSE-APACHE or <http://www.apache.org/licenses/LICENSE-2.0>)
+* MIT license (LICENSE-MIT or <http://opensource.org/licenses/MIT>)
 
 at your option.
 
