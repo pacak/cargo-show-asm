@@ -85,6 +85,13 @@ pub struct Options {
 pub enum ToDump {
     /// Dump the whole asm file
     Everything,
+
+    ByIndex {
+        /// Dump name with this index
+        #[bpaf(positional("ITEM_INDEX"))]
+        value: usize,
+    },
+
     Function {
         /// Dump function with that specific name / filter functions containing this string
         #[bpaf(positional("FUNCTION"), optional)]
