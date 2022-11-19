@@ -52,7 +52,20 @@ impl std::fmt::Display for Instruction<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", color!(self.op, OwoColorize::bright_blue))?;
         if let Some(args) = self.args {
-            write!(f, " {}", demangle::contents(args, f.alternate()))?;
+            let args = demangle::contents(args, f.alternate());
+            let args = args.as_ref();
+            let mut prev = 0;
+            f.write_str(" ")?;
+
+            for label in demangle::local_labels(args) {
+                // write all before the first label and between each label
+                f.write_str(&args[prev..label.start()])?;
+                write!(f, "{}", color!(label.as_str(), OwoColorize::bright_black))?;
+                prev = label.end();
+            }
+
+            // write all remaining arguments
+            f.write_str(&args[prev..])?;
         }
         Ok(())
     }
