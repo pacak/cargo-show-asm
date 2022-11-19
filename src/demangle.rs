@@ -24,8 +24,17 @@ pub fn demangled(input: &str) -> Option<Demangle> {
 static GLOBAL_LABELS: Lazy<Regex> =
     Lazy::new(|| regex::Regex::new(r"_?(_[a-zA-Z0-9_$\.]+)").expect("regexp should be valid"));
 
-static LOCAL_LABELS: Lazy<Regex> =
-    Lazy::new(|| regex::Regex::new(r"(\.L[a-zA-Z0-9_$\.]+)").expect("regexp should be valid"));
+static LOCAL_LABELS: Lazy<Regex> = Lazy::new(|| {
+    // This regex is three parts
+    // 1. \.L[a-zA-Z0-9_$\.]+
+    // 2. Ltmp[0-9]+
+    // 3. LBB[0-9_]+
+    // Label kind 1. is a standard label format for GCC and Clang (LLVM)
+    // Label kinds 2. and 3. were detected in the wild, and don't seem to be a normal label format
+    // however it's important to detect them so they can be colored and possibily removed
+    regex::Regex::new(r"(\.L[a-zA-Z0-9_$\.]+|Ltmp[0-9]+|LBB[0-9_]+)")
+        .expect("regexp should be valid")
+});
 
 pub fn local_labels(input: &str) -> regex::Matches {
     LOCAL_LABELS.find_iter(input)

@@ -174,7 +174,7 @@ impl<'a> Label<'a> {
         map(
             terminated(take_while1(good_for_label), tag(":")),
             |id: &str| {
-                let local = id.starts_with(".L");
+                let local = id.starts_with(".L") || id.starts_with("LBB") || id.starts_with("Ltmp");
                 Label { id, local }
             },
         )(input)
