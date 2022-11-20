@@ -174,9 +174,9 @@ impl<'a> Label<'a> {
         // TODO: label can't start with a digit
         map(
             terminated(take_while1(good_for_label), tag(":")),
-            |id: &str| {
-                let local = id.starts_with(".L") || id.starts_with("LBB") || id.starts_with("Ltmp");
-                Label { id, local }
+            |id: &str| Label {
+                id,
+                local: demangle::is_local(id),
             },
         )(input)
     }

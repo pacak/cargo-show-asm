@@ -40,6 +40,10 @@ pub fn local_labels(input: &str) -> regex::Matches {
     LOCAL_LABELS.find_iter(input)
 }
 
+pub fn is_local(input: &str) -> bool {
+    LOCAL_LABELS.is_match(input)
+}
+
 struct LabelColorizer;
 impl Replacer for LabelColorizer {
     fn replace_append(&mut self, caps: &regex::Captures<'_>, dst: &mut String) {
