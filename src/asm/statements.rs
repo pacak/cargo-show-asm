@@ -53,19 +53,7 @@ impl std::fmt::Display for Instruction<'_> {
         write!(f, "{}", color!(self.op, OwoColorize::bright_blue))?;
         if let Some(args) = self.args {
             let args = demangle::contents(args, f.alternate());
-            let args = args.as_ref();
-            let mut prev = 0;
-            f.write_str(" ")?;
-
-            for label in demangle::local_labels(args) {
-                // write all before the first label and between each label
-                f.write_str(&args[prev..label.start()])?;
-                write!(f, "{}", color!(label.as_str(), OwoColorize::bright_black))?;
-                prev = label.end();
-            }
-
-            // write all remaining arguments
-            f.write_str(&args[prev..])?;
+            write!(f, " {}", demangle::color_labels(&args))?;
         }
         Ok(())
     }

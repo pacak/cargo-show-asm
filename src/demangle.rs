@@ -40,6 +40,18 @@ pub fn local_labels(input: &str) -> regex::Matches {
     LOCAL_LABELS.find_iter(input)
 }
 
+struct LabelColorizer;
+impl Replacer for LabelColorizer {
+    fn replace_append(&mut self, caps: &regex::Captures<'_>, dst: &mut String) {
+        use std::fmt::Write;
+        write!(dst, "{}", color!(&caps[0], OwoColorize::bright_black)).unwrap();
+    }
+}
+
+pub fn color_labels(input: &str) -> Cow<'_, str> {
+    LOCAL_LABELS.replace_all(input, LabelColorizer)
+}
+
 struct Demangler {
     full_name: bool,
 }
