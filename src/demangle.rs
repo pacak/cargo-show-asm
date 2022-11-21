@@ -73,7 +73,7 @@ impl Replacer for LabelColorizer {
     }
 }
 
-pub fn color_labels(input: &str) -> Cow<'_, str> {
+pub fn color_local_labels(input: &str) -> Cow<'_, str> {
     LOCAL_LABELS.replace_all(input, LabelColorizer)
 }
 

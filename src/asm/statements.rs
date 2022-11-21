@@ -54,7 +54,7 @@ impl std::fmt::Display for Instruction<'_> {
         write!(f, "{}", color!(self.op, OwoColorize::bright_blue))?;
         if let Some(args) = self.args {
             let args = demangle::contents(args, f.alternate());
-            write!(f, " {}", demangle::color_labels(&args))?;
+            write!(f, " {}", demangle::color_local_labels(&args))?;
         }
         Ok(())
     }
