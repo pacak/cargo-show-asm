@@ -1,8 +1,11 @@
 # Change Log
 
-## [0.2.5] - 2022-11-14
+## [0.2.5] - 2022-11-21
 - include README.md into docs.rs docs
 - dump function by index as well as by name
+- improve label colorization and stripping
+Thanks to @RustyYato
+- bump dependencies
 
 ## [0.2.4] - 2022-11-12
 - `--simplify` option - to strip some of the things that are not cpu instructions
