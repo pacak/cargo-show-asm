@@ -36,12 +36,19 @@ static LOCAL_LABELS: Lazy<Regex> = Lazy::new(|| {
         .expect("regexp should be valid")
 });
 
+static TEMP_LABELS: Lazy<Regex> =
+    Lazy::new(|| regex::Regex::new(r"(Ltmp[0-9]+)").expect("regexp should be valid"));
+
 pub fn local_labels(input: &str) -> regex::Matches {
     LOCAL_LABELS.find_iter(input)
 }
 
 pub fn is_local(input: &str) -> bool {
     LOCAL_LABELS.is_match(input)
+}
+
+pub fn is_temp_label(input: &str) -> bool {
+    TEMP_LABELS.is_match(input)
 }
 
 struct LabelColorizer;

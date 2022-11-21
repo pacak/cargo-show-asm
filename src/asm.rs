@@ -119,6 +119,7 @@ pub fn dump_range(
         used_labels(stmts)
     };
 
+    let mut empty_line = false;
     for line in stmts.iter() {
         if fmt.verbosity > 2 {
             println!("{line:?}");
@@ -144,15 +145,20 @@ pub fn dump_range(
                     color!(rust_line.trim_start(), OwoColorize::bright_red)
                 );
             }
+            empty_line = false;
         } else if let Statement::Label(Label { local: true, id }) = line {
             if fmt.keep_labels || used.contains(id) {
                 println!("{line}");
+            } else if !empty_line && !demangle::is_temp_label(id) {
+                println!();
+                empty_line = true;
             }
         } else {
             if fmt.simplify && matches!(line, Statement::Directive(_) | Statement::Dunno(_)) {
                 continue;
             }
 
+            empty_line = false;
             #[allow(clippy::match_bool)]
             match fmt.full_name {
                 true => println!("{line:#}"),
