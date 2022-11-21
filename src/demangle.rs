@@ -1,7 +1,7 @@
 use crate::color;
 use once_cell::sync::Lazy;
 use owo_colors::OwoColorize;
-use regex::{Regex, Replacer};
+use regex::{Regex, RegexSet, Replacer};
 use rustc_demangle::Demangle;
 use std::borrow::Cow;
 
@@ -21,14 +21,68 @@ pub fn demangled(input: &str) -> Option<Demangle> {
     Some(name)
 }
 
+const GLOBAL_LABELS_REGEX: &str = r"\b_?(_[a-zA-Z0-9_$\.]+)";
+
+// This regex is two parts
+// 1. \.L[a-zA-Z0-9_$\.]+
+// 2. LBB[0-9_]+
+// Label kind 1. is a standard label format for GCC and Clang (LLVM)
+// Label kinds 2. was detected in the wild, and don't seem to be a normal label format
+// however it's important to detect them so they can be colored and possibly removed
+//
+// Note on `(?:[^\w\d\$\.]|^)`. This is to prevent the label from matching in the middle of some other word
+// since \b doesn't match before a `.` we can't use \b. So instead we're using a negation of any character
+// that could come up in the label OR the beginning of the text. It's not matching because we don't care what's
+// there  as long as it doesn't look like a label.
+//
+// Note: this rejects "labels" like `H.Lfoo` but accepts `.Lexception` and `[some + .Label]`
+const LOCAL_LABELS_REGEX: &str = r"(?:[^\w\d\$\.]|^)(\.L[a-zA-Z0-9_\$\.]+|\bLBB[0-9_]+)";
+
+// temporary labels
+const TEMP_LABELS_REGEX: &str = r"\b(Ltmp[0-9]+)\b";
+
 static GLOBAL_LABELS: Lazy<Regex> =
-    Lazy::new(|| regex::Regex::new(r"_?(_[a-zA-Z0-9_$\.]+)").expect("regexp should be valid"));
+    Lazy::new(|| regex::Regex::new(GLOBAL_LABELS_REGEX).expect("regexp should be valid"));
 
 static LOCAL_LABELS: Lazy<Regex> =
-    Lazy::new(|| regex::Regex::new(r"(\.L[a-zA-Z0-9_$\.]+)").expect("regexp should be valid"));
+    Lazy::new(|| regex::Regex::new(LOCAL_LABELS_REGEX).expect("regexp should be valid"));
+
+static LABEL_KINDS: Lazy<RegexSet> = Lazy::new(|| {
+    regex::RegexSet::new([LOCAL_LABELS_REGEX, GLOBAL_LABELS_REGEX, TEMP_LABELS_REGEX])
+        .expect("regexp should be valid")
+});
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LabelKind {
+    Global,
+    Local,
+    Temp,
+    Unknown,
+}
 
 pub fn local_labels(input: &str) -> regex::Matches {
     LOCAL_LABELS.find_iter(input)
+}
+
+pub fn label_kind(input: &str) -> LabelKind {
+    match LABEL_KINDS.matches(input).into_iter().next() {
+        Some(1) => LabelKind::Global,
+        Some(0) => LabelKind::Local,
+        Some(2) => LabelKind::Temp,
+        _ => LabelKind::Unknown,
+    }
+}
+
+struct LabelColorizer;
+impl Replacer for LabelColorizer {
+    fn replace_append(&mut self, caps: &regex::Captures<'_>, dst: &mut String) {
+        use std::fmt::Write;
+        write!(dst, "{}", color!(&caps[0], OwoColorize::bright_black)).unwrap();
+    }
+}
+
+pub fn color_local_labels(input: &str) -> Cow<'_, str> {
+    LOCAL_LABELS.replace_all(input, LabelColorizer)
 }
 
 struct Demangler {

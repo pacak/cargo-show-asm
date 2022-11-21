@@ -10,6 +10,7 @@ use nom::sequence::{delimited, preceded, terminated, tuple};
 use nom::{AsChar, IResult};
 use owo_colors::OwoColorize;
 
+use crate::demangle::LabelKind;
 use crate::{color, demangle};
 
 #[derive(Clone, Debug)]
@@ -52,7 +53,8 @@ impl std::fmt::Display for Instruction<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", color!(self.op, OwoColorize::bright_blue))?;
         if let Some(args) = self.args {
-            write!(f, " {}", demangle::contents(args, f.alternate()))?;
+            let args = demangle::contents(args, f.alternate());
+            write!(f, " {}", demangle::color_local_labels(&args))?;
         }
         Ok(())
     }
@@ -165,7 +167,7 @@ impl std::fmt::Display for Label<'_> {
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Label<'a> {
     pub id: &'a str,
-    pub local: bool,
+    pub kind: LabelKind,
 }
 
 impl<'a> Label<'a> {
@@ -173,9 +175,9 @@ impl<'a> Label<'a> {
         // TODO: label can't start with a digit
         map(
             terminated(take_while1(good_for_label), tag(":")),
-            |id: &str| {
-                let local = id.starts_with(".L");
-                Label { id, local }
+            |id: &str| Label {
+                id,
+                kind: demangle::label_kind(id),
             },
         )(input)
     }
@@ -277,7 +279,17 @@ fn test_parse_label() {
             "",
             Label {
                 id: "GCC_except_table0",
-                local: false,
+                kind: LabelKind::Unknown,
+            }
+        ))
+    );
+    assert_eq!(
+        Label::parse("__ZN4core3ptr50drop_in_place$LT$rand..rngs..thread..ThreadRng$GT$17hba90ed09529257ccE:"),
+        Ok((
+            "",
+            Label {
+                id: "__ZN4core3ptr50drop_in_place$LT$rand..rngs..thread..ThreadRng$GT$17hba90ed09529257ccE",
+                kind: LabelKind::Global,
             }
         ))
     );
@@ -287,7 +299,27 @@ fn test_parse_label() {
             "",
             Label {
                 id: ".Lexception0",
-                local: true
+                kind: LabelKind::Local
+            }
+        ))
+    );
+    assert_eq!(
+        Label::parse("LBB0_1:"),
+        Ok((
+            "",
+            Label {
+                id: "LBB0_1",
+                kind: LabelKind::Local
+            }
+        ))
+    );
+    assert_eq!(
+        Label::parse("Ltmp12:"),
+        Ok((
+            "",
+            Label {
+                id: "Ltmp12",
+                kind: LabelKind::Temp
             }
         ))
     );
@@ -462,7 +494,11 @@ impl Statement<'_> {
         #[allow(unused_variables)]
         if let Statement::Directive(Directive::Generic(GenericDirective("cfi_endproc"))) = self {
             true
-        } else if let Statement::Label(Label { id, local: true }) = self {
+        } else if let Statement::Label(Label {
+            id,
+            kind: LabelKind::Local,
+        }) = self
+        {
             #[cfg(windows)]
             {
                 id.starts_with(".Lfunc_end")
