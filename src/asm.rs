@@ -1,6 +1,7 @@
 #![allow(clippy::missing_errors_doc)]
 use crate::asm::statements::Label;
 use crate::cached_lines::CachedLines;
+use crate::demangle::LabelKind;
 use crate::{color, demangle};
 // TODO, use https://sourceware.org/binutils/docs/as/index.html
 use crate::opts::Format;
@@ -146,10 +147,14 @@ pub fn dump_range(
                 );
             }
             empty_line = false;
-        } else if let Statement::Label(Label { local: true, id }) = line {
+        } else if let Statement::Label(Label {
+            kind: kind @ (LabelKind::Local | LabelKind::Temp),
+            id,
+        }) = line
+        {
             if fmt.keep_labels || used.contains(id) {
                 println!("{line}");
-            } else if !empty_line && !demangle::is_temp_label(id) {
+            } else if !empty_line && *kind != LabelKind::Temp {
                 println!();
                 empty_line = true;
             }

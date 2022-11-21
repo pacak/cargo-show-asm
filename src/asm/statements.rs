@@ -10,6 +10,7 @@ use nom::sequence::{delimited, preceded, terminated, tuple};
 use nom::{AsChar, IResult};
 use owo_colors::OwoColorize;
 
+use crate::demangle::LabelKind;
 use crate::{color, demangle};
 
 #[derive(Clone, Debug)]
@@ -166,7 +167,7 @@ impl std::fmt::Display for Label<'_> {
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Label<'a> {
     pub id: &'a str,
-    pub local: bool,
+    pub kind: LabelKind,
 }
 
 impl<'a> Label<'a> {
@@ -176,7 +177,7 @@ impl<'a> Label<'a> {
             terminated(take_while1(good_for_label), tag(":")),
             |id: &str| Label {
                 id,
-                local: demangle::is_local(id),
+                kind: demangle::label_kind(id),
             },
         )(input)
     }
@@ -278,7 +279,7 @@ fn test_parse_label() {
             "",
             Label {
                 id: "GCC_except_table0",
-                local: false,
+                kind: LabelKind::Unknown,
             }
         ))
     );
@@ -288,7 +289,27 @@ fn test_parse_label() {
             "",
             Label {
                 id: ".Lexception0",
-                local: true
+                kind: LabelKind::Local
+            }
+        ))
+    );
+    assert_eq!(
+        Label::parse("LBB0_1:"),
+        Ok((
+            "",
+            Label {
+                id: "LBB0_1",
+                kind: LabelKind::Local
+            }
+        ))
+    );
+    assert_eq!(
+        Label::parse("Ltmp12:"),
+        Ok((
+            "",
+            Label {
+                id: "Ltmp12",
+                kind: LabelKind::Temp
             }
         ))
     );
@@ -463,7 +484,11 @@ impl Statement<'_> {
         #[allow(unused_variables)]
         if let Statement::Directive(Directive::Generic(GenericDirective("cfi_endproc"))) = self {
             true
-        } else if let Statement::Label(Label { id, local: true }) = self {
+        } else if let Statement::Label(Label {
+            id,
+            kind: LabelKind::Local,
+        }) = self
+        {
             #[cfg(windows)]
             {
                 id.starts_with(".Lfunc_end")
