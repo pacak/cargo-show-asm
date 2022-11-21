@@ -289,7 +289,7 @@ fn test_parse_label() {
             "",
             Label {
                 id: "__ZN4core3ptr50drop_in_place$LT$rand..rngs..thread..ThreadRng$GT$17hba90ed09529257ccE",
-                kind: LabelKind::Gobal,
+                kind: LabelKind::Global,
             }
         ))
     );

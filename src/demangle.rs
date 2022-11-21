@@ -54,7 +54,7 @@ static LABEL_KINDS: Lazy<RegexSet> = Lazy::new(|| {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LabelKind {
-    Gobal,
+    Global,
     Local,
     Temp,
     Unknown,
@@ -66,7 +66,7 @@ pub fn local_labels(input: &str) -> regex::Matches {
 
 pub fn label_kind(input: &str) -> LabelKind {
     match LABEL_KINDS.matches(input).into_iter().next() {
-        Some(1) => LabelKind::Gobal,
+        Some(1) => LabelKind::Global,
         Some(0) => LabelKind::Local,
         Some(2) => LabelKind::Temp,
         _ => LabelKind::Unknown,
