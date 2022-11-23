@@ -2,11 +2,11 @@ use std::borrow::Cow;
 use std::path::Path;
 
 use nom::branch::alt;
-use nom::bytes::complete::{tag, take_while, take_while1};
+use nom::bytes::complete::{tag, take_while1, take_while_m_n};
 use nom::character::complete;
-use nom::character::complete::{newline, space1};
-use nom::combinator::{consumed, map, opt, verify};
-use nom::sequence::{delimited, preceded, terminated, tuple};
+use nom::character::complete::{newline, not_line_ending, space1};
+use nom::combinator::{map, opt, recognize, verify};
+use nom::sequence::{delimited, pair, preceded, terminated, tuple};
 use nom::{AsChar, IResult};
 use owo_colors::OwoColorize;
 
@@ -30,22 +30,21 @@ pub struct Instruction<'a> {
 
 impl<'a> Instruction<'a> {
     pub fn parse(input: &'a str) -> IResult<&'a str, Self> {
-        alt((Self::parse_regular, Self::parse_sharp))(input)
+        preceded(tag("\t"), alt((Self::parse_regular, Self::parse_sharp)))(input)
     }
 
     fn parse_sharp(input: &'a str) -> IResult<&'a str, Self> {
-        let sharp_tag = tuple((tag("#"), opt(tag("#")), take_while1(|c: char| c != '\n')));
-        map(preceded(tag("\t"), consumed(sharp_tag)), |(op, _)| {
-            Instruction { op, args: None }
-        })(input)
+        let sharps = take_while_m_n(1, 2, |c| c == '#');
+        let sharp_tag = pair(sharps, not_line_ending);
+        map(recognize(sharp_tag), |op| Instruction { op, args: None })(input)
     }
 
     fn parse_regular(input: &'a str) -> IResult<&'a str, Self> {
-        let (input, _) = tag("\t")(input)?;
-        // NOTE: ARM allows `.` inside instruction names i.e. for `b.ne` for branch not equal
-        let (input, op) = take_while1(|c| AsChar::is_alphanum(c) || matches!(c, '.'))(input)?;
-        let (input, args) = opt(preceded(space1, take_while1(|c| c != '\n')))(input)?;
-        Ok((input, Instruction { op, args }))
+        // NOTE: ARM allows `.` inside instruction names e.g. `b.ne` for branch not equal
+        //       Wasm also uses `.` in instr names, and uses `_` for `end_function`
+        let op = take_while1(|c| AsChar::is_alphanum(c) || matches!(c, '.' | '_'));
+        let args = opt(preceded(space1, not_line_ending));
+        map(pair(op, args), |(op, args)| Instruction { op, args })(input)
     }
 }
 
@@ -461,7 +460,7 @@ pub fn parse_statement(input: &str) -> IResult<&str, Statement> {
     // let dunno = |input: &str| todo!("{:?}", &input[..100]);
 
     let instr = map(Instruction::parse, Statement::Instruction);
-    let nothing = map(verify(take_while(|c| c != '\n'), str::is_empty), |_| {
+    let nothing = map(verify(not_line_ending, str::is_empty), |_| {
         Statement::Nothing
     });
 
@@ -491,25 +490,13 @@ fn good_for_label(c: char) -> bool {
 }
 impl Statement<'_> {
     pub(crate) fn is_end_of_fn(&self) -> bool {
-        #[allow(unused_variables)]
-        if let Statement::Directive(Directive::Generic(GenericDirective("cfi_endproc"))) = self {
-            true
-        } else if let Statement::Label(Label {
-            id,
-            kind: LabelKind::Local,
-        }) = self
-        {
-            #[cfg(windows)]
-            {
-                id.starts_with(".Lfunc_end")
-            }
-            #[cfg(not(windows))]
-            {
-                false
-            }
-        } else {
-            false
-        }
+        matches!(
+            self,
+            Statement::Label(Label {
+                id,
+                kind: LabelKind::Local,
+            }) if id.starts_with(".Lfunc_end")
+        )
     }
 
     pub(crate) fn is_section_start(&self) -> bool {
