@@ -109,7 +109,7 @@ fn main() -> anyhow::Result<()> {
         cmd.arg("rustc")
             // General.
             .args([
-                "--message-format=json",
+                "--message-format=json-render-diagnostics",
                 "--color",
                 if opts.format.color { "always" } else { "never" },
             ])
@@ -187,12 +187,11 @@ fn main() -> anyhow::Result<()> {
                 success = fin.success;
                 break;
             }
-            Message::CompilerMessage(msg) => {
-                eprintln!("{}", msg);
-            }
             _ => {}
         }
     }
+    // add some spacing between cargo's output and ours
+    eprintln!();
     if !success {
         let status = cargo_child.wait()?;
         eprintln!("Cargo failed with {}", status);
