@@ -126,6 +126,7 @@ fn main() -> anyhow::Result<()> {
             .args(opts.locked.then_some("--locked"))
             .args(opts.offline.then_some("--offline"))
             .args(opts.target.iter().flat_map(|t| ["--target", t]))
+            .args((opts.syntax == opts::Syntax::Wasm).then_some("--target=wasm32-unknown-unknown"))
             .args(
                 opts.target_dir
                     .iter()
@@ -222,7 +223,7 @@ fn main() -> anyhow::Result<()> {
 
     loop {
         seen = match opts.syntax {
-            opts::Syntax::Intel | opts::Syntax::Att => asm::dump_function(
+            opts::Syntax::Intel | opts::Syntax::Att | opts::Syntax::Wasm => asm::dump_function(
                 target_function,
                 &asm_path,
                 &sysroot,
