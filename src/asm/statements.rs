@@ -490,13 +490,8 @@ fn good_for_label(c: char) -> bool {
 }
 impl Statement<'_> {
     pub(crate) fn is_end_of_fn(&self) -> bool {
-        matches!(
-            self,
-            Statement::Label(Label {
-                id,
-                kind: LabelKind::Local,
-            }) if id.starts_with(".Lfunc_end")
-        )
+        let check_id = |id: &str| id.strip_prefix('.').unwrap_or(id).starts_with("Lfunc_end");
+        matches!(self, Statement::Label(Label { id, .. }) if check_id(id))
     }
 
     pub(crate) fn is_section_start(&self) -> bool {
