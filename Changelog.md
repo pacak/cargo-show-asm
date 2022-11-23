@@ -1,5 +1,11 @@
 # Change Log
 
+## [0.2.6] - 2022-11-23
+- use color for cargo diagnostics
+Thanks to @coolreader18
+- support for WASM target
+Thanks to @coolreader18
+
 ## [0.2.5] - 2022-11-21
 - include README.md into docs.rs docs
 - dump function by index as well as by name

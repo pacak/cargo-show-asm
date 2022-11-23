@@ -191,7 +191,7 @@ pub struct Format {
     pub simplify: bool,
 }
 
-#[derive(Debug, Clone, Bpaf)]
+#[derive(Debug, Clone, Bpaf, Eq, PartialEq)]
 #[bpaf(fallback(Syntax::Intel))]
 pub enum Syntax {
     /// Show assembly using Intel style
@@ -203,6 +203,8 @@ pub enum Syntax {
     Llvm,
     /// Show MIR
     Mir,
+    /// Show WASM, needs wasm32-unknown-unknown target installed
+    Wasm,
 }
 
 impl Syntax {
@@ -211,14 +213,14 @@ impl Syntax {
         match self {
             Syntax::Intel => Some("llvm-args=-x86-asm-syntax=intel"),
             Syntax::Att => Some("llvm-args=-x86-asm-syntax=att"),
-            Syntax::Mir | Syntax::Llvm => None,
+            Syntax::Wasm | Syntax::Mir | Syntax::Llvm => None,
         }
     }
 
     #[must_use]
     pub fn emit(&self) -> &str {
         match self {
-            Syntax::Intel | Syntax::Att => "asm",
+            Syntax::Intel | Syntax::Att | Syntax::Wasm => "asm",
             Syntax::Llvm => "llvm-ir",
             Syntax::Mir => "mir",
         }
@@ -227,7 +229,7 @@ impl Syntax {
     #[must_use]
     pub fn ext(&self) -> &str {
         match self {
-            Syntax::Intel | Syntax::Att => "s",
+            Syntax::Intel | Syntax::Att | Syntax::Wasm => "s",
             Syntax::Llvm => "ll",
             Syntax::Mir => "mir",
         }
