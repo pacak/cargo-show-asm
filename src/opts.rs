@@ -28,8 +28,6 @@ fn check_target_dir(path: PathBuf) -> anyhow::Result<PathBuf> {
 ///      % cargo asm -p isin --lib isin::base36::from_alphanum
 pub struct Options {
     // what to compile
-    #[bpaf(external, hide_usage)]
-    pub manifest_path: PathBuf,
     /// Package to use if ambigous
     #[bpaf(long, short, argument("SPEC"))]
     pub package: Option<String>,
@@ -55,7 +53,11 @@ pub struct Options {
 }
 
 #[derive(Debug, Clone, Bpaf)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct Cargo {
+    #[bpaf(external, hide_usage)]
+    pub manifest_path: PathBuf,
+
     /// Use custom target directory for generated artifacts, create if missing
     #[bpaf(
         env("CARGO_TARGET_DIR"),
@@ -172,7 +174,7 @@ fn manifest_path() -> impl Parser<PathBuf> {
 }
 
 #[allow(clippy::struct_excessive_bools)]
-#[derive(Debug, Clone, Bpaf)]
+#[derive(Debug, Clone, Bpaf, Copy)]
 pub struct Format {
     /// Print interleaved Rust code
     pub rust: bool,
@@ -196,7 +198,7 @@ pub struct Format {
     pub simplify: bool,
 }
 
-#[derive(Debug, Clone, Bpaf, Eq, PartialEq)]
+#[derive(Debug, Clone, Bpaf, Eq, PartialEq, Copy)]
 #[bpaf(fallback(Syntax::Intel))]
 pub enum Syntax {
     /// Show assembly using Intel style
@@ -312,9 +314,7 @@ impl Focus {
 
     pub fn as_cargo_args(&self) -> impl Iterator<Item = String> {
         let (kind, name) = self.as_parts();
-        Some(format!("--{}", kind))
-            .into_iter()
-            .chain(name.map(ToOwned::to_owned))
+        std::iter::once(format!("--{}", kind)).chain(name.map(ToOwned::to_owned))
     }
 
     #[must_use]

@@ -1,14 +1,20 @@
 use anyhow::Context;
-use cargo_metadata::{Artifact, Message, MetadataCommand};
+use cargo_metadata::{Artifact, Message, MetadataCommand, Package};
 use cargo_show_asm::{
     asm::{self, Item},
     color, llvm, mir,
     opts::{self, ToDump},
 };
+use once_cell::sync::Lazy;
 use std::io::BufReader;
 use std::path::PathBuf;
 use std::process::Stdio;
 use std::{collections::BTreeMap, path::Path};
+
+static CARGO_PATH: Lazy<PathBuf> =
+    Lazy::new(|| std::env::var_os("CARGO").map_or_else(|| "cargo".into(), PathBuf::from));
+static RUSTC_PATH: Lazy<PathBuf> =
+    Lazy::new(|| std::env::var_os("RUSTC").map_or_else(|| "rustc".into(), PathBuf::from));
 
 /// This should be called before calling any cli method or printing any output.
 fn reset_signal_pipe_handler() -> anyhow::Result<()> {
@@ -24,6 +30,89 @@ fn reset_signal_pipe_handler() -> anyhow::Result<()> {
     Ok(())
 }
 
+fn spawn_cargo(
+    cargo: opts::Cargo,
+    format: opts::Format,
+    syntax: opts::Syntax,
+    target_cpu: Option<&str>,
+    focus_package: &Package,
+    focus_artifact: &opts::Focus,
+) -> std::io::Result<std::process::Child> {
+    use std::ffi::OsStr;
+
+    let mut cmd = std::process::Command::new(&*CARGO_PATH);
+
+    // Cargo flags.
+    cmd.arg("rustc")
+        // General.
+        .args([
+            "--message-format=json-render-diagnostics",
+            "--color",
+            if format.color { "always" } else { "never" },
+        ])
+        .args(std::iter::repeat("-v").take(format.verbosity))
+        // Workspace location.
+        .arg("--manifest-path")
+        .arg(cargo.manifest_path)
+        // Artifact selectors.
+        .args(["--package", &focus_package.name])
+        .args(focus_artifact.as_cargo_args())
+        // Compile options.
+        .args(cargo.dry.then_some("--dry"))
+        .args(cargo.frozen.then_some("--frozen"))
+        .args(cargo.locked.then_some("--locked"))
+        .args(cargo.offline.then_some("--offline"))
+        .args(cargo.target.iter().flat_map(|t| ["--target", t]))
+        .args((syntax == opts::Syntax::Wasm).then_some("--target=wasm32-unknown-unknown"))
+        .args(
+            cargo
+                .target_dir
+                .iter()
+                .flat_map(|t| [OsStr::new("--target-dir"), t.as_ref()]),
+        )
+        .args(
+            cargo
+                .cli_features
+                .no_default_features
+                .then_some("--no-default-features"),
+        )
+        .args(cargo.cli_features.all_features.then_some("--all-features"))
+        .args(
+            cargo
+                .cli_features
+                .features
+                .iter()
+                .flat_map(|feat| ["--features", feat]),
+        );
+    match cargo.compile_mode {
+        opts::CompileMode::Dev => {}
+        opts::CompileMode::Release => {
+            cmd.arg("--release");
+        }
+        opts::CompileMode::Custom(profile) => {
+            cmd.args(["--profile", &profile]);
+        }
+    }
+
+    // Cargo flags terminator.
+    cmd.arg("--");
+
+    // Rustc flags.
+    // We care about asm.
+    cmd.args(["--emit", syntax.emit()])
+        // So only one file gets created.
+        .arg("-Ccodegen-units=1")
+        // Debug info is needed to map to rust source.
+        .arg("-Cdebuginfo=2")
+        .args(syntax.format().iter().flat_map(|s| ["-C", s]))
+        .args(target_cpu.iter().map(|cpu| format!("-Ctarget-cpu={}", cpu)));
+
+    cmd.stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::inherit())
+        .spawn()
+}
+
 #[allow(clippy::too_many_lines)]
 fn main() -> anyhow::Result<()> {
     reset_signal_pipe_handler()?;
@@ -31,11 +120,8 @@ fn main() -> anyhow::Result<()> {
     let opts = opts::options().run();
     owo_colors::set_override(opts.format.color);
 
-    let cargo_path = std::env::var("CARGO").unwrap_or_else(|_| "cargo".into());
-    let rustc_path = std::env::var("RUSTC").unwrap_or_else(|_| "rustc".into());
-
     let sysroot = {
-        let output = std::process::Command::new(&rustc_path)
+        let output = std::process::Command::new(&*RUSTC_PATH)
             .arg("--print=sysroot")
             .stdin(Stdio::null())
             .stderr(Stdio::inherit())
@@ -43,8 +129,8 @@ fn main() -> anyhow::Result<()> {
             .output()?;
         if !output.status.success() {
             anyhow::bail!(
-                "Failed to get sysroot. '{} --print=sysroot' exited with {}",
-                rustc_path,
+                "Failed to get sysroot. '{:?} --print=sysroot' exited with {}",
+                &*RUSTC_PATH,
                 output.status,
             );
         }
@@ -56,8 +142,8 @@ fn main() -> anyhow::Result<()> {
     }
 
     let metadata = MetadataCommand::new()
-        .cargo_path(&cargo_path)
-        .manifest_path(&opts.manifest_path)
+        .cargo_path(&*CARGO_PATH)
+        .manifest_path(&opts.cargo.manifest_path)
         .no_deps()
         .exec()?;
 
@@ -71,7 +157,7 @@ fn main() -> anyhow::Result<()> {
         None => {
             eprintln!(
                 "{:?} refers to multiple packages, you need to specify which one to use",
-                opts.manifest_path
+                opts.cargo.manifest_path
             );
             for package in &metadata.packages {
                 eprintln!("\t-p {}", package.name);
@@ -100,86 +186,14 @@ fn main() -> anyhow::Result<()> {
         },
     };
 
-    let mut cargo_child = {
-        use std::ffi::OsStr;
-        let cargo = opts.cargo;
-
-        let mut cmd = std::process::Command::new(&cargo_path);
-
-        // Cargo flags.
-        cmd.arg("rustc")
-            // General.
-            .args([
-                "--message-format=json-render-diagnostics",
-                "--color",
-                if opts.format.color { "always" } else { "never" },
-            ])
-            .args(std::iter::repeat("-v").take(opts.format.verbosity))
-            // Workspace location.
-            .arg("--manifest-path")
-            .arg(opts.manifest_path)
-            // Artifact selectors.
-            .args(["--package", &focus_package.name])
-            .args(focus_artifact.as_cargo_args())
-            // Compile options.
-            .args(cargo.dry.then_some("--dry"))
-            .args(cargo.frozen.then_some("--frozen"))
-            .args(cargo.locked.then_some("--locked"))
-            .args(cargo.offline.then_some("--offline"))
-            .args(cargo.target.iter().flat_map(|t| ["--target", t]))
-            .args((opts.syntax == opts::Syntax::Wasm).then_some("--target=wasm32-unknown-unknown"))
-            .args(
-                cargo
-                    .target_dir
-                    .iter()
-                    .flat_map(|t| [OsStr::new("--target-dir"), t.as_ref()]),
-            )
-            .args(
-                cargo
-                    .cli_features
-                    .no_default_features
-                    .then_some("--no-default-features"),
-            )
-            .args(cargo.cli_features.all_features.then_some("--all-features"))
-            .args(
-                cargo
-                    .cli_features
-                    .features
-                    .iter()
-                    .flat_map(|feat| ["--features", feat]),
-            );
-        match cargo.compile_mode {
-            opts::CompileMode::Dev => {}
-            opts::CompileMode::Release => {
-                cmd.arg("--release");
-            }
-            opts::CompileMode::Custom(profile) => {
-                cmd.args(["--profile", &profile]);
-            }
-        }
-
-        // Cargo flags terminator.
-        cmd.arg("--");
-
-        // Rustc flags.
-        // We care about asm.
-        cmd.args(["--emit", opts.syntax.emit()])
-            // So only one file gets created.
-            .arg("-Ccodegen-units=1")
-            // Debug info is needed to map to rust source.
-            .arg("-Cdebuginfo=2")
-            .args(opts.syntax.format().iter().flat_map(|s| ["-C", s]))
-            .args(
-                opts.target_cpu
-                    .iter()
-                    .map(|cpu| format!("-Ctarget-cpu={}", cpu)),
-            );
-
-        cmd.stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::inherit())
-            .spawn()?
-    };
+    let mut cargo_child = spawn_cargo(
+        opts.cargo,
+        opts.format,
+        opts.syntax,
+        opts.target_cpu.as_deref(),
+        focus_package,
+        &focus_artifact,
+    )?;
 
     let mut result_artifact = None;
     let mut success = false;
@@ -249,7 +263,7 @@ fn main() -> anyhow::Result<()> {
         } else if let ToDump::ByIndex { value } = opts.to_dump {
             if value < existing.len() {
                 single_target = existing[value].name.clone();
-                target_function = Some((&single_target, 0))
+                target_function = Some((&single_target, 0));
             } else {
                 break;
             }
@@ -399,11 +413,13 @@ fn suggest_name(search: &str, full: bool, items: &[Item]) -> anyhow::Result<()> 
     }
     println!("Try one of those by name or a sequence number");
     for (ix, (name, lens)) in names.iter().enumerate() {
+        #[allow(clippy::cast_sign_loss)]
+        #[allow(clippy::cast_precision_loss)]
+        let width = (names.len() as f64).log10().ceil() as usize;
         println!(
             "{ix:width$} {:?} {:?}",
             color!(name, owo_colors::OwoColorize::green),
             color!(lens, owo_colors::OwoColorize::cyan),
-            width = (names.len() as f64).log10().ceil() as usize,
         );
     }
 

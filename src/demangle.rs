@@ -64,6 +64,7 @@ pub fn local_labels(input: &str) -> regex::Matches {
     LOCAL_LABELS.find_iter(input)
 }
 
+#[must_use]
 pub fn label_kind(input: &str) -> LabelKind {
     match LABEL_KINDS.matches(input).into_iter().next() {
         Some(1) => LabelKind::Global,
