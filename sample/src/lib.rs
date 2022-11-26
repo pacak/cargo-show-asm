@@ -26,6 +26,14 @@ pub fn main() -> u32 {
     1 + 1
 }
 
+pub struct Bar(u32);
+impl Bar {
+    #[no_mangle]
+    pub fn make_bar(a: u32, b: u32) -> Self {
+        Self(a + b)
+    }
+}
+
 #[cfg(feature = "superbanana")]
 pub fn main() {
     let mut rng = BlockRng::<MyRngCore>::seed_from_u64(0);
