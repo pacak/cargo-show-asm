@@ -5,10 +5,16 @@ use cargo_show_asm::{
     color, llvm, mir,
     opts::{self, ToDump},
 };
+use once_cell::sync::Lazy;
 use std::io::BufReader;
 use std::path::PathBuf;
 use std::process::Stdio;
 use std::{collections::BTreeMap, path::Path};
+
+static CARGO_PATH: Lazy<PathBuf> =
+    Lazy::new(|| std::env::var_os("CARGO").map_or_else(|| "cargo".into(), PathBuf::from));
+static RUSTC_PATH: Lazy<PathBuf> =
+    Lazy::new(|| std::env::var_os("RUSTC").map_or_else(|| "rustc".into(), PathBuf::from));
 
 /// This should be called before calling any cli method or printing any output.
 fn reset_signal_pipe_handler() -> anyhow::Result<()> {
@@ -31,11 +37,8 @@ fn main() -> anyhow::Result<()> {
     let opts = opts::options().run();
     owo_colors::set_override(opts.format.color);
 
-    let cargo_path = std::env::var("CARGO").unwrap_or_else(|_| "cargo".into());
-    let rustc_path = std::env::var("RUSTC").unwrap_or_else(|_| "rustc".into());
-
     let sysroot = {
-        let output = std::process::Command::new(&rustc_path)
+        let output = std::process::Command::new(&*RUSTC_PATH)
             .arg("--print=sysroot")
             .stdin(Stdio::null())
             .stderr(Stdio::inherit())
@@ -43,8 +46,8 @@ fn main() -> anyhow::Result<()> {
             .output()?;
         if !output.status.success() {
             anyhow::bail!(
-                "Failed to get sysroot. '{} --print=sysroot' exited with {}",
-                rustc_path,
+                "Failed to get sysroot. '{:?} --print=sysroot' exited with {}",
+                &*RUSTC_PATH,
                 output.status,
             );
         }
@@ -56,7 +59,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     let metadata = MetadataCommand::new()
-        .cargo_path(&cargo_path)
+        .cargo_path(&*CARGO_PATH)
         .manifest_path(&opts.manifest_path)
         .no_deps()
         .exec()?;
@@ -104,7 +107,7 @@ fn main() -> anyhow::Result<()> {
         use std::ffi::OsStr;
         let cargo = opts.cargo;
 
-        let mut cmd = std::process::Command::new(&cargo_path);
+        let mut cmd = std::process::Command::new(&*CARGO_PATH);
 
         // Cargo flags.
         cmd.arg("rustc")
