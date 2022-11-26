@@ -53,6 +53,7 @@ pub struct Options {
 }
 
 #[derive(Debug, Clone, Bpaf)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct Cargo {
     #[bpaf(external, hide_usage)]
     pub manifest_path: PathBuf,
@@ -313,9 +314,7 @@ impl Focus {
 
     pub fn as_cargo_args(&self) -> impl Iterator<Item = String> {
         let (kind, name) = self.as_parts();
-        Some(format!("--{}", kind))
-            .into_iter()
-            .chain(name.map(ToOwned::to_owned))
+        std::iter::once(format!("--{}", kind)).chain(name.map(ToOwned::to_owned))
     }
 
     #[must_use]
