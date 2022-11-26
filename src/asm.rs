@@ -80,6 +80,24 @@ fn find_items(lines: &[Statement]) -> BTreeMap<Item, Range<usize>> {
                     len: ix,
                 });
                 *name_entry += 1;
+            } else if label.kind == LabelKind::Unknown {
+                if let Some(Statement::Directive(Directive::SectionStart(ss))) =
+                    lines.get(sec_start)
+                {
+                    if let Some(ss) = ss.strip_prefix(".text.") {
+                        if ss.starts_with(label.id) {
+                            let name = label.id.to_string();
+                            let name_entry = names.entry(name.clone()).or_insert(0);
+                            item = Some(Item {
+                                name: name.clone(),
+                                hashed: name.clone(),
+                                index: *name_entry,
+                                len: ix,
+                            });
+                            *name_entry += 1;
+                        }
+                    }
+                }
             }
         }
     }

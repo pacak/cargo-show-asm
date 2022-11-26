@@ -1,5 +1,9 @@
 # Change Log
 
+## [0.2.7] - 2022-11-26
+- support mangled names
+- fix select-by-index
+
 ## [0.2.6] - 2022-11-23
 - use color for cargo diagnostics
 Thanks to @coolreader18
