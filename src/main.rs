@@ -1,5 +1,5 @@
 use anyhow::Context;
-use cargo_metadata::{Artifact, Message, MetadataCommand};
+use cargo_metadata::{Artifact, Message, MetadataCommand, Package};
 use cargo_show_asm::{
     asm::{self, Item},
     color, llvm, mir,
@@ -28,6 +28,89 @@ fn reset_signal_pipe_handler() -> anyhow::Result<()> {
         }
     }
     Ok(())
+}
+
+fn spawn_cargo(
+    cargo: opts::Cargo,
+    format: opts::Format,
+    syntax: opts::Syntax,
+    target_cpu: Option<&str>,
+    focus_package: &Package,
+    focus_artifact: &opts::Focus,
+) -> std::io::Result<std::process::Child> {
+    use std::ffi::OsStr;
+
+    let mut cmd = std::process::Command::new(&*CARGO_PATH);
+
+    // Cargo flags.
+    cmd.arg("rustc")
+        // General.
+        .args([
+            "--message-format=json-render-diagnostics",
+            "--color",
+            if format.color { "always" } else { "never" },
+        ])
+        .args(std::iter::repeat("-v").take(format.verbosity))
+        // Workspace location.
+        .arg("--manifest-path")
+        .arg(cargo.manifest_path)
+        // Artifact selectors.
+        .args(["--package", &focus_package.name])
+        .args(focus_artifact.as_cargo_args())
+        // Compile options.
+        .args(cargo.dry.then_some("--dry"))
+        .args(cargo.frozen.then_some("--frozen"))
+        .args(cargo.locked.then_some("--locked"))
+        .args(cargo.offline.then_some("--offline"))
+        .args(cargo.target.iter().flat_map(|t| ["--target", t]))
+        .args((syntax == opts::Syntax::Wasm).then_some("--target=wasm32-unknown-unknown"))
+        .args(
+            cargo
+                .target_dir
+                .iter()
+                .flat_map(|t| [OsStr::new("--target-dir"), t.as_ref()]),
+        )
+        .args(
+            cargo
+                .cli_features
+                .no_default_features
+                .then_some("--no-default-features"),
+        )
+        .args(cargo.cli_features.all_features.then_some("--all-features"))
+        .args(
+            cargo
+                .cli_features
+                .features
+                .iter()
+                .flat_map(|feat| ["--features", feat]),
+        );
+    match cargo.compile_mode {
+        opts::CompileMode::Dev => {}
+        opts::CompileMode::Release => {
+            cmd.arg("--release");
+        }
+        opts::CompileMode::Custom(profile) => {
+            cmd.args(["--profile", &profile]);
+        }
+    }
+
+    // Cargo flags terminator.
+    cmd.arg("--");
+
+    // Rustc flags.
+    // We care about asm.
+    cmd.args(["--emit", syntax.emit()])
+        // So only one file gets created.
+        .arg("-Ccodegen-units=1")
+        // Debug info is needed to map to rust source.
+        .arg("-Cdebuginfo=2")
+        .args(syntax.format().iter().flat_map(|s| ["-C", s]))
+        .args(target_cpu.iter().map(|cpu| format!("-Ctarget-cpu={}", cpu)));
+
+    cmd.stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::inherit())
+        .spawn()
 }
 
 #[allow(clippy::too_many_lines)]
@@ -60,7 +143,7 @@ fn main() -> anyhow::Result<()> {
 
     let metadata = MetadataCommand::new()
         .cargo_path(&*CARGO_PATH)
-        .manifest_path(&opts.manifest_path)
+        .manifest_path(&opts.cargo.manifest_path)
         .no_deps()
         .exec()?;
 
@@ -74,7 +157,7 @@ fn main() -> anyhow::Result<()> {
         None => {
             eprintln!(
                 "{:?} refers to multiple packages, you need to specify which one to use",
-                opts.manifest_path
+                opts.cargo.manifest_path
             );
             for package in &metadata.packages {
                 eprintln!("\t-p {}", package.name);
@@ -103,86 +186,14 @@ fn main() -> anyhow::Result<()> {
         },
     };
 
-    let mut cargo_child = {
-        use std::ffi::OsStr;
-        let cargo = opts.cargo;
-
-        let mut cmd = std::process::Command::new(&*CARGO_PATH);
-
-        // Cargo flags.
-        cmd.arg("rustc")
-            // General.
-            .args([
-                "--message-format=json-render-diagnostics",
-                "--color",
-                if opts.format.color { "always" } else { "never" },
-            ])
-            .args(std::iter::repeat("-v").take(opts.format.verbosity))
-            // Workspace location.
-            .arg("--manifest-path")
-            .arg(opts.manifest_path)
-            // Artifact selectors.
-            .args(["--package", &focus_package.name])
-            .args(focus_artifact.as_cargo_args())
-            // Compile options.
-            .args(cargo.dry.then_some("--dry"))
-            .args(cargo.frozen.then_some("--frozen"))
-            .args(cargo.locked.then_some("--locked"))
-            .args(cargo.offline.then_some("--offline"))
-            .args(cargo.target.iter().flat_map(|t| ["--target", t]))
-            .args((opts.syntax == opts::Syntax::Wasm).then_some("--target=wasm32-unknown-unknown"))
-            .args(
-                cargo
-                    .target_dir
-                    .iter()
-                    .flat_map(|t| [OsStr::new("--target-dir"), t.as_ref()]),
-            )
-            .args(
-                cargo
-                    .cli_features
-                    .no_default_features
-                    .then_some("--no-default-features"),
-            )
-            .args(cargo.cli_features.all_features.then_some("--all-features"))
-            .args(
-                cargo
-                    .cli_features
-                    .features
-                    .iter()
-                    .flat_map(|feat| ["--features", feat]),
-            );
-        match cargo.compile_mode {
-            opts::CompileMode::Dev => {}
-            opts::CompileMode::Release => {
-                cmd.arg("--release");
-            }
-            opts::CompileMode::Custom(profile) => {
-                cmd.args(["--profile", &profile]);
-            }
-        }
-
-        // Cargo flags terminator.
-        cmd.arg("--");
-
-        // Rustc flags.
-        // We care about asm.
-        cmd.args(["--emit", opts.syntax.emit()])
-            // So only one file gets created.
-            .arg("-Ccodegen-units=1")
-            // Debug info is needed to map to rust source.
-            .arg("-Cdebuginfo=2")
-            .args(opts.syntax.format().iter().flat_map(|s| ["-C", s]))
-            .args(
-                opts.target_cpu
-                    .iter()
-                    .map(|cpu| format!("-Ctarget-cpu={}", cpu)),
-            );
-
-        cmd.stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::inherit())
-            .spawn()?
-    };
+    let mut cargo_child = spawn_cargo(
+        opts.cargo,
+        opts.format,
+        opts.syntax,
+        opts.target_cpu.as_deref(),
+        focus_package,
+        &focus_artifact,
+    )?;
 
     let mut result_artifact = None;
     let mut success = false;
@@ -252,7 +263,7 @@ fn main() -> anyhow::Result<()> {
         } else if let ToDump::ByIndex { value } = opts.to_dump {
             if value < existing.len() {
                 single_target = existing[value].name.clone();
-                target_function = Some((&single_target, 0))
+                target_function = Some((&single_target, 0));
             } else {
                 break;
             }
