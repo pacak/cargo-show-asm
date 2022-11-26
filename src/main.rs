@@ -411,16 +411,20 @@ fn suggest_name(search: &str, full: bool, items: &[Item]) -> anyhow::Result<()> 
             anyhow::bail!("No matching functions, try relaxing your search request")
         }
     }
+
+    #[allow(clippy::cast_sign_loss)]
+    #[allow(clippy::cast_precision_loss)]
+    let width = (items.len() as f64).log10().ceil() as usize;
+
     println!("Try one of those by name or a sequence number");
-    for (ix, (name, lens)) in names.iter().enumerate() {
-        #[allow(clippy::cast_sign_loss)]
-        #[allow(clippy::cast_precision_loss)]
-        let width = (names.len() as f64).log10().ceil() as usize;
+    let mut ix = 0;
+    for (name, lens) in names.iter() {
         println!(
             "{ix:width$} {:?} {:?}",
             color!(name, owo_colors::OwoColorize::green),
             color!(lens, owo_colors::OwoColorize::cyan),
         );
+        ix += lens.len();
     }
 
     std::process::exit(1);
