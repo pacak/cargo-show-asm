@@ -37,6 +37,25 @@ pub struct Options {
     pub focus: Option<Focus>,
 
     // how to compile
+    #[bpaf(external)]
+    pub cargo: Cargo,
+
+    // how to display
+    /// Generate code for a specific CPU
+    #[bpaf(external)]
+    pub target_cpu: Option<String>,
+    #[bpaf(external)]
+    pub format: Format,
+    #[bpaf(external)]
+    pub syntax: Syntax,
+
+    // what to display
+    #[bpaf(external)]
+    pub to_dump: ToDump,
+}
+
+#[derive(Debug, Clone, Bpaf)]
+pub struct Cargo {
     /// Use custom target directory for generated artifacts, create if missing
     #[bpaf(
         env("CARGO_TARGET_DIR"),
@@ -65,20 +84,6 @@ pub struct Options {
     /// Build for the target triple
     #[bpaf(argument("TRIPLE"))]
     pub target: Option<String>,
-
-    /// Generate code for a specific CPU
-    #[bpaf(external)]
-    pub target_cpu: Option<String>,
-
-    // how to display
-    #[bpaf(external)]
-    pub format: Format,
-    #[bpaf(external)]
-    pub syntax: Syntax,
-
-    #[bpaf(external)]
-    // what to display
-    pub to_dump: ToDump,
 }
 
 #[derive(Debug, Clone, Bpaf)]

@@ -102,6 +102,7 @@ fn main() -> anyhow::Result<()> {
 
     let mut cargo_child = {
         use std::ffi::OsStr;
+        let cargo = opts.cargo;
 
         let mut cmd = std::process::Command::new(&cargo_path);
 
@@ -121,30 +122,33 @@ fn main() -> anyhow::Result<()> {
             .args(["--package", &focus_package.name])
             .args(focus_artifact.as_cargo_args())
             // Compile options.
-            .args(opts.dry.then_some("--dry"))
-            .args(opts.frozen.then_some("--frozen"))
-            .args(opts.locked.then_some("--locked"))
-            .args(opts.offline.then_some("--offline"))
-            .args(opts.target.iter().flat_map(|t| ["--target", t]))
+            .args(cargo.dry.then_some("--dry"))
+            .args(cargo.frozen.then_some("--frozen"))
+            .args(cargo.locked.then_some("--locked"))
+            .args(cargo.offline.then_some("--offline"))
+            .args(cargo.target.iter().flat_map(|t| ["--target", t]))
             .args((opts.syntax == opts::Syntax::Wasm).then_some("--target=wasm32-unknown-unknown"))
             .args(
-                opts.target_dir
+                cargo
+                    .target_dir
                     .iter()
                     .flat_map(|t| [OsStr::new("--target-dir"), t.as_ref()]),
             )
             .args(
-                opts.cli_features
+                cargo
+                    .cli_features
                     .no_default_features
                     .then_some("--no-default-features"),
             )
-            .args(opts.cli_features.all_features.then_some("--all-features"))
+            .args(cargo.cli_features.all_features.then_some("--all-features"))
             .args(
-                opts.cli_features
+                cargo
+                    .cli_features
                     .features
                     .iter()
                     .flat_map(|feat| ["--features", feat]),
             );
-        match opts.compile_mode {
+        match cargo.compile_mode {
             opts::CompileMode::Dev => {}
             opts::CompileMode::Release => {
                 cmd.arg("--release");
