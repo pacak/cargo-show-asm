@@ -198,9 +198,14 @@ impl<'a> PartialEq for Loc<'a> {
 
 impl<'a> Loc<'a> {
     pub fn parse(input: &'a str) -> IResult<&'a str, Self> {
+        // DWARF2 (Unix):      .loc               fileno lineno [column] [options]
+        // CodeView (Windows): .cv_loc functionid fileno lineno [column] [prologue_end] [is_stmt value]
         map(
             tuple((
-                tag("\t.loc\t"),
+                alt((
+                    tag("\t.loc\t"),
+                    terminated(tag("\t.cv_loc\t"), tuple((complete::u64, space1))),
+                )),
                 complete::u64,
                 space1,
                 complete::u64,
@@ -246,27 +251,55 @@ impl<'a> File<'a> {
             delimited(tag("\""), take_while1(|c| c != '"'), tag("\""))(input)
         }
 
-        map(
-            tuple((
-                tag("\t.file\t"),
-                complete::u64,
-                space1,
-                filename,
-                opt(tuple((space1, filename))),
-                opt(tuple((space1, complete::hex_digit1))),
-            )),
-            |(_, fileno, _, filepath, filename, md5)| File {
-                index: fileno,
-                path: match filename {
-                    Some((_, filename)) => FilePath::PathAndFileName {
-                        path: filepath,
-                        name: filename,
+        // DWARF2/DWARF5 (Unix): .file    fileno [dirname] "filename" [md5]
+        // CodeView (Windows):   .cv_file fileno           "filename" ["checksum"] [checksumkind]
+        alt((
+            map(
+                tuple((
+                    tag("\t.file\t"),
+                    complete::u64,
+                    space1,
+                    filename,
+                    opt(preceded(space1, filename)),
+                    opt(preceded(space1, complete::hex_digit1)),
+                )),
+                |(_, fileno, _, filepath, filename, md5)| File {
+                    index: fileno,
+                    path: match filename {
+                        Some(filename) => FilePath::PathAndFileName {
+                            path: filepath,
+                            name: filename,
+                        },
+                        None => FilePath::FullPath(filepath),
                     },
-                    None => FilePath::FullPath(filepath),
+                    md5: md5,
                 },
-                md5: md5.map(|(_, md5)| md5),
-            },
-        )(input)
+            ),
+            map(
+                tuple((
+                    tag("\t.cv_file\t"),
+                    complete::u64,
+                    space1,
+                    filename,
+                    opt(preceded(
+                        space1,
+                        delimited(tag("\""), complete::hex_digit1, tag("\"")),
+                    )),
+                    opt(preceded(space1, complete::u64)),
+                )),
+                |(_, fileno, _, filename, checksum, checksumkind)| File {
+                    index: fileno,
+                    path: FilePath::FullPath(filename),
+                    // FileChecksumKind enum: { None, MD5, SHA1, SHA256 }
+                    // (from llvm's CodeView.h)
+                    md5: if checksumkind == Some(1) {
+                        checksum
+                    } else {
+                        None
+                    },
+                },
+            ),
+        ))(input)
     }
 }
 
@@ -362,6 +395,30 @@ fn test_parse_loc() {
             }
         ))
     );
+    assert_eq!(
+        Loc::parse("\t.cv_loc\t9 6 1 0"),
+        Ok((
+            "",
+            Loc {
+                file: 6,
+                line: 1,
+                column: 0,
+                extra: None,
+            }
+        ))
+    );
+    assert_eq!(
+        Loc::parse("\t.cv_loc\t9 6 1 0 rest of the line is ignored"),
+        Ok((
+            "",
+            Loc {
+                file: 6,
+                line: 1,
+                column: 0,
+                extra: Some("rest of the line is ignored"),
+            }
+        ))
+    );
 }
 
 #[test]
@@ -418,6 +475,45 @@ fn test_parse_file() {
     assert_eq!(
         file.path.as_full_path(),
         Path::new("/home/ubuntu/buf-test/src/main.rs")
+    );
+
+    let (rest, file) = File::parse(
+        "\t.cv_file\t6 \"C:\\Foo\\Bar\\src\\main.rs\" \"778FECDE2D48F9B948BA07E6E0B4AB983123B71B\" 2",
+    )
+    .unwrap();
+    assert!(rest.is_empty());
+    assert_eq!(
+        file,
+        File {
+            index: 6,
+            path: FilePath::FullPath("C:\\Foo\\Bar\\src\\main.rs"),
+            md5: None,
+        }
+    );
+
+    let (rest, file) = File::parse(
+        "\t.cv_file\t6 \"C:\\Foo\\Bar\\src\\main.rs\" \"778FECDE2D48F9B948BA07E6E0B4AB98\" 1",
+    )
+    .unwrap();
+    assert!(rest.is_empty());
+    assert_eq!(
+        file,
+        File {
+            index: 6,
+            path: FilePath::FullPath("C:\\Foo\\Bar\\src\\main.rs"),
+            md5: Some("778FECDE2D48F9B948BA07E6E0B4AB98"),
+        }
+    );
+
+    let (rest, file) = File::parse("\t.cv_file\t6 \"C:\\Foo\\Bar\\src\\main.rs\"").unwrap();
+    assert!(rest.is_empty());
+    assert_eq!(
+        file,
+        File {
+            index: 6,
+            path: FilePath::FullPath("C:\\Foo\\Bar\\src\\main.rs"),
+            md5: None,
+        }
     );
 }
 
