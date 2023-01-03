@@ -172,13 +172,21 @@ pub struct Label<'a> {
 impl<'a> Label<'a> {
     pub fn parse(input: &'a str) -> IResult<&'a str, Self> {
         // TODO: label can't start with a digit
-        map(
+        let regular = map(
             terminated(take_while1(good_for_label), tag(":")),
             |id: &str| Label {
                 id,
                 kind: demangle::label_kind(id),
             },
-        )(input)
+        );
+        let quoted = map(
+            delimited(tag("\""), take_while1(|c| c != '"'), tag("\":")),
+            |id: &str| Label {
+                id,
+                kind: demangle::label_kind(id),
+            },
+        );
+        alt((regular, quoted))(input)
     }
 }
 
@@ -272,6 +280,17 @@ impl<'a> File<'a> {
 
 #[test]
 fn test_parse_label() {
+    assert_eq!(
+        Label::parse("\"?dtor$3@?0?_ZN4rust4main17h90585feb19c01afdE@4HA\":"),
+        Ok((
+            "",
+            Label {
+                id: "?dtor$3@?0?_ZN4rust4main17h90585feb19c01afdE@4HA",
+                kind: LabelKind::Global,
+            }
+        ))
+    );
+
     assert_eq!(
         Label::parse("GCC_except_table0:"),
         Ok((
