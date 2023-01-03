@@ -23,6 +23,7 @@ impl SeedableRng for MyRngCore {
 
 #[cfg(not(feature = "superbanana"))]
 pub fn main() -> u32 {
+    let _a = Box::<i32>::new(42);
     1 + 1
 }
 
@@ -36,6 +37,7 @@ impl Bar {
 
 #[cfg(feature = "superbanana")]
 pub fn main() {
+    let _a = Box::<i32>::new(42);
     let mut rng = BlockRng::<MyRngCore>::seed_from_u64(0);
     for ix in 0..10 {
         println!("{ix} rng values: {}", rng.next_u32());
