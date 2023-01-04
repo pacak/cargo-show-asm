@@ -272,12 +272,29 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
-    if let (false, ToDump::Function { function, .. }) = (seen, &opts.to_dump) {
-        suggest_name(
-            function.as_deref().unwrap_or(""),
-            opts.format.full_name,
-            &existing,
-        )?;
+    if !seen {
+        if existing.is_empty() {
+            anyhow::bail!("Couldn't find any items to display");
+        }
+        match opts.to_dump {
+            ToDump::Everything => {}
+            ToDump::ByIndex { value } => {
+                if value + 1 > existing.len() {
+                    anyhow::bail!(
+                        "You asked to display item #{} (zero based), but there's only {} items",
+                        value,
+                        existing.len()
+                    );
+                }
+            }
+            ToDump::Function { function, .. } => {
+                suggest_name(
+                    function.as_deref().unwrap_or(""),
+                    opts.format.full_name,
+                    &existing,
+                )?;
+            }
+        }
     }
 
     Ok(())
