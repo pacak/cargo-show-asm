@@ -1,5 +1,10 @@
 # Change Log
 
+## [0.2.9] - unreleased
+- improve error messages
+- properly handle exception handling code on Windows
+thanks to @al13n321
+
 ## [0.2.8] - 2023-01-02
 - bump dependencies
 
