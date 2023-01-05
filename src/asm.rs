@@ -54,7 +54,21 @@ fn find_items(lines: &[Statement]) -> BTreeMap<Item, Range<usize>> {
     for (ix, line) in lines.iter().enumerate() {
         #[allow(clippy::if_same_then_else)]
         if line.is_section_start() {
-            sec_start = ix;
+            if item.is_none() {
+                sec_start = ix;
+            } else {
+                // on Windows, when panic unwinding is enabled, the compiler can
+                // produce multiple blocks of exception-handling code for a
+                // function, annotated by .seh_* directives (which we ignore).
+                // For some reason (maybe a bug? or maybe we're misunderstanding
+                // something?), each of those blocks starts with a .section
+                // directive identical to the one at the start of the function.
+                // We have to ignore such duplicates here, otherwise we'd output
+                // only the last exception-handling block instead of the whole
+                // function.
+                //
+                // See https://github.com/pacak/cargo-show-asm/issues/110
+            }
         } else if line.is_global() && sec_start + 3 < ix {
             // on Linux and Windows every global function gets it's own section
             // on Mac for some reason this is not the case so we have to look for
