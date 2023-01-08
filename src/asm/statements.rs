@@ -2,10 +2,11 @@ use std::borrow::Cow;
 use std::path::Path;
 
 use nom::branch::alt;
-use nom::bytes::complete::{tag, take_while1, take_while_m_n};
+use nom::bytes::complete::{escaped_transform, tag, take_while1, take_while_m_n};
 use nom::character::complete;
-use nom::character::complete::{newline, not_line_ending, space1};
-use nom::combinator::{map, opt, recognize, verify};
+use nom::character::complete::{newline, none_of, not_line_ending, one_of, space1};
+use nom::combinator::{map, opt, recognize, value, verify};
+use nom::multi::count;
 use nom::sequence::{delimited, pair, preceded, terminated, tuple};
 use nom::{AsChar, IResult};
 use owo_colors::OwoColorize;
@@ -108,7 +109,7 @@ impl std::fmt::Display for Directive<'_> {
     }
 }
 
-impl std::fmt::Display for FilePath<'_> {
+impl std::fmt::Display for FilePath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Display::fmt(&self.as_full_path().display(), f)
     }
@@ -223,13 +224,13 @@ impl<'a> Loc<'a> {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum FilePath<'a> {
-    FullPath(&'a str),
-    PathAndFileName { path: &'a str, name: &'a str },
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum FilePath {
+    FullPath(String),
+    PathAndFileName { path: String, name: String },
 }
 
-impl FilePath<'_> {
+impl FilePath {
     pub fn as_full_path(&self) -> Cow<'_, Path> {
         match self {
             FilePath::FullPath(path) => Cow::Borrowed(Path::new(path)),
@@ -238,19 +239,58 @@ impl FilePath<'_> {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct File<'a> {
     pub index: u64,
-    pub path: FilePath<'a>,
+    pub path: FilePath,
     pub md5: Option<&'a str>,
+}
+
+fn parse_quoted_string(input: &str) -> IResult<&str, String> {
+    // Inverse of MCAsmStreamer::PrintQuotedString() in MCAsmStreamer.cpp in llvm.
+    delimited(
+        tag("\""),
+        escaped_transform(
+            none_of("\\\""),
+            '\\',
+            alt((
+                value('\\', tag("\\")),
+                value('\"', tag("\"")),
+                value('\x08', tag("b")),
+                value('\x0c', tag("f")),
+                value('\n', tag("n")),
+                value('\r', tag("r")),
+                value('\t', tag("t")),
+                // 3 digits in base 8
+                map(count(one_of("01234567"), 3), |digits| {
+                    let mut v = 0u8;
+                    for c in digits {
+                        v = (v << 3) | c.to_digit(8).unwrap() as u8;
+                    }
+                    char::from(v)
+                }),
+            )),
+        ),
+        tag("\""),
+    )(input)
+}
+
+// Workaround for a problem in llvm code that produces debug symbols on Windows.
+// As of the time of writing, CodeViewDebug::getFullFilepath() in CodeViewDebug.cpp
+// replaces all occurrences of "\\" with "\".
+// This breaks paths that start with "\\?\" (a prefix instructing Windows to skip
+// filename parsing) - they turn into "\?\", which is invalid.
+// Here we turn "\?\" back into "\\?\".
+// Hopefully this will get fixed in llvm, and we'll remove this.
+fn fixup_windows_file_path(mut p: String) -> String {
+    if p.starts_with("\\?\\") {
+        p.insert(0, '\\');
+    }
+    p
 }
 
 impl<'a> File<'a> {
     pub fn parse(input: &'a str) -> IResult<&'a str, Self> {
-        fn filename(input: &str) -> IResult<&str, &str> {
-            delimited(tag("\""), take_while1(|c| c != '"'), tag("\""))(input)
-        }
-
         // DWARF2/DWARF5 (Unix): .file    fileno [dirname] "filename" [md5]
         // CodeView (Windows):   .cv_file fileno           "filename" ["checksum"] [checksumkind]
         alt((
@@ -259,8 +299,8 @@ impl<'a> File<'a> {
                     tag("\t.file\t"),
                     complete::u64,
                     space1,
-                    filename,
-                    opt(preceded(space1, filename)),
+                    parse_quoted_string,
+                    opt(preceded(space1, parse_quoted_string)),
                     opt(preceded(space1, complete::hex_digit1)),
                 )),
                 |(_, fileno, _, filepath, filename, md5)| File {
@@ -272,7 +312,7 @@ impl<'a> File<'a> {
                         },
                         None => FilePath::FullPath(filepath),
                     },
-                    md5: md5,
+                    md5,
                 },
             ),
             map(
@@ -280,7 +320,7 @@ impl<'a> File<'a> {
                     tag("\t.cv_file\t"),
                     complete::u64,
                     space1,
-                    filename,
+                    parse_quoted_string,
                     opt(preceded(
                         space1,
                         delimited(tag("\""), complete::hex_digit1, tag("\"")),
@@ -289,7 +329,7 @@ impl<'a> File<'a> {
                 )),
                 |(_, fileno, _, filename, checksum, checksumkind)| File {
                     index: fileno,
-                    path: FilePath::FullPath(filename),
+                    path: FilePath::FullPath(fixup_windows_file_path(filename)),
                     // FileChecksumKind enum: { None, MD5, SHA1, SHA256 }
                     // (from llvm's CodeView.h)
                     md5: if checksumkind == Some(1) {
@@ -429,7 +469,7 @@ fn test_parse_file() {
         file,
         File {
             index: 9,
-            path: FilePath::FullPath("/home/ubuntu/buf-test/src/main.rs"),
+            path: FilePath::FullPath("/home/ubuntu/buf-test/src/main.rs".to_owned()),
             md5: None
         }
     );
@@ -445,8 +485,8 @@ fn test_parse_file() {
         File {
             index: 9,
             path: FilePath::PathAndFileName {
-                path: "/home/ubuntu/buf-test",
-                name: "src/main.rs"
+                path: "/home/ubuntu/buf-test".to_owned(),
+                name: "src/main.rs".to_owned()
             },
             md5: None,
         }
@@ -466,8 +506,8 @@ fn test_parse_file() {
         File {
             index: 9,
             path: FilePath::PathAndFileName {
-                path: "/home/ubuntu/buf-test",
-                name: "src/main.rs"
+                path: "/home/ubuntu/buf-test".to_owned(),
+                name: "src/main.rs".to_owned()
             },
             md5: Some("74ab618651b843a815bf806bd6c50c19"),
         }
@@ -478,7 +518,29 @@ fn test_parse_file() {
     );
 
     let (rest, file) = File::parse(
-        "\t.cv_file\t6 \"C:\\Foo\\Bar\\src\\main.rs\" \"778FECDE2D48F9B948BA07E6E0B4AB983123B71B\" 2",
+        "\t.file\t9 \"/home/\\000path\\twith\\nlots\\\"of\\runprintable\\147characters\\blike\\\\this\\f\" \"src/main.rs\" 74ab618651b843a815bf806bd6c50c19",
+    )
+    .unwrap();
+    assert!(rest.is_empty());
+    assert_eq!(
+        file,
+        File {
+            index: 9,
+            path: FilePath::PathAndFileName {
+                path: "/home/\x00path\twith\nlots\"of\runprintable\x67characters\x08like\\this\x0c"
+                    .to_owned(),
+                name: "src/main.rs".to_owned()
+            },
+            md5: Some("74ab618651b843a815bf806bd6c50c19"),
+        }
+    );
+    assert_eq!(
+        file.path.as_full_path(),
+        Path::new("/home/\x00path\twith\nlots\"of\runprintable\x67characters\x08like\\this\x0c/src/main.rs")
+    );
+
+    let (rest, file) = File::parse(
+        "\t.cv_file\t6 \"\\\\?\\\\C:\\\\Foo\\\\Bar\\\\src\\\\main.rs\" \"778FECDE2D48F9B948BA07E6E0B4AB983123B71B\" 2",
     )
     .unwrap();
     assert!(rest.is_empty());
@@ -486,13 +548,13 @@ fn test_parse_file() {
         file,
         File {
             index: 6,
-            path: FilePath::FullPath("C:\\Foo\\Bar\\src\\main.rs"),
+            path: FilePath::FullPath("\\\\?\\C:\\Foo\\Bar\\src\\main.rs".to_owned()),
             md5: None,
         }
     );
 
     let (rest, file) = File::parse(
-        "\t.cv_file\t6 \"C:\\Foo\\Bar\\src\\main.rs\" \"778FECDE2D48F9B948BA07E6E0B4AB98\" 1",
+        "\t.cv_file\t6 \"C:\\\\Foo\\\\Bar\\\\src\\\\main.rs\" \"778FECDE2D48F9B948BA07E6E0B4AB98\" 1",
     )
     .unwrap();
     assert!(rest.is_empty());
@@ -500,19 +562,8 @@ fn test_parse_file() {
         file,
         File {
             index: 6,
-            path: FilePath::FullPath("C:\\Foo\\Bar\\src\\main.rs"),
+            path: FilePath::FullPath("C:\\Foo\\Bar\\src\\main.rs".to_owned()),
             md5: Some("778FECDE2D48F9B948BA07E6E0B4AB98"),
-        }
-    );
-
-    let (rest, file) = File::parse("\t.cv_file\t6 \"C:\\Foo\\Bar\\src\\main.rs\"").unwrap();
-    assert!(rest.is_empty());
-    assert_eq!(
-        file,
-        File {
-            index: 6,
-            path: FilePath::FullPath("C:\\Foo\\Bar\\src\\main.rs"),
-            md5: None,
         }
     );
 }
