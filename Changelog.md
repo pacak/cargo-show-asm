@@ -1,5 +1,8 @@
 # Change Log
 
+## [0.2.10] - 2023-01-09
+- support for nightly -Z asm-comments
+
 ## [0.2.9] - 2023-01-07
 - improve error messages
 - properly handle exception handling code on Windows
