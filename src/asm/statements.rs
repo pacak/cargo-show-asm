@@ -173,8 +173,17 @@ pub struct Label<'a> {
 impl<'a> Label<'a> {
     pub fn parse(input: &'a str) -> IResult<&'a str, Self> {
         // TODO: label can't start with a digit
+        let no_comment = tag(":");
+        let comment = terminated(
+            tag(":"),
+            tuple((
+                take_while1(|c| c == ' '),
+                tag("# @"),
+                take_while1(|c| c != '\n'),
+            )),
+        );
         map(
-            terminated(take_while1(good_for_label), tag(":")),
+            terminated(take_while1(good_for_label), alt((comment, no_comment))),
             |id: &str| Label {
                 id,
                 kind: demangle::label_kind(id),
@@ -392,6 +401,38 @@ fn test_parse_label() {
             Label {
                 id: "Ltmp12",
                 kind: LabelKind::Temp
+            }
+        ))
+    );
+    assert_eq!(
+        Label::parse("__ZN4core3ptr50drop_in_place$LT$rand..rngs..thread..ThreadRng$GT$17hba90ed09529257ccE: # @\"rand\""),
+        Ok((
+            "",
+            Label {
+                id: "__ZN4core3ptr50drop_in_place$LT$rand..rngs..thread..ThreadRng$GT$17hba90ed09529257ccE",
+                kind: LabelKind::Global,
+            }
+        ))
+    );
+    assert_eq!(
+        Label::parse("_ZN44_$LT$$RF$T$u20$as$u20$core..fmt..Display$GT$3fmt17h6557947cc19e5571E: # @\"_ZN44_$LT$$RF$T$u20$as$u20$core..fmt..Display$GT$3fmt17h6557947cc19e5571E\""),
+        Ok((
+            "",
+            Label {
+                id: "_ZN44_$LT$$RF$T$u20$as$u20$core..fmt..Display$GT$3fmt17h6557947cc19e5571E",
+                kind: LabelKind::Global,
+            }
+        ))
+    );
+    assert_eq!(
+        Label::parse(
+            "_ZN6sample4main17hb59e25bba3071c26E:    # @_ZN6sample4main17hb59e25bba3071c26E"
+        ),
+        Ok((
+            "",
+            Label {
+                id: "_ZN6sample4main17hb59e25bba3071c26E",
+                kind: LabelKind::Global,
             }
         ))
     );
