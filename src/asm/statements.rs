@@ -51,10 +51,16 @@ impl<'a> Instruction<'a> {
 
 impl std::fmt::Display for Instruction<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", color!(self.op, OwoColorize::bright_blue))?;
+        if self.op.starts_with("#DEBUG_VALUE:") {
+            write!(f, "{}", color!(self.op, OwoColorize::blue))?;
+        } else {
+            write!(f, "{}", color!(self.op, OwoColorize::bright_blue))?;
+        }
         if let Some(args) = self.args {
             let args = demangle::contents(args, f.alternate());
-            write!(f, " {}", demangle::color_local_labels(&args))?;
+            let w_label = demangle::color_local_labels(&args);
+            let w_comment = demangle::color_comment(&w_label);
+            write!(f, " {}", w_comment)?;
         }
         Ok(())
     }
@@ -79,7 +85,7 @@ impl std::fmt::Display for Statement<'_> {
                 }
             }
             Statement::Nothing => Ok(()),
-            Statement::Dunno(l) => write!(f, "{l}"),
+            Statement::Dunno(l) => write!(f, "{}", demangle::color_comment(l)),
         }
     }
 }
