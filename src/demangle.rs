@@ -52,6 +52,9 @@ static LABEL_KINDS: Lazy<RegexSet> = Lazy::new(|| {
         .expect("regexp should be valid")
 });
 
+static COMMENT_ARGS: Lazy<Regex> =
+    Lazy::new(|| regex::Regex::new(r"(?:\s|^)(#.+)").expect("regexp should be valid"));
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LabelKind {
     Global,
@@ -84,6 +87,18 @@ impl Replacer for LabelColorizer {
 
 pub fn color_local_labels(input: &str) -> Cow<'_, str> {
     LOCAL_LABELS.replace_all(input, LabelColorizer)
+}
+
+struct CommentColorizer;
+impl Replacer for CommentColorizer {
+    fn replace_append(&mut self, caps: &regex::Captures<'_>, dst: &mut String) {
+        use std::fmt::Write;
+        write!(dst, "{}", color!(&caps[0], OwoColorize::blue)).unwrap();
+    }
+}
+
+pub fn color_comment(input: &str) -> Cow<'_, str> {
+    COMMENT_ARGS.replace_all(input, CommentColorizer)
 }
 
 struct Demangler {

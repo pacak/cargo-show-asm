@@ -51,10 +51,16 @@ impl<'a> Instruction<'a> {
 
 impl std::fmt::Display for Instruction<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", color!(self.op, OwoColorize::bright_blue))?;
+        if self.op.starts_with("#DEBUG_VALUE:") {
+            write!(f, "{}", color!(self.op, OwoColorize::blue))?;
+        } else {
+            write!(f, "{}", color!(self.op, OwoColorize::bright_blue))?;
+        }
         if let Some(args) = self.args {
             let args = demangle::contents(args, f.alternate());
-            write!(f, " {}", demangle::color_local_labels(&args))?;
+            let w_label = demangle::color_local_labels(&args);
+            let w_comment = demangle::color_comment(&w_label);
+            write!(f, " {}", w_comment)?;
         }
         Ok(())
     }
@@ -79,7 +85,7 @@ impl std::fmt::Display for Statement<'_> {
                 }
             }
             Statement::Nothing => Ok(()),
-            Statement::Dunno(l) => write!(f, "{l}"),
+            Statement::Dunno(l) => write!(f, "{}", demangle::color_comment(l)),
         }
     }
 }
@@ -173,8 +179,17 @@ pub struct Label<'a> {
 impl<'a> Label<'a> {
     pub fn parse(input: &'a str) -> IResult<&'a str, Self> {
         // TODO: label can't start with a digit
+        let no_comment = tag(":");
+        let comment = terminated(
+            tag(":"),
+            tuple((
+                take_while1(|c| c == ' '),
+                tag("# @"),
+                take_while1(|c| c != '\n'),
+            )),
+        );
         map(
-            terminated(take_while1(good_for_label), tag(":")),
+            terminated(take_while1(good_for_label), alt((comment, no_comment))),
             |id: &str| Label {
                 id,
                 kind: demangle::label_kind(id),
@@ -392,6 +407,38 @@ fn test_parse_label() {
             Label {
                 id: "Ltmp12",
                 kind: LabelKind::Temp
+            }
+        ))
+    );
+    assert_eq!(
+        Label::parse("__ZN4core3ptr50drop_in_place$LT$rand..rngs..thread..ThreadRng$GT$17hba90ed09529257ccE: # @\"rand\""),
+        Ok((
+            "",
+            Label {
+                id: "__ZN4core3ptr50drop_in_place$LT$rand..rngs..thread..ThreadRng$GT$17hba90ed09529257ccE",
+                kind: LabelKind::Global,
+            }
+        ))
+    );
+    assert_eq!(
+        Label::parse("_ZN44_$LT$$RF$T$u20$as$u20$core..fmt..Display$GT$3fmt17h6557947cc19e5571E: # @\"_ZN44_$LT$$RF$T$u20$as$u20$core..fmt..Display$GT$3fmt17h6557947cc19e5571E\""),
+        Ok((
+            "",
+            Label {
+                id: "_ZN44_$LT$$RF$T$u20$as$u20$core..fmt..Display$GT$3fmt17h6557947cc19e5571E",
+                kind: LabelKind::Global,
+            }
+        ))
+    );
+    assert_eq!(
+        Label::parse(
+            "_ZN6sample4main17hb59e25bba3071c26E:    # @_ZN6sample4main17hb59e25bba3071c26E"
+        ),
+        Ok((
+            "",
+            Label {
+                id: "_ZN6sample4main17hb59e25bba3071c26E",
+                kind: LabelKind::Global,
             }
         ))
     );
