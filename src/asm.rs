@@ -2,7 +2,7 @@
 use crate::asm::statements::Label;
 use crate::cached_lines::CachedLines;
 use crate::demangle::LabelKind;
-use crate::{color, demangle};
+use crate::{color, demangle, Item};
 // TODO, use https://sourceware.org/binutils/docs/as/index.html
 use crate::opts::Format;
 
@@ -30,18 +30,6 @@ fn parse_file(input: &str) -> anyhow::Result<Vec<Statement>> {
         }
         Err(err) => anyhow::bail!("Couldn't parse the .s file: {err}"),
     }
-}
-
-#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
-pub struct Item {
-    /// demangled name
-    pub name: String,
-    /// demangled name with hash
-    pub hashed: String,
-    /// sequential number of demangled name
-    pub index: usize,
-    /// number of lines
-    pub len: usize,
 }
 
 fn find_items(lines: &[Statement]) -> BTreeMap<Item, Range<usize>> {

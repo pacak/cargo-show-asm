@@ -1,4 +1,4 @@
-use crate::{color, llvm::Item, opts::Format};
+use crate::{color, opts::Format, Item};
 use owo_colors::OwoColorize;
 use regex::Regex;
 use std::{

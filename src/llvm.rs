@@ -3,11 +3,11 @@
 use owo_colors::OwoColorize;
 use regex::Regex;
 
-pub use crate::asm::Item;
 use crate::{
     color,
     demangle::{self, contents},
     opts::Format,
+    Item,
 };
 use std::{
     collections::BTreeMap,

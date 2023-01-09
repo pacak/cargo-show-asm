@@ -1,15 +1,15 @@
 use anyhow::Context;
 use cargo_metadata::{Artifact, Message, MetadataCommand, Package};
 use cargo_show_asm::{
-    asm::{self, Item},
-    color, llvm, mir,
+    asm, llvm, mir,
     opts::{self, ToDump},
+    suggest_name,
 };
 use once_cell::sync::Lazy;
 use std::io::BufReader;
+use std::path::Path;
 use std::path::PathBuf;
 use std::process::Stdio;
-use std::{collections::BTreeMap, path::Path};
 
 static CARGO_PATH: Lazy<PathBuf> =
     Lazy::new(|| std::env::var_os("CARGO").map_or_else(|| "cargo".into(), PathBuf::from));
@@ -410,39 +410,4 @@ fn same_contents<A: AsRef<Path>, B: AsRef<Path>>(a: &A, b: &B) -> anyhow::Result
     Ok(same_file::is_same_file(a, b)?
         || (std::fs::metadata(a)?.len() == std::fs::metadata(b)?.len()
             && std::fs::read(a)? == std::fs::read(b)?))
-}
-
-fn suggest_name(search: &str, full: bool, items: &[Item]) -> anyhow::Result<()> {
-    let names = items.iter().fold(BTreeMap::new(), |mut m, item| {
-        m.entry(if full { &item.hashed } else { &item.name })
-            .or_insert_with(Vec::new)
-            .push(item.len);
-        m
-    });
-
-    if names.is_empty() {
-        #[allow(clippy::redundant_else)]
-        if search.is_empty() {
-            anyhow::bail!("This target defines no functions")
-        } else {
-            anyhow::bail!("No matching functions, try relaxing your search request")
-        }
-    }
-
-    #[allow(clippy::cast_sign_loss)]
-    #[allow(clippy::cast_precision_loss)]
-    let width = (items.len() as f64).log10().ceil() as usize;
-
-    println!("Try one of those by name or a sequence number");
-    let mut ix = 0;
-    for (name, lens) in names.iter() {
-        println!(
-            "{ix:width$} {:?} {:?}",
-            color!(name, owo_colors::OwoColorize::green),
-            color!(lens, owo_colors::OwoColorize::cyan),
-        );
-        ix += lens.len();
-    }
-
-    std::process::exit(1);
 }
