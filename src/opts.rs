@@ -266,11 +266,19 @@ pub enum Focus {
         String,
     ),
 
+    // Show available tests (hidden: cargo shows the list as an error)
+    #[bpaf(long("test"), hide)]
+    TestList,
+
     Bench(
         /// Show results from a benchmark
         #[bpaf(long("bench"), argument("BENCH"))]
         String,
     ),
+
+    // Show available benchmarks (hidden: cargo shows the list as an error)
+    #[bpaf(long("bench"), hide)]
+    BenchList,
 
     Example(
         /// Show results from an example
@@ -278,11 +286,19 @@ pub enum Focus {
         String,
     ),
 
+    // Show available examples (hidden: cargo shows the list as an error)
+    #[bpaf(long("example"), hide)]
+    ExampleList,
+
     Bin(
         /// Show results from a binary
         #[bpaf(long("bin"), argument("BIN"))]
         String,
     ),
+
+    // Show available binaries (hidden: cargo shows the list as an error)
+    #[bpaf(long("bin"), hide)]
+    BinList,
 }
 
 impl TryFrom<&'_ cargo_metadata::Target> for Focus {
@@ -306,9 +322,13 @@ impl Focus {
         match self {
             Focus::Lib => ("lib", None),
             Focus::Test(name) => ("test", Some(name)),
+            Focus::TestList => ("test", None),
             Focus::Bench(name) => ("bench", Some(name)),
+            Focus::BenchList => ("bench", None),
             Focus::Example(name) => ("example", Some(name)),
+            Focus::ExampleList => ("example", None),
             Focus::Bin(name) => ("bin", Some(name)),
+            Focus::BinList => ("bin", None),
         }
     }
 
