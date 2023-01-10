@@ -27,8 +27,14 @@ pub struct Item {
     pub len: usize,
 }
 
-pub fn suggest_name(search: &str, full: bool, items: &[Item]) -> anyhow::Result<()> {
-    let names = items.iter().fold(BTreeMap::new(), |mut m, item| {
+pub fn suggest_name<'a>(
+    search: &str,
+    full: bool,
+    items: impl IntoIterator<Item = &'a Item>,
+) -> anyhow::Result<()> {
+    let mut count = 0;
+    let names = items.into_iter().fold(BTreeMap::new(), |mut m, item| {
+        count += 1;
         m.entry(if full { &item.hashed } else { &item.name })
             .or_insert_with(Vec::new)
             .push(item.len);
@@ -46,7 +52,7 @@ pub fn suggest_name(search: &str, full: bool, items: &[Item]) -> anyhow::Result<
 
     #[allow(clippy::cast_sign_loss)]
     #[allow(clippy::cast_precision_loss)]
-    let width = (items.len() as f64).log10().ceil() as usize;
+    let width = (count as f64).log10().ceil() as usize;
 
     println!("Try one of those by name or a sequence number");
     let mut ix = 0;
