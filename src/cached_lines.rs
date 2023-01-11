@@ -13,12 +13,14 @@ impl CachedLines {
         Self { content, splits }
     }
 
+    #[must_use]
     pub fn iter(&self) -> LineIter {
         LineIter {
             payload: self,
             current: 0,
         }
     }
+    #[must_use]
     pub fn get(&self, index: usize) -> Option<&str> {
         let range = self.splits.get(index)?.clone();
         Some(&self.content[range])

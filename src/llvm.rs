@@ -35,6 +35,7 @@ fn find_items(lines: &CachedLines) -> BTreeMap<Item, Range<usize>> {
 
     for (ix, line) in lines.iter().enumerate() {
         if line.starts_with("; Module") {
+            #[allow(clippy::needless_continue)] // silly clippy, readability suffers otherwise
             continue;
         } else if let (true, Some(name)) = (current_item.is_none(), line.strip_prefix("; ")) {
             current_item = Some(Item {
@@ -42,7 +43,7 @@ fn find_items(lines: &CachedLines) -> BTreeMap<Item, Range<usize>> {
                 hashed: String::new(),
                 index: res.len(),
                 len: ix,
-            })
+            });
         } else if line.starts_with("define ") {
             if let (Some(cur), Some(hashed)) = (
                 &mut current_item,
@@ -69,13 +70,14 @@ pub fn dump_function(goal: ToDump, path: &Path, fmt: &Format) -> anyhow::Result<
     let lines = CachedLines::without_ending(std::fs::read_to_string(path)?);
     let items = find_items(&lines);
     let strs = lines.iter().collect::<Vec<_>>();
-    match get_dump_range(goal, *fmt, items)? {
+    match get_dump_range(goal, *fmt, items) {
         Some(range) => dump_range(*fmt, &strs[range]),
         None => dump_range(*fmt, &strs),
-    }
+    };
+    Ok(())
 }
 
-fn dump_range(fmt: Format, strings: &[&str]) -> anyhow::Result<()> {
+fn dump_range(fmt: Format, strings: &[&str]) {
     for line in strings {
         if line.starts_with("; ") {
             println!("{}", color!(line, OwoColorize::bright_black));
@@ -84,7 +86,6 @@ fn dump_range(fmt: Format, strings: &[&str]) -> anyhow::Result<()> {
             println!("{line}");
         }
     }
-    Ok(())
 }
 
 /// try to print `goal` from `path`, collect available items otherwise

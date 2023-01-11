@@ -318,7 +318,7 @@ impl Focus {
 
     pub fn as_cargo_args(&self) -> impl Iterator<Item = String> {
         let (kind, name) = self.as_parts();
-        std::iter::once(format!("--{}", kind)).chain(name.map(ToOwned::to_owned))
+        std::iter::once(format!("--{kind}")).chain(name.map(ToOwned::to_owned))
     }
 
     #[must_use]

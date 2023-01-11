@@ -200,13 +200,13 @@ fn load_rust_sources<'a>(
     statements: &'a [Statement],
     fmt: &Format,
     files: &mut BTreeMap<u64, (Cow<'a, Path>, CachedLines)>,
-) -> anyhow::Result<()> {
+) {
     for line in statements {
         if let Statement::Directive(Directive::File(f)) = line {
             files.entry(f.index).or_insert_with(|| {
                 let path = f.path.as_full_path();
                 if fmt.verbosity > 1 {
-                    println!("Reading file #{} {:?}", f.index, path);
+                    println!("Reading file #{} {}", f.index, path.display());
                 }
                 if let Ok(payload) = std::fs::read_to_string(&path) {
                     return (path, CachedLines::without_ending(payload));
@@ -249,15 +249,13 @@ fn load_rust_sources<'a>(
                        return (path, CachedLines::without_ending(payload));
                     }
                 } else if fmt.verbosity > 0 {
-                    println!("File not found {:?}", path);
+                    println!("File not found {}", path.display());
                 }
                 // if file is not found - Just create a dummy
                 (path, CachedLines::without_ending(String::new()))
             });
         }
     }
-
-    Ok(())
 }
 
 /// try to print `goal` from `path`, collect available items otherwise
@@ -268,7 +266,7 @@ pub fn dump_function(
     fmt: &Format,
 ) -> anyhow::Result<()> {
     if fmt.verbosity > 2 {
-        println!("goal: {:?}", goal);
+        println!("goal: {goal:?}");
     }
 
     let contents = std::fs::read_to_string(path)?;
@@ -276,24 +274,21 @@ pub fn dump_function(
     let functions = find_items(&statements);
 
     if fmt.verbosity > 2 {
-        println!("{:?}", functions);
+        println!("{functions:?}");
     }
 
     let mut files = BTreeMap::new();
     if fmt.rust {
-        load_rust_sources(sysroot, &statements, fmt, &mut files)?;
+        load_rust_sources(sysroot, &statements, fmt, &mut files);
     }
 
-    match get_dump_range(goal, *fmt, functions)? {
-        Some(range) => {
-            dump_range(&files, fmt, &statements[range])?;
+    if let Some(range) = get_dump_range(goal, *fmt, functions) {
+        dump_range(&files, fmt, &statements[range])?;
+    } else {
+        if fmt.verbosity > 0 {
+            println!("Going to print the whole file");
         }
-        None => {
-            if fmt.verbosity > 0 {
-                println!("Going to print the whole file");
-            }
-            dump_range(&files, fmt, &statements)?;
-        }
+        dump_range(&files, fmt, &statements)?;
     }
     Ok(())
 }

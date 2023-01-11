@@ -29,12 +29,8 @@ pub struct Item {
     pub len: usize,
 }
 
-pub fn suggest_name<'a>(
-    search: &str,
-    full: bool,
-    items: impl IntoIterator<Item = &'a Item>,
-) -> anyhow::Result<()> {
-    let mut count = 0;
+pub fn suggest_name<'a>(search: &str, full: bool, items: impl IntoIterator<Item = &'a Item>) {
+    let mut count = 0usize;
     let names = items.into_iter().fold(BTreeMap::new(), |mut m, item| {
         count += 1;
         m.entry(if full { &item.hashed } else { &item.name })
@@ -44,21 +40,21 @@ pub fn suggest_name<'a>(
     });
 
     if names.is_empty() {
-        #[allow(clippy::redundant_else)]
         if search.is_empty() {
-            anyhow::bail!("This target defines no functions (or cargo-show-asm can't find them)")
+            println!("This target defines no functions (or cargo-show-asm can't find them)");
         } else {
-            anyhow::bail!("No matching functions, try relaxing your search request")
+            println!("No matching functions, try relaxing your search request");
         }
+    } else {
+        println!("Try one of those by name or a sequence number");
     }
 
     #[allow(clippy::cast_sign_loss)]
     #[allow(clippy::cast_precision_loss)]
     let width = (count as f64).log10().ceil() as usize;
 
-    println!("Try one of those by name or a sequence number");
     let mut ix = 0;
-    for (name, lens) in names.iter() {
+    for (name, lens) in &names {
         println!(
             "{ix:width$} {:?} {:?}",
             color!(name, owo_colors::OwoColorize::green),
@@ -73,22 +69,24 @@ pub fn suggest_name<'a>(
 /// Pick an item to dump based on a goal
 ///
 /// Prints suggestions and exits if goal can't be reached or more info is needed
+#[must_use]
 pub fn get_dump_range(
     goal: ToDump,
     fmt: Format,
     items: BTreeMap<Item, Range<usize>>,
-) -> anyhow::Result<Option<Range<usize>>> {
+) -> Option<Range<usize>> {
     match goal {
         // to dump everything just return an empty range
-        ToDump::Everything => Ok(None),
+        ToDump::Everything => None,
 
         // By index without filtering
         ToDump::ByIndex { value } => {
             if let Some(range) = items.values().nth(value) {
-                Ok(Some(range.clone()))
+                Some(range.clone())
             } else {
                 let actual = items.len();
-                anyhow::bail!("You asked to display item #{value} (zero based), but there's only {actual} items");
+                println!("You asked to display item #{value} (zero based), but there's only {actual} items");
+                std::process::exit(1);
             }
         }
 
@@ -107,30 +105,25 @@ pub fn get_dump_range(
                     .clone()
             } else if let Some(range) = nth.and_then(|nth| filtered.get(nth)) {
                 range.1.clone()
+            } else if let Some(value) = nth {
+                let filtered = filtered.len();
+                println!("You asked to display item #{value} (zero based), but there's only {filtered} matching items");
+                std::process::exit(1);
             } else {
-                match nth {
-                    Some(value) => {
-                        let filtered = filtered.len();
-                        anyhow::bail!("You asked to display item #{value} (zero based), but there's only {filtered} matching items");
-                    }
-                    None => {
-                        if filtered.is_empty() {
-                            println!("Can't find any items matching {function:?}");
-                            std::process::exit(1);
-                        } else {
-                            suggest_name(&function, fmt.full_name, filtered.iter().map(|x| x.0))?;
-                        }
-                        unreachable!("suggest_name exits");
-                    }
+                if filtered.is_empty() {
+                    println!("Can't find any items matching {function:?}");
+                } else {
+                    suggest_name(&function, fmt.full_name, filtered.iter().map(|x| x.0));
                 }
+                std::process::exit(1);
             };
-            Ok(Some(range))
+            Some(range)
         }
 
         // Unspecified, so print suggestions and exit
         ToDump::Unspecified => {
             let items = items.into_keys().collect::<Vec<_>>();
-            suggest_name("", fmt.full_name, &items)?;
+            suggest_name("", fmt.full_name, &items);
             unreachable!("suggest_name exits");
         }
     }

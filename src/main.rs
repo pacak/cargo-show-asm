@@ -102,7 +102,7 @@ fn spawn_cargo(
         // Debug info is needed to map to rust source.
         .arg("-Cdebuginfo=2")
         .args(syntax.format().iter().flat_map(|s| ["-C", s]))
-        .args(target_cpu.iter().map(|cpu| format!("-Ctarget-cpu={}", cpu)));
+        .args(target_cpu.iter().map(|cpu| format!("-Ctarget-cpu={cpu}")));
 
     cmd.stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -126,8 +126,7 @@ fn main() -> anyhow::Result<()> {
             .output()?;
         if !output.status.success() {
             anyhow::bail!(
-                "Failed to get sysroot. '{:?} --print=sysroot' exited with {}",
-                &*RUSTC_PATH,
+                "Failed to get sysroot. '{RUSTC_PATH:?} --print=sysroot' exited with {}",
                 output.status,
             );
         }
@@ -149,7 +148,7 @@ fn main() -> anyhow::Result<()> {
             .packages
             .iter()
             .find(|p| p.name == name)
-            .with_context(|| format!("Package '{}' is not found", name))?,
+            .with_context(|| format!("Package '{name}' is not found"))?,
         None if metadata.packages.len() == 1 => &metadata.packages[0],
         None => {
             eprintln!(
@@ -210,7 +209,7 @@ fn main() -> anyhow::Result<()> {
     eprintln!();
     if !success {
         let status = cargo_child.wait()?;
-        eprintln!("Cargo failed with {}", status);
+        eprintln!("Cargo failed with {status}");
         std::process::exit(101);
     }
     let artifact = result_artifact.context("No artifact found")?;

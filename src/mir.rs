@@ -47,7 +47,7 @@ fn find_items(lines: &CachedLines) -> BTreeMap<Item, Range<usize>> {
     res
 }
 
-fn dump_range(_fmt: Format, strings: &[&str]) -> anyhow::Result<()> {
+fn dump_range(_fmt: Format, strings: &[&str]) {
     for line in strings {
         if let Some(ix) = line.rfind("//") {
             println!("{}{}", &line[..ix], color!(&line[ix..], OwoColorize::cyan));
@@ -55,15 +55,15 @@ fn dump_range(_fmt: Format, strings: &[&str]) -> anyhow::Result<()> {
             println!("{line}");
         }
     }
-    Ok(())
 }
 
 pub fn dump_function(goal: ToDump, path: &Path, fmt: &Format) -> anyhow::Result<()> {
     let lines = CachedLines::without_ending(std::fs::read_to_string(path)?);
     let items = find_items(&lines);
     let strs = lines.iter().collect::<Vec<_>>();
-    match get_dump_range(goal, *fmt, items)? {
+    match get_dump_range(goal, *fmt, items) {
         Some(range) => dump_range(*fmt, &strs[range]),
         None => dump_range(*fmt, &strs),
-    }
+    };
+    Ok(())
 }
