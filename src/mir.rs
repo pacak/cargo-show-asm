@@ -1,98 +1,69 @@
-use crate::{color, llvm::Item, opts::Format};
-use owo_colors::OwoColorize;
-use regex::Regex;
-use std::{
-    collections::BTreeMap,
-    fs::File,
-    io::{BufRead, BufReader},
-    path::Path,
+use crate::{
+    cached_lines::CachedLines,
+    color, get_dump_range,
+    opts::{Format, ToDump},
+    Item,
 };
+use owo_colors::OwoColorize;
+use std::{collections::BTreeMap, ops::Range, path::Path};
 
-#[derive(Debug)]
-enum State {
-    Skipping,
-    Body,
-}
-
-/// try to print `goal` from `path`, collect available items overwise
-///
-/// # Errors
-/// anyhow handles all the possible issues
-pub fn dump_function(
-    goal: Option<(&str, usize)>,
-    path: &Path,
-    _fmt: &Format,
-    items: &mut Vec<Item>,
-) -> anyhow::Result<bool> {
-    let mut seen = false;
-    let reader = BufReader::new(File::open(path)?);
+fn find_items(lines: &CachedLines) -> BTreeMap<Item, Range<usize>> {
+    let mut res = BTreeMap::new();
     let mut current_item = None::<Item>;
-    let mut names = BTreeMap::new();
-    let mut state = State::Skipping;
-    let regex = Regex::new("^fn ([^{]+) \\{$")?;
-
     let mut block_start = None;
-    let mut prefix = Vec::new();
 
-    for (ix, line) in reader.lines().enumerate() {
-        let line = line?;
-        match state {
-            State::Skipping => {
-                if line.starts_with("//") {
-                    if block_start.is_none() {
-                        block_start = Some(ix);
-                        prefix.push(line);
-                    }
-                } else if let Some(name) = regex.captures(&line).and_then(|c| c.get(1)) {
-                    state = State::Body;
-
-                    let name = name.as_str().to_owned();
-                    let name_entry = names.entry(name.clone()).or_insert(0);
-                    let hashed = format!("{name}:{name_entry}");
-                    seen = goal.map_or(true, |goal| {
-                        (name.as_ref(), *name_entry) == goal || hashed == goal.0
-                    });
-                    current_item = Some(Item {
-                        index: *name_entry,
-                        len: block_start.take().unwrap_or(ix),
-                        name,
-                        hashed,
-                    });
-                    *name_entry += 1;
-                    prefix.push(line);
-                } else {
-                    prefix.clear();
-                }
+    for (ix, line) in lines.iter().enumerate() {
+        if line.starts_with("//") {
+            if block_start.is_none() {
+                block_start = Some(ix);
             }
-            State::Body => {
-                if seen {
-                    #[allow(clippy::iter_with_drain)] // false positive
-                    for p in prefix.drain(..) {
-                        println!("{p}");
-                    }
-                    if let Some(ix) = line.rfind("//") {
-                        println!("{}{}", &line[..ix], color!(&line[ix..], OwoColorize::cyan));
-                    } else {
-                        println!("{line}");
-                    }
-                }
-
-                if line == "}" {
-                    state = State::Skipping;
-                    if let Some(mut cur) = current_item.take() {
-                        cur.len = ix - cur.len;
-                        if goal.map_or(true, |goal| goal.0.is_empty() || cur.name.contains(goal.0))
-                        {
-                            items.push(cur);
-                        }
-                    }
-                    if seen {
-                        return Ok(true);
-                    }
-                }
+        } else if line == "}" {
+            if let Some(mut cur) = current_item.take() {
+                let range = cur.len..ix + 1;
+                cur.len = range.len();
+                res.insert(cur, range);
             }
+        } else if !(line.starts_with(' ') || line.is_empty()) && current_item.is_none() {
+            let start = block_start.take().unwrap_or(ix);
+            let mut name = line;
+            'outer: loop {
+                for suffix in [" {", " =", " -> ()"] {
+                    if let Some(rest) = name.strip_suffix(suffix) {
+                        name = rest;
+                        continue 'outer;
+                    }
+                }
+                break;
+            }
+            current_item = Some(Item {
+                name: name.to_owned(),
+                hashed: name.to_owned(),
+                index: res.len(),
+                len: start,
+            });
         }
     }
 
-    Ok(seen)
+    res
+}
+
+fn dump_range(_fmt: Format, strings: &[&str]) {
+    for line in strings {
+        if let Some(ix) = line.rfind("//") {
+            println!("{}{}", &line[..ix], color!(&line[ix..], OwoColorize::cyan));
+        } else {
+            println!("{line}");
+        }
+    }
+}
+
+pub fn dump_function(goal: ToDump, path: &Path, fmt: &Format) -> anyhow::Result<()> {
+    let lines = CachedLines::without_ending(std::fs::read_to_string(path)?);
+    let items = find_items(&lines);
+    let strs = lines.iter().collect::<Vec<_>>();
+    match get_dump_range(goal, *fmt, items) {
+        Some(range) => dump_range(*fmt, &strs[range]),
+        None => dump_range(*fmt, &strs),
+    };
+    Ok(())
 }

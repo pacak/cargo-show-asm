@@ -47,7 +47,7 @@ jobs:
         run: cargo run -- --manifest-path sample/Cargo.toml --llvm sample::main
 
       - name: Native version of cargo-show-asm (MIR)
-        run: cargo run -- --manifest-path sample/Cargo.toml --mir "main() -> ()"
+        run: cargo run -- --manifest-path sample/Cargo.toml --mir "main()"
 
       - name: Crosscompiled version of cargo-show-asm (Intel ASM)
         run: cargo run -- --manifest-path sample/Cargo.toml --intel sample::main --target armv7-unknown-linux-gnueabihf
@@ -97,7 +97,7 @@ jobs:
         run: cargo run -- --manifest-path sample/Cargo.toml --llvm sample::main
 
       - name: Native version of cargo-show-asm (MIR)
-        run: cargo run -- --manifest-path sample/Cargo.toml --mir "main() -> ()"
+        run: cargo run -- --manifest-path sample/Cargo.toml --mir "main()"
 
       - name: Crosscompiled version of cargo-show-asm (Intel ASM)
         run: cargo run -- --manifest-path sample/Cargo.toml --intel sample::main --target armv7-unknown-linux-gnueabihf
@@ -147,7 +147,7 @@ jobs:
         run: cargo run -- --manifest-path sample/Cargo.toml --llvm sample::main
 
       - name: Native version of cargo-show-asm (MIR)
-        run: cargo run -- --manifest-path sample/Cargo.toml --mir "main() -> ()"
+        run: cargo run -- --manifest-path sample/Cargo.toml --mir "main()"
 
       - name: Crosscompiled version of cargo-show-asm (Intel ASM)
         run: cargo run -- --manifest-path sample/Cargo.toml --intel sample::main --target armv7-unknown-linux-gnueabihf

@@ -60,7 +60,7 @@ impl std::fmt::Display for Instruction<'_> {
             let args = demangle::contents(args, f.alternate());
             let w_label = demangle::color_local_labels(&args);
             let w_comment = demangle::color_comment(&w_label);
-            write!(f, " {}", w_comment)?;
+            write!(f, " {w_comment}")?;
         }
         Ok(())
     }
@@ -149,10 +149,18 @@ impl std::fmt::Display for Loc<'_> {
         match self.extra {
             Some(x) => write!(
                 f,
-                "\t.loc\t{} {} {} {}",
-                self.file, self.line, self.column, x
+                "\t.loc\t{file} {line} {col} {x}",
+                file = self.file,
+                line = self.line,
+                col = self.column,
             ),
-            None => write!(f, "\t.loc\t{} {} {}", self.file, self.line, self.column),
+            None => write!(
+                f,
+                "\t.loc\t{file} {line} {col}",
+                file = self.file,
+                line = self.line,
+                col = self.column
+            ),
         }
     }
 }

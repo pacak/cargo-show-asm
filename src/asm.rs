@@ -2,14 +2,15 @@
 use crate::asm::statements::Label;
 use crate::cached_lines::CachedLines;
 use crate::demangle::LabelKind;
-use crate::{color, demangle};
+use crate::{color, demangle, get_dump_range, Item};
 // TODO, use https://sourceware.org/binutils/docs/as/index.html
-use crate::opts::Format;
+use crate::opts::{Format, ToDump};
 
 mod statements;
 
 use owo_colors::OwoColorize;
 use statements::{parse_statement, Directive, Loc, Statement};
+use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Range;
 use std::path::Path;
@@ -30,18 +31,6 @@ fn parse_file(input: &str) -> anyhow::Result<Vec<Statement>> {
         }
         Err(err) => anyhow::bail!("Couldn't parse the .s file: {err}"),
     }
-}
-
-#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
-pub struct Item {
-    /// demangled name
-    pub name: String,
-    /// demangled name with hash
-    pub hashed: String,
-    /// sequential number of demangled name
-    pub index: usize,
-    /// number of lines
-    pub len: usize,
 }
 
 fn find_items(lines: &[Statement]) -> BTreeMap<Item, Range<usize>> {
@@ -206,34 +195,18 @@ pub fn dump_range(
     Ok(())
 }
 
-/// try to print `goal` from `path`, collect available items otherwise
-pub fn dump_function(
-    goal: Option<(&str, usize)>,
-    path: &Path,
+fn load_rust_sources<'a>(
     sysroot: &Path,
+    statements: &'a [Statement],
     fmt: &Format,
-    items: &mut Vec<Item>,
-) -> anyhow::Result<bool> {
-    if fmt.verbosity > 2 {
-        println!("goal: {:?}", goal);
-    }
-
-    let contents = std::fs::read_to_string(path)?;
-    let file = parse_file(&contents)?;
-    let functions = find_items(&file);
-
-    if fmt.verbosity > 2 {
-        println!("{:?}", functions);
-    }
-
-    let mut files = BTreeMap::new();
-    if fmt.rust {
-        for line in &file {
-            if let Statement::Directive(Directive::File(f)) = line {
-                files.entry(f.index).or_insert_with(|| {
+    files: &mut BTreeMap<u64, (Cow<'a, Path>, CachedLines)>,
+) {
+    for line in statements {
+        if let Statement::Directive(Directive::File(f)) = line {
+            files.entry(f.index).or_insert_with(|| {
                 let path = f.path.as_full_path();
                 if fmt.verbosity > 1 {
-                    println!("Reading file #{} {:?}", f.index, path);
+                    println!("Reading file #{} {}", f.index, path.display());
                 }
                 if let Ok(payload) = std::fs::read_to_string(&path) {
                     return (path, CachedLines::without_ending(payload));
@@ -276,39 +249,46 @@ pub fn dump_function(
                        return (path, CachedLines::without_ending(payload));
                     }
                 } else if fmt.verbosity > 0 {
-                    println!("File not found {:?}", path);
+                    println!("File not found {}", path.display());
                 }
-                // if file is not found - ust create a dummy
+                // if file is not found - Just create a dummy
                 (path, CachedLines::without_ending(String::new()))
             });
-            }
         }
     }
+}
 
-    if let Some(goal) = goal {
-        for (item, range) in &functions {
-            if (item.name.as_ref(), item.index) == goal || item.hashed == goal.0 {
-                if fmt.verbosity > 1 {
-                    println!("dumping range: {:?} of 0..{}", range, file.len());
-                }
+/// try to print `goal` from `path`, collect available items otherwise
+pub fn dump_function(
+    goal: ToDump,
+    path: &Path,
+    sysroot: &Path,
+    fmt: &Format,
+) -> anyhow::Result<()> {
+    if fmt.verbosity > 2 {
+        println!("goal: {goal:?}");
+    }
 
-                dump_range(&files, fmt, &file[range.clone()])?;
-                return Ok(true);
-            }
-        }
+    let contents = std::fs::read_to_string(path)?;
+    let statements = parse_file(&contents)?;
+    let functions = find_items(&statements);
 
-        *items = functions
-            .keys()
-            .filter(|i| i.name.contains(goal.0))
-            .cloned()
-            .collect::<Vec<_>>();
+    if fmt.verbosity > 2 {
+        println!("{functions:?}");
+    }
 
-        Ok(false)
+    let mut files = BTreeMap::new();
+    if fmt.rust {
+        load_rust_sources(sysroot, &statements, fmt, &mut files);
+    }
+
+    if let Some(range) = get_dump_range(goal, *fmt, functions) {
+        dump_range(&files, fmt, &statements[range])?;
     } else {
         if fmt.verbosity > 0 {
             println!("Going to print the whole file");
         }
-        dump_range(&files, fmt, &file)?;
-        Ok(true)
+        dump_range(&files, fmt, &statements)?;
     }
+    Ok(())
 }

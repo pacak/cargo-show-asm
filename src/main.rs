@@ -1,15 +1,12 @@
 use anyhow::Context;
 use cargo_metadata::{Artifact, Message, MetadataCommand, Package};
-use cargo_show_asm::{
-    asm::{self, Item},
-    color, llvm, mir,
-    opts::{self, ToDump},
-};
+use cargo_show_asm::{asm, llvm, mir, opts};
 use once_cell::sync::Lazy;
-use std::io::BufReader;
-use std::path::PathBuf;
-use std::process::Stdio;
-use std::{collections::BTreeMap, path::Path};
+use std::{
+    io::BufReader,
+    path::{Path, PathBuf},
+    process::Stdio,
+};
 
 static CARGO_PATH: Lazy<PathBuf> =
     Lazy::new(|| std::env::var_os("CARGO").map_or_else(|| "cargo".into(), PathBuf::from));
@@ -105,7 +102,7 @@ fn spawn_cargo(
         // Debug info is needed to map to rust source.
         .arg("-Cdebuginfo=2")
         .args(syntax.format().iter().flat_map(|s| ["-C", s]))
-        .args(target_cpu.iter().map(|cpu| format!("-Ctarget-cpu={}", cpu)));
+        .args(target_cpu.iter().map(|cpu| format!("-Ctarget-cpu={cpu}")));
 
     cmd.stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -129,8 +126,7 @@ fn main() -> anyhow::Result<()> {
             .output()?;
         if !output.status.success() {
             anyhow::bail!(
-                "Failed to get sysroot. '{:?} --print=sysroot' exited with {}",
-                &*RUSTC_PATH,
+                "Failed to get sysroot. '{RUSTC_PATH:?} --print=sysroot' exited with {}",
                 output.status,
             );
         }
@@ -152,7 +148,7 @@ fn main() -> anyhow::Result<()> {
             .packages
             .iter()
             .find(|p| p.name == name)
-            .with_context(|| format!("Package '{}' is not found", name))?,
+            .with_context(|| format!("Package '{name}' is not found"))?,
         None if metadata.packages.len() == 1 => &metadata.packages[0],
         None => {
             eprintln!(
@@ -213,7 +209,7 @@ fn main() -> anyhow::Result<()> {
     eprintln!();
     if !success {
         let status = cargo_child.wait()?;
-        eprintln!("Cargo failed with {}", status);
+        eprintln!("Cargo failed with {status}");
         std::process::exit(101);
     }
     let artifact = result_artifact.context("No artifact found")?;
@@ -227,77 +223,13 @@ fn main() -> anyhow::Result<()> {
         eprintln!("Asm file: {}", asm_path.display());
     }
 
-    let mut target_function = match &opts.to_dump {
-        ToDump::Everything => None,
-        ToDump::ByIndex { .. } => Some(("", 0)),
-        ToDump::Function { function, nth } => Some((function.as_deref().unwrap_or(""), *nth)),
-    };
-
-    // this variable exists to deal with the case where there's only
-    // one matching function - we might as well show it to the user directly
-    let mut single_target;
-    let mut existing = Vec::new();
-    let mut seen;
-
-    loop {
-        seen = match opts.syntax {
-            opts::Syntax::Intel | opts::Syntax::Att | opts::Syntax::Wasm => asm::dump_function(
-                target_function,
-                &asm_path,
-                &sysroot,
-                &opts.format,
-                &mut existing,
-            ),
-            opts::Syntax::Llvm => {
-                llvm::dump_function(target_function, &asm_path, &opts.format, &mut existing)
-            }
-            opts::Syntax::Mir => {
-                mir::dump_function(target_function, &asm_path, &opts.format, &mut existing)
-            }
-        }?;
-        if seen {
-            return Ok(());
-        } else if existing.len() == 1 {
-            single_target = existing[0].name.clone();
-            target_function = Some((&single_target, 0));
-        } else if let ToDump::ByIndex { value } = opts.to_dump {
-            if value < existing.len() {
-                single_target = existing[value].name.clone();
-                target_function = Some((&single_target, 0));
-            } else {
-                break;
-            }
-        } else {
-            break;
+    match opts.syntax {
+        opts::Syntax::Intel | opts::Syntax::Att | opts::Syntax::Wasm => {
+            asm::dump_function(opts.to_dump, &asm_path, &sysroot, &opts.format)
         }
+        opts::Syntax::Llvm => llvm::dump_function(opts.to_dump, &asm_path, &opts.format),
+        opts::Syntax::Mir => mir::dump_function(opts.to_dump, &asm_path, &opts.format),
     }
-
-    if !seen {
-        if existing.is_empty() {
-            anyhow::bail!("Couldn't find any items to display");
-        }
-        match opts.to_dump {
-            ToDump::Everything => {}
-            ToDump::ByIndex { value } => {
-                if value + 1 > existing.len() {
-                    anyhow::bail!(
-                        "You asked to display item #{} (zero based), but there's only {} items",
-                        value,
-                        existing.len()
-                    );
-                }
-            }
-            ToDump::Function { function, .. } => {
-                suggest_name(
-                    function.as_deref().unwrap_or(""),
-                    opts.format.full_name,
-                    &existing,
-                )?;
-            }
-        }
-    }
-
-    Ok(())
 }
 
 fn locate_asm_path_via_artifact(artifact: &Artifact, expect_ext: &str) -> anyhow::Result<PathBuf> {
@@ -410,39 +342,4 @@ fn same_contents<A: AsRef<Path>, B: AsRef<Path>>(a: &A, b: &B) -> anyhow::Result
     Ok(same_file::is_same_file(a, b)?
         || (std::fs::metadata(a)?.len() == std::fs::metadata(b)?.len()
             && std::fs::read(a)? == std::fs::read(b)?))
-}
-
-fn suggest_name(search: &str, full: bool, items: &[Item]) -> anyhow::Result<()> {
-    let names = items.iter().fold(BTreeMap::new(), |mut m, item| {
-        m.entry(if full { &item.hashed } else { &item.name })
-            .or_insert_with(Vec::new)
-            .push(item.len);
-        m
-    });
-
-    if names.is_empty() {
-        #[allow(clippy::redundant_else)]
-        if search.is_empty() {
-            anyhow::bail!("This target defines no functions")
-        } else {
-            anyhow::bail!("No matching functions, try relaxing your search request")
-        }
-    }
-
-    #[allow(clippy::cast_sign_loss)]
-    #[allow(clippy::cast_precision_loss)]
-    let width = (items.len() as f64).log10().ceil() as usize;
-
-    println!("Try one of those by name or a sequence number");
-    let mut ix = 0;
-    for (name, lens) in names.iter() {
-        println!(
-            "{ix:width$} {:?} {:?}",
-            color!(name, owo_colors::OwoColorize::green),
-            color!(lens, owo_colors::OwoColorize::cyan),
-        );
-        ix += lens.len();
-    }
-
-    std::process::exit(1);
 }
