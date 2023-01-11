@@ -1,5 +1,11 @@
 # Change Log
 
+## [0.2.11] - 2023-01-11
+- fix filtering by index and name at the same time
+- --test, --bench, etc can be used without argument to list available items
+thanks to @danielparks
+- bump deps
+
 ## [0.2.10] - 2023-01-09
 - support for nightly -Z asm-comments
 
