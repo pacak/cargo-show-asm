@@ -4,15 +4,18 @@ use owo_colors::OwoColorize;
 use regex::Regex;
 
 use crate::{
+    cached_lines::CachedLines,
     color,
     demangle::{self, contents},
-    opts::Format,
+    get_dump_range,
+    opts::{Format, ToDump},
     Item,
 };
 use std::{
     collections::BTreeMap,
     fs::File,
     io::{BufRead, BufReader},
+    ops::Range,
     path::Path,
 };
 
@@ -25,10 +28,67 @@ enum State {
     Define,
 }
 
+fn find_items(lines: &CachedLines) -> BTreeMap<Item, Range<usize>> {
+    let mut res = BTreeMap::new();
+    let mut current_item = None::<Item>;
+    let regex = Regex::new("@\"?(_?_[a-zA-Z0-9_$.]+)\"?\\(").expect("regexp should be valid");
+
+    for (ix, line) in lines.iter().enumerate() {
+        if line.starts_with("; Module") {
+            continue;
+        } else if let (true, Some(name)) = (current_item.is_none(), line.strip_prefix("; ")) {
+            current_item = Some(Item {
+                name: name.to_owned(),
+                hashed: String::new(),
+                index: res.len(),
+                len: ix,
+            })
+        } else if line.starts_with("define ") {
+            if let (Some(cur), Some(hashed)) = (
+                &mut current_item,
+                regex
+                    .captures(line)
+                    .and_then(|c| c.get(1))
+                    .map(|c| c.as_str())
+                    .and_then(demangle::demangled),
+            ) {
+                cur.hashed = format!("{hashed:?}");
+            }
+        } else if line == "}" {
+            if let Some(mut cur) = current_item.take() {
+                let range = cur.len..ix + 1;
+                cur.len = range.len();
+                res.insert(cur, range);
+            }
+        }
+    }
+    res
+}
+
+pub fn dump_function(goal: ToDump, path: &Path, fmt: &Format) -> anyhow::Result<()> {
+    let lines = CachedLines::without_ending(std::fs::read_to_string(path)?);
+    let items = find_items(&lines);
+    let strs = lines.iter().collect::<Vec<_>>();
+    match get_dump_range(goal, *fmt, items)? {
+        Some(range) => dump_range(*fmt, &strs[range]),
+        None => dump_range(*fmt, &strs),
+    }
+}
+
+fn dump_range(fmt: Format, strings: &[&str]) -> anyhow::Result<()> {
+    for line in strings {
+        if line.starts_with("; ") {
+            println!("{}", color!(line, OwoColorize::bright_black));
+        } else {
+            let line = demangle::contents(line, fmt.full_name);
+            println!("{line}");
+        }
+    }
+    Ok(())
+}
+
 /// try to print `goal` from `path`, collect available items otherwise
-///
-///
-pub fn dump_function(
+pub fn collect_or_dump(
     goal: Option<(&str, usize)>,
     path: &Path,
     fmt: &Format,

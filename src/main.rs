@@ -1,15 +1,12 @@
 use anyhow::Context;
 use cargo_metadata::{Artifact, Message, MetadataCommand, Package};
-use cargo_show_asm::{
-    asm, llvm, mir,
-    opts::{self, ToDump},
-    suggest_name,
-};
+use cargo_show_asm::{asm, llvm, mir, opts};
 use once_cell::sync::Lazy;
-use std::io::BufReader;
-use std::path::Path;
-use std::path::PathBuf;
-use std::process::Stdio;
+use std::{
+    io::BufReader,
+    path::{Path, PathBuf},
+    process::Stdio,
+};
 
 static CARGO_PATH: Lazy<PathBuf> =
     Lazy::new(|| std::env::var_os("CARGO").map_or_else(|| "cargo".into(), PathBuf::from));
@@ -227,77 +224,13 @@ fn main() -> anyhow::Result<()> {
         eprintln!("Asm file: {}", asm_path.display());
     }
 
-    let mut target_function = match &opts.to_dump {
-        ToDump::Everything => None,
-        ToDump::ByIndex { .. } => Some(("", 0)),
-        ToDump::Function { function, nth } => Some((function.as_deref().unwrap_or(""), *nth)),
-    };
-
-    // this variable exists to deal with the case where there's only
-    // one matching function - we might as well show it to the user directly
-    let mut single_target;
-    let mut existing = Vec::new();
-    let mut seen;
-
-    loop {
-        seen = match opts.syntax {
-            opts::Syntax::Intel | opts::Syntax::Att | opts::Syntax::Wasm => asm::dump_function(
-                target_function,
-                &asm_path,
-                &sysroot,
-                &opts.format,
-                &mut existing,
-            ),
-            opts::Syntax::Llvm => {
-                llvm::dump_function(target_function, &asm_path, &opts.format, &mut existing)
-            }
-            opts::Syntax::Mir => {
-                mir::dump_function(target_function, &asm_path, &opts.format, &mut existing)
-            }
-        }?;
-        if seen {
-            return Ok(());
-        } else if existing.len() == 1 {
-            single_target = existing[0].name.clone();
-            target_function = Some((&single_target, 0));
-        } else if let ToDump::ByIndex { value } = opts.to_dump {
-            if value < existing.len() {
-                single_target = existing[value].name.clone();
-                target_function = Some((&single_target, 0));
-            } else {
-                break;
-            }
-        } else {
-            break;
+    match opts.syntax {
+        opts::Syntax::Intel | opts::Syntax::Att | opts::Syntax::Wasm => {
+            asm::dump_function(opts.to_dump, &asm_path, &sysroot, &opts.format)
         }
+        opts::Syntax::Llvm => llvm::dump_function(opts.to_dump, &asm_path, &opts.format),
+        opts::Syntax::Mir => mir::dump_function(opts.to_dump, &asm_path, &opts.format),
     }
-
-    if !seen {
-        if existing.is_empty() {
-            anyhow::bail!("Couldn't find any items to display");
-        }
-        match opts.to_dump {
-            ToDump::Everything => {}
-            ToDump::ByIndex { value } => {
-                if value + 1 > existing.len() {
-                    anyhow::bail!(
-                        "You asked to display item #{} (zero based), but there's only {} items",
-                        value,
-                        existing.len()
-                    );
-                }
-            }
-            ToDump::Function { function, .. } => {
-                suggest_name(
-                    function.as_deref().unwrap_or(""),
-                    opts.format.full_name,
-                    &existing,
-                )?;
-            }
-        }
-    }
-
-    Ok(())
 }
 
 fn locate_asm_path_via_artifact(artifact: &Artifact, expect_ext: &str) -> anyhow::Result<PathBuf> {

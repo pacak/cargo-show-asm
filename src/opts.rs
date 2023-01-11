@@ -89,6 +89,7 @@ pub struct Cargo {
 }
 
 #[derive(Debug, Clone, Bpaf)]
+#[bpaf(fallback(ToDump::Unspecified))]
 pub enum ToDump {
     /// Dump the whole asm file
     Everything,
@@ -101,13 +102,16 @@ pub enum ToDump {
 
     Function {
         /// Dump function with that specific name / filter functions containing this string
-        #[bpaf(positional("FUNCTION"), optional)]
-        function: Option<String>,
+        #[bpaf(positional("FUNCTION"))]
+        function: String,
 
         /// Select specific function when there's several with the same name
-        #[bpaf(positional("INDEX"), fallback(0))]
-        nth: usize,
+        #[bpaf(positional("INDEX"))]
+        nth: Option<usize>,
     },
+
+    #[bpaf(hide)]
+    Unspecified,
 }
 
 fn target_cpu() -> impl Parser<Option<String>> {

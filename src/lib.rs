@@ -1,6 +1,8 @@
 #![doc = include_str!("../README.md")]
 
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, ops::Range};
+
+use opts::{Format, ToDump};
 pub mod asm;
 pub mod cached_lines;
 pub mod demangle;
@@ -44,7 +46,7 @@ pub fn suggest_name<'a>(
     if names.is_empty() {
         #[allow(clippy::redundant_else)]
         if search.is_empty() {
-            anyhow::bail!("This target defines no functions")
+            anyhow::bail!("This target defines no functions (or cargo-show-asm can't find them)")
         } else {
             anyhow::bail!("No matching functions, try relaxing your search request")
         }
@@ -66,4 +68,70 @@ pub fn suggest_name<'a>(
     }
 
     std::process::exit(1);
+}
+
+/// Pick an item to dump based on a goal
+///
+/// Prints suggestions and exits if goal can't be reached or more info is needed
+pub fn get_dump_range(
+    goal: ToDump,
+    fmt: Format,
+    items: BTreeMap<Item, Range<usize>>,
+) -> anyhow::Result<Option<Range<usize>>> {
+    match goal {
+        // to dump everything just return an empty range
+        ToDump::Everything => Ok(None),
+
+        // By index without filtering
+        ToDump::ByIndex { value } => {
+            if let Some(range) = items.values().nth(value) {
+                Ok(Some(range.clone()))
+            } else {
+                let actual = items.len();
+                anyhow::bail!("You asked to display item #{value} (zero based), but there's only {actual} items");
+            }
+        }
+
+        // By index with filtering
+        ToDump::Function { function, nth } => {
+            let filtered = items
+                .iter()
+                .filter(|(item, _range)| item.name.contains(&function))
+                .collect::<Vec<_>>();
+
+            let range = if nth.is_none() && filtered.len() == 1 {
+                filtered
+                    .get(0)
+                    .expect("Must have one item as checked above")
+                    .1
+                    .clone()
+            } else if let Some(range) = nth.and_then(|nth| filtered.get(nth)) {
+                range.1.clone()
+            } else {
+                match nth {
+                    Some(value) => {
+                        let filtered = filtered.len();
+                        anyhow::bail!("You asked to display item #{value} (zero based), but there's only {filtered} matching items");
+                    }
+                    None => {
+                        if filtered.is_empty() {
+                            println!("Can't find any items matching {function:?}");
+                            std::process::exit(1);
+                        } else {
+                            suggest_name(&function, fmt.full_name, filtered.iter().map(|x| x.0))?;
+                        }
+                        unreachable!("suggest_name exits");
+                    }
+                }
+            };
+            Ok(Some(range))
+        }
+
+        // Unspecified, so print suggestions and exit
+        ToDump::Unspecified => {
+            let items = items.into_keys().collect::<Vec<_>>();
+            suggest_name("", fmt.full_name, &items)?;
+            unreachable!("suggest_name exits");
+        }
+    }
 }
