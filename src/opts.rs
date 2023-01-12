@@ -86,6 +86,10 @@ pub struct Cargo {
     /// Build for the target triple
     #[bpaf(argument("TRIPLE"))]
     pub target: Option<String>,
+    #[bpaf(short('Z'), argument("FLAG"))]
+    /// Unstable (nightly-only) flags to Cargo, see 'cargo -Z help' for details
+    // OsString would be better but MetadataCommand takes a vector of strings...
+    pub unstable: Vec<String>,
 }
 
 #[derive(Debug, Clone, Bpaf)]

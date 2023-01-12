@@ -60,6 +60,7 @@ fn spawn_cargo(
         .args(cargo.locked.then_some("--locked"))
         .args(cargo.offline.then_some("--offline"))
         .args(cargo.target.iter().flat_map(|t| ["--target", t]))
+        .args(cargo.unstable.iter().flat_map(|z| ["-Z", z]))
         .args((syntax == opts::Syntax::Wasm).then_some("--target=wasm32-unknown-unknown"))
         .args(
             cargo
@@ -137,9 +138,17 @@ fn main() -> anyhow::Result<()> {
         eprintln!("Found sysroot: {}", sysroot.display());
     }
 
+    let unstable = opts
+        .cargo
+        .unstable
+        .iter()
+        .flat_map(|x| ["-Z".to_owned(), x.clone()])
+        .collect::<Vec<_>>();
+
     let metadata = MetadataCommand::new()
         .cargo_path(&*CARGO_PATH)
         .manifest_path(&opts.cargo.manifest_path)
+        .other_options(unstable)
         .no_deps()
         .exec()?;
 
