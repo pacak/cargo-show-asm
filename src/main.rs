@@ -111,29 +111,32 @@ fn spawn_cargo(
         .spawn()
 }
 
-#[allow(clippy::too_many_lines)]
+fn sysroot() -> anyhow::Result<PathBuf> {
+    let output = std::process::Command::new(&*RUSTC_PATH)
+        .arg("--print=sysroot")
+        .stdin(Stdio::null())
+        .stderr(Stdio::inherit())
+        .stdout(Stdio::piped())
+        .output()?;
+    if !output.status.success() {
+        anyhow::bail!(
+            "Failed to get sysroot. '{RUSTC_PATH:?} --print=sysroot' exited with {}",
+            output.status,
+        );
+    }
+    // `rustc` prints a trailing newline.
+    Ok(PathBuf::from(
+        std::str::from_utf8(&output.stdout)?.trim_end(),
+    ))
+}
+
 fn main() -> anyhow::Result<()> {
     reset_signal_pipe_handler()?;
 
     let opts = opts::options().run();
     owo_colors::set_override(opts.format.color);
 
-    let sysroot = {
-        let output = std::process::Command::new(&*RUSTC_PATH)
-            .arg("--print=sysroot")
-            .stdin(Stdio::null())
-            .stderr(Stdio::inherit())
-            .stdout(Stdio::piped())
-            .output()?;
-        if !output.status.success() {
-            anyhow::bail!(
-                "Failed to get sysroot. '{RUSTC_PATH:?} --print=sysroot' exited with {}",
-                output.status,
-            );
-        }
-        // `rustc` prints a trailing newline.
-        PathBuf::from(std::str::from_utf8(&output.stdout)?.trim_end())
-    };
+    let sysroot = sysroot()?;
     if opts.format.verbosity > 0 {
         eprintln!("Found sysroot: {}", sysroot.display());
     }
