@@ -24,6 +24,7 @@ $ cargo install cargo-show-asm
   - llvm-ir.
   - rustc MIR
   - Wasm code
+  - llvm-mca analysis
 
 # Usage:
 

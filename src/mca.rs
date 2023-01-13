@@ -15,6 +15,8 @@ pub fn dump_function(
     fmt: &Format,
     mca_intel: bool,
     mca_args: &[String],
+    triple: &Option<String>,
+    target_cpu: &Option<String>,
 ) -> anyhow::Result<()> {
     use std::io::Write;
 
@@ -35,6 +37,8 @@ pub fn dump_function(
 
     let mut mca = Command::new("llvm-mca")
         .args(mca_args)
+        .args(triple.iter().flat_map(|t| ["--target", t]))
+        .args(target_cpu.iter().flat_map(|t| ["--target-cpu", t]))
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

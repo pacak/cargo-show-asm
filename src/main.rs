@@ -28,7 +28,7 @@ fn reset_signal_pipe_handler() -> anyhow::Result<()> {
 }
 
 fn spawn_cargo(
-    cargo: opts::Cargo,
+    cargo: &opts::Cargo,
     format: opts::Format,
     syntax: opts::Syntax,
     target_cpu: Option<&str>,
@@ -50,7 +50,7 @@ fn spawn_cargo(
         .args(std::iter::repeat("-v").take(format.verbosity))
         // Workspace location.
         .arg("--manifest-path")
-        .arg(cargo.manifest_path)
+        .arg(&cargo.manifest_path)
         // Artifact selectors.
         .args(["--package", &focus_package.name])
         .args(focus_artifact.as_cargo_args())
@@ -82,13 +82,13 @@ fn spawn_cargo(
                 .iter()
                 .flat_map(|feat| ["--features", feat]),
         );
-    match cargo.compile_mode {
+    match &cargo.compile_mode {
         opts::CompileMode::Dev => {}
         opts::CompileMode::Release => {
             cmd.arg("--release");
         }
         opts::CompileMode::Custom(profile) => {
-            cmd.args(["--profile", &profile]);
+            cmd.args(["--profile", profile]);
         }
     }
 
@@ -197,7 +197,7 @@ fn main() -> anyhow::Result<()> {
     };
 
     let mut cargo_child = spawn_cargo(
-        opts.cargo,
+        &opts.cargo,
         opts.format,
         opts.syntax,
         opts.target_cpu.as_deref(),
@@ -247,6 +247,8 @@ fn main() -> anyhow::Result<()> {
             &opts.format,
             opts.syntax == Syntax::McaIntel,
             &opts.mca_arg,
+            &opts.cargo.target,
+            &opts.target_cpu,
         ),
         Syntax::Llvm => llvm::dump_function(opts.to_dump, &asm_path, &opts.format),
         Syntax::Mir => mir::dump_function(opts.to_dump, &asm_path, &opts.format),
