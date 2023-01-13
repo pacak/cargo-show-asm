@@ -35,14 +35,18 @@ pub fn dump_function(
         &lines
     };
 
-    let mca = Command::new("llvm-mca")
-        .args(mca_args)
-        .args(triple.iter().flat_map(|t| ["--target", t]))
-        .args(target_cpu.iter().flat_map(|t| ["--target-cpu", t]))
+    let mut mca = Command::new("llvm-mca");
+    mca.args(mca_args)
+        .args(triple.iter().flat_map(|t| ["--mtriple", t]))
+        .args(target_cpu.iter().flat_map(|t| ["--mcpu", t]))
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn();
+        .stderr(Stdio::piped());
+
+    if fmt.verbosity >= 2 {
+        println!("running {:?}", mca);
+    }
+    let mca = mca.spawn();
     let mut mca = match mca {
         Ok(mca) => mca,
         Err(err) => {
