@@ -14,7 +14,6 @@ pub fn dump_function(
     path: &Path,
     fmt: &Format,
     mca_intel: bool,
-    mca_args: &[String],
     triple: &Option<String>,
     target_cpu: &Option<String>,
 ) -> anyhow::Result<()> {
@@ -26,7 +25,7 @@ pub fn dump_function(
 
     let lines = contents.lines().collect::<Vec<_>>();
 
-    let lines = if let Some(range) = get_dump_range(goal, *fmt, functions) {
+    let lines = if let Some(range) = get_dump_range(goal, fmt, functions) {
         &lines[range]
     } else {
         if fmt.verbosity > 0 {
@@ -36,7 +35,7 @@ pub fn dump_function(
     };
 
     let mut mca = Command::new("llvm-mca");
-    mca.args(mca_args)
+    mca.args(&fmt.mca_arg)
         .args(triple.iter().flat_map(|t| ["--mtriple", t]))
         .args(target_cpu.iter().flat_map(|t| ["--mcpu", t]))
         .stdin(Stdio::piped())

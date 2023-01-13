@@ -29,7 +29,7 @@ fn reset_signal_pipe_handler() -> anyhow::Result<()> {
 
 fn spawn_cargo(
     cargo: &opts::Cargo,
-    format: opts::Format,
+    format: &opts::Format,
     syntax: opts::Syntax,
     target_cpu: Option<&str>,
     focus_package: &Package,
@@ -157,7 +157,7 @@ fn main() -> anyhow::Result<()> {
         .no_deps()
         .exec()?;
 
-    let focus_package = match opts.package {
+    let focus_package = match opts.select_fragment.package {
         Some(name) => metadata
             .packages
             .iter()
@@ -176,7 +176,7 @@ fn main() -> anyhow::Result<()> {
         }
     };
 
-    let focus_artifact = match opts.focus {
+    let focus_artifact = match opts.select_fragment.focus {
         Some(focus) => focus,
         None => match focus_package.targets.len() {
             0 => anyhow::bail!("No targets found"),
@@ -198,7 +198,7 @@ fn main() -> anyhow::Result<()> {
 
     let mut cargo_child = spawn_cargo(
         &opts.cargo,
-        opts.format,
+        &opts.format,
         opts.syntax,
         opts.target_cpu.as_deref(),
         focus_package,
@@ -246,7 +246,6 @@ fn main() -> anyhow::Result<()> {
             &asm_path,
             &opts.format,
             opts.syntax == Syntax::McaIntel,
-            &opts.mca_arg,
             &opts.cargo.target,
             &opts.target_cpu,
         ),
