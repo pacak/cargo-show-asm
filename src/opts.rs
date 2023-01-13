@@ -38,6 +38,10 @@ pub struct Options {
     #[bpaf(external)]
     pub cargo: Cargo,
 
+    /// Pass parameter to llvm-mca for mca targets
+    #[bpaf(short('M'), long)]
+    pub mca_arg: Vec<String>,
+
     // how to display
     /// Generate code for a specific CPU
     #[bpaf(external)]
@@ -86,6 +90,10 @@ pub struct Cargo {
     /// Build for the target triple
     #[bpaf(argument("TRIPLE"))]
     pub target: Option<String>,
+    #[bpaf(short('Z'), argument("FLAG"))]
+    /// Unstable (nightly-only) flags to Cargo, see 'cargo -Z help' for details
+    // OsString would be better but MetadataCommand takes a vector of strings...
+    pub unstable: Vec<String>,
 }
 
 #[derive(Debug, Clone, Bpaf)]
@@ -216,33 +224,38 @@ pub enum Syntax {
     Mir,
     /// Show WASM, needs wasm32-unknown-unknown target installed
     Wasm,
+    /// Show llvm-mca analysis, Intel style asm
+    #[bpaf(long("mca-intel"), long("mca"))]
+    McaIntel,
+    /// Show llvm-mca analysis, AT&T style asm
+    McaAtt,
 }
 
 impl Syntax {
     #[must_use]
     pub fn format(&self) -> Option<&str> {
         match self {
-            Syntax::Intel => Some("llvm-args=-x86-asm-syntax=intel"),
-            Syntax::Att => Some("llvm-args=-x86-asm-syntax=att"),
-            Syntax::Wasm | Syntax::Mir | Syntax::Llvm => None,
+            Self::Intel | Self::McaIntel => Some("llvm-args=-x86-asm-syntax=intel"),
+            Self::Att | Self::McaAtt => Some("llvm-args=-x86-asm-syntax=att"),
+            Self::Wasm | Self::Mir | Self::Llvm => None,
         }
     }
 
     #[must_use]
     pub fn emit(&self) -> &str {
         match self {
-            Syntax::Intel | Syntax::Att | Syntax::Wasm => "asm",
-            Syntax::Llvm => "llvm-ir",
-            Syntax::Mir => "mir",
+            Self::Intel | Self::Att | Self::Wasm | Self::McaIntel | Self::McaAtt => "asm",
+            Self::Llvm => "llvm-ir",
+            Self::Mir => "mir",
         }
     }
 
     #[must_use]
     pub fn ext(&self) -> &str {
         match self {
-            Syntax::Intel | Syntax::Att | Syntax::Wasm => "s",
-            Syntax::Llvm => "ll",
-            Syntax::Mir => "mir",
+            Self::Intel | Self::McaAtt | Self::McaIntel | Self::Att | Self::Wasm => "s",
+            Self::Llvm => "ll",
+            Self::Mir => "mir",
         }
     }
 }

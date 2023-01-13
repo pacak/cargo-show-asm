@@ -1,6 +1,6 @@
 use anyhow::Context;
 use cargo_metadata::{Artifact, Message, MetadataCommand, Package};
-use cargo_show_asm::{asm, llvm, mir, opts};
+use cargo_show_asm::{asm, llvm, mca, mir, opts};
 use once_cell::sync::Lazy;
 use std::{
     io::BufReader,
@@ -28,7 +28,7 @@ fn reset_signal_pipe_handler() -> anyhow::Result<()> {
 }
 
 fn spawn_cargo(
-    cargo: opts::Cargo,
+    cargo: &opts::Cargo,
     format: opts::Format,
     syntax: opts::Syntax,
     target_cpu: Option<&str>,
@@ -50,7 +50,7 @@ fn spawn_cargo(
         .args(std::iter::repeat("-v").take(format.verbosity))
         // Workspace location.
         .arg("--manifest-path")
-        .arg(cargo.manifest_path)
+        .arg(&cargo.manifest_path)
         // Artifact selectors.
         .args(["--package", &focus_package.name])
         .args(focus_artifact.as_cargo_args())
@@ -60,6 +60,7 @@ fn spawn_cargo(
         .args(cargo.locked.then_some("--locked"))
         .args(cargo.offline.then_some("--offline"))
         .args(cargo.target.iter().flat_map(|t| ["--target", t]))
+        .args(cargo.unstable.iter().flat_map(|z| ["-Z", z]))
         .args((syntax == opts::Syntax::Wasm).then_some("--target=wasm32-unknown-unknown"))
         .args(
             cargo
@@ -81,13 +82,13 @@ fn spawn_cargo(
                 .iter()
                 .flat_map(|feat| ["--features", feat]),
         );
-    match cargo.compile_mode {
+    match &cargo.compile_mode {
         opts::CompileMode::Dev => {}
         opts::CompileMode::Release => {
             cmd.arg("--release");
         }
         opts::CompileMode::Custom(profile) => {
-            cmd.args(["--profile", &profile]);
+            cmd.args(["--profile", profile]);
         }
     }
 
@@ -110,36 +111,49 @@ fn spawn_cargo(
         .spawn()
 }
 
+fn sysroot() -> anyhow::Result<PathBuf> {
+    let output = std::process::Command::new(&*RUSTC_PATH)
+        .arg("--print=sysroot")
+        .stdin(Stdio::null())
+        .stderr(Stdio::inherit())
+        .stdout(Stdio::piped())
+        .output()?;
+    if !output.status.success() {
+        anyhow::bail!(
+            "Failed to get sysroot. '{RUSTC_PATH:?} --print=sysroot' exited with {}",
+            output.status,
+        );
+    }
+    // `rustc` prints a trailing newline.
+    Ok(PathBuf::from(
+        std::str::from_utf8(&output.stdout)?.trim_end(),
+    ))
+}
+
 #[allow(clippy::too_many_lines)]
 fn main() -> anyhow::Result<()> {
+    use opts::Syntax;
     reset_signal_pipe_handler()?;
 
     let opts = opts::options().run();
     owo_colors::set_override(opts.format.color);
 
-    let sysroot = {
-        let output = std::process::Command::new(&*RUSTC_PATH)
-            .arg("--print=sysroot")
-            .stdin(Stdio::null())
-            .stderr(Stdio::inherit())
-            .stdout(Stdio::piped())
-            .output()?;
-        if !output.status.success() {
-            anyhow::bail!(
-                "Failed to get sysroot. '{RUSTC_PATH:?} --print=sysroot' exited with {}",
-                output.status,
-            );
-        }
-        // `rustc` prints a trailing newline.
-        PathBuf::from(std::str::from_utf8(&output.stdout)?.trim_end())
-    };
+    let sysroot = sysroot()?;
     if opts.format.verbosity > 0 {
         eprintln!("Found sysroot: {}", sysroot.display());
     }
 
+    let unstable = opts
+        .cargo
+        .unstable
+        .iter()
+        .flat_map(|x| ["-Z".to_owned(), x.clone()])
+        .collect::<Vec<_>>();
+
     let metadata = MetadataCommand::new()
         .cargo_path(&*CARGO_PATH)
         .manifest_path(&opts.cargo.manifest_path)
+        .other_options(unstable)
         .no_deps()
         .exec()?;
 
@@ -183,7 +197,7 @@ fn main() -> anyhow::Result<()> {
     };
 
     let mut cargo_child = spawn_cargo(
-        opts.cargo,
+        &opts.cargo,
         opts.format,
         opts.syntax,
         opts.target_cpu.as_deref(),
@@ -224,11 +238,20 @@ fn main() -> anyhow::Result<()> {
     }
 
     match opts.syntax {
-        opts::Syntax::Intel | opts::Syntax::Att | opts::Syntax::Wasm => {
+        Syntax::Intel | Syntax::Att | Syntax::Wasm => {
             asm::dump_function(opts.to_dump, &asm_path, &sysroot, &opts.format)
         }
-        opts::Syntax::Llvm => llvm::dump_function(opts.to_dump, &asm_path, &opts.format),
-        opts::Syntax::Mir => mir::dump_function(opts.to_dump, &asm_path, &opts.format),
+        Syntax::McaAtt | Syntax::McaIntel => mca::dump_function(
+            opts.to_dump,
+            &asm_path,
+            &opts.format,
+            opts.syntax == Syntax::McaIntel,
+            &opts.mca_arg,
+            &opts.cargo.target,
+            &opts.target_cpu,
+        ),
+        Syntax::Llvm => llvm::dump_function(opts.to_dump, &asm_path, &opts.format),
+        Syntax::Mir => mir::dump_function(opts.to_dump, &asm_path, &opts.format),
     }
 }
 
