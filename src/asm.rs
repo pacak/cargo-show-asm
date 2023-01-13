@@ -33,6 +33,7 @@ pub fn parse_file(input: &str) -> anyhow::Result<Vec<Statement>> {
     }
 }
 
+#[must_use]
 pub fn find_items(lines: &[Statement]) -> BTreeMap<Item, Range<usize>> {
     let mut res = BTreeMap::new();
 

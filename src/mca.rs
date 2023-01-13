@@ -16,6 +16,8 @@ pub fn dump_function(
     mca_intel: bool,
     mca_args: &[String],
 ) -> anyhow::Result<()> {
+    use std::io::Write;
+
     let contents = std::fs::read_to_string(path)?;
     let statements = crate::asm::parse_file(&contents)?;
     let functions = crate::asm::find_items(&statements);
@@ -42,7 +44,6 @@ pub fn dump_function(
     let o = mca.stdout.take().unwrap();
     let e = mca.stderr.take().unwrap();
 
-    use std::io::Write;
     if mca_intel {
         writeln!(i, ".intel_syntax")?;
     }
