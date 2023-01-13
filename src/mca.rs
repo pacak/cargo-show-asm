@@ -35,14 +35,22 @@ pub fn dump_function(
         &lines
     };
 
-    let mut mca = Command::new("llvm-mca")
+    let mca = Command::new("llvm-mca")
         .args(mca_args)
         .args(triple.iter().flat_map(|t| ["--target", t]))
         .args(target_cpu.iter().flat_map(|t| ["--target-cpu", t]))
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .spawn()?;
+        .spawn();
+    let mut mca = match mca {
+        Ok(mca) => mca,
+        Err(err) => {
+            eprintln!("Failed to start llvm-mca, do you have it installed? The error was");
+            eprintln!("{err}");
+            std::process::exit(1);
+        }
+    };
 
     let mut i = mca.stdin.take().unwrap();
     let o = mca.stdout.take().unwrap();
