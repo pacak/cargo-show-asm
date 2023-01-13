@@ -1,5 +1,9 @@
 # Change Log
 
+## [0.2.12] - 2023-01-13
+- allow to pass -Z flags directly to cargo
+- support for llvm-mca
+
 ## [0.2.11] - 2023-01-11
 - fix filtering by index and name at the same time
 - --test, --bench, etc can be used without argument to list available items
