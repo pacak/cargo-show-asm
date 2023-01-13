@@ -15,7 +15,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Range;
 use std::path::Path;
 
-fn parse_file(input: &str) -> anyhow::Result<Vec<Statement>> {
+pub fn parse_file(input: &str) -> anyhow::Result<Vec<Statement>> {
     // eat all statements until the eof, so we can report the proper errors on failed parse
     match nom::multi::many0(parse_statement)(input) {
         Ok(("", stmts)) => Ok(stmts),
@@ -33,7 +33,7 @@ fn parse_file(input: &str) -> anyhow::Result<Vec<Statement>> {
     }
 }
 
-fn find_items(lines: &[Statement]) -> BTreeMap<Item, Range<usize>> {
+pub fn find_items(lines: &[Statement]) -> BTreeMap<Item, Range<usize>> {
     let mut res = BTreeMap::new();
 
     let mut sec_start = 0;

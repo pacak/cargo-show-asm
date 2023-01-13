@@ -7,6 +7,7 @@ pub mod asm;
 pub mod cached_lines;
 pub mod demangle;
 pub mod llvm;
+pub mod mca;
 pub mod mir;
 pub mod opts;
 

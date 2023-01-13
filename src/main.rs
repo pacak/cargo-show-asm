@@ -1,6 +1,6 @@
 use anyhow::Context;
 use cargo_metadata::{Artifact, Message, MetadataCommand, Package};
-use cargo_show_asm::{asm, llvm, mir, opts};
+use cargo_show_asm::{asm, llvm, mca, mir, opts};
 use once_cell::sync::Lazy;
 use std::{
     io::BufReader,
@@ -130,7 +130,9 @@ fn sysroot() -> anyhow::Result<PathBuf> {
     ))
 }
 
+#[allow(clippy::too_many_lines)]
 fn main() -> anyhow::Result<()> {
+    use opts::Syntax;
     reset_signal_pipe_handler()?;
 
     let opts = opts::options().run();
@@ -236,11 +238,18 @@ fn main() -> anyhow::Result<()> {
     }
 
     match opts.syntax {
-        opts::Syntax::Intel | opts::Syntax::Att | opts::Syntax::Wasm => {
+        Syntax::Intel | Syntax::Att | Syntax::Wasm => {
             asm::dump_function(opts.to_dump, &asm_path, &sysroot, &opts.format)
         }
-        opts::Syntax::Llvm => llvm::dump_function(opts.to_dump, &asm_path, &opts.format),
-        opts::Syntax::Mir => mir::dump_function(opts.to_dump, &asm_path, &opts.format),
+        Syntax::McaAtt | Syntax::McaIntel => mca::dump_function(
+            opts.to_dump,
+            &asm_path,
+            &opts.format,
+            opts.syntax == Syntax::McaIntel,
+            &opts.mca_arg,
+        ),
+        Syntax::Llvm => llvm::dump_function(opts.to_dump, &asm_path, &opts.format),
+        Syntax::Mir => mir::dump_function(opts.to_dump, &asm_path, &opts.format),
     }
 }
 
