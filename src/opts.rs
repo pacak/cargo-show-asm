@@ -13,8 +13,8 @@ fn check_target_dir(path: PathBuf) -> anyhow::Result<PathBuf> {
 
 #[derive(Clone, Debug, Bpaf)]
 #[bpaf(options("asm"), version)]
-#[allow(clippy::struct_excessive_bools)]
-#[allow(clippy::doc_markdown)]
+//#[allow(clippy::struct_excessive_bools)]
+//#[allow(clippy::doc_markdown)]
 /// Show the code rustc generates for any function
 ///
 ///
@@ -376,4 +376,57 @@ impl Focus {
         (somewhat_matches || kind_matches)
             && name.map_or(true, |name| artifact.target.name == *name)
     }
+}
+
+#[test]
+fn generate_docs() {
+    use bpaf::docugen::*;
+
+    let mut doc = Semantic::default();
+
+    doc.subsection("Finding code to analyze");
+    doc += paragraph([
+        text(
+            "Code in a typical cargo project can be located in a package itself or it can belong \
+        to any external or workspace dependency package. Further code can belong to a library, \
+        integration test, or any binary package might contain. To access code located in unit \
+        test (code you usually run with ",
+        ),
+        mono("cargo test"),
+        text(") you should pick a library and compile it in the test profile: "),
+        literal("--profile test"),
+    ]);
+    doc += select_fragment().meta().as_usage();
+
+    doc.subsection("Compiling code with cargo");
+    doc += paragraph([
+        mono("cargo-show-asm"),
+        text(" lets "),
+        mono("cargo"),
+        text(" to handle the compilation and allows you to pass parameters directly to "),
+        mono("cargo"),
+        text("."),
+    ]);
+    doc += cargo().meta().as_usage();
+
+    doc.subsection("Picking the output format");
+    doc += paragraph([
+        mono("cargo-show-asm"),
+        text(" can generate output in many different formats:"),
+    ]);
+    doc += syntax().meta().as_usage();
+
+    let file = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap()).join("doc.md");
+    let _x = write_updated(file, &doc.render_to_markdown()).unwrap();
+    let file = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap()).join("doc.1");
+    let _y = write_updated(
+        file,
+        &doc.render_to_manpage("asdf", Section::General, &["abc", "def", "ghk"]),
+    )
+    .unwrap();
+    /*
+    assert!(
+        !x,
+        "Documentation was regenerated, please make sure  it was committed"
+    );*/
 }

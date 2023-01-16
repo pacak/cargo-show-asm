@@ -42,13 +42,13 @@ checksum = "863c0b21775e45ebf9bbb3a6d0cd9b3421c88a036e825359e3d4015561f3e23c"
 dependencies = [
  "bpaf_derive",
  "owo-colors",
+ "roff",
 ]
 
 [[package]]
 name = "bpaf_derive"
 version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ed63113bfb3a9bb25dd131acdf0044c7404000ea57dd9eec1f221e3547b4748"
+source = "git+https://github.com/pacak/bpaf?branch=semantic#febc4fd975a6d08c2f589c40f3f67a0437f01ff1"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -291,6 +291,11 @@ name = "regex-syntax"
 version = "0.6.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a3f87b73ce11b1619a3c6332f45341e0047173771e8b8b73f87bfeefb7b56244"
+
+[[package]]
+name = "roff"
+version = "0.2.1"
+source = "git+https://github.com/pacak/semantic?branch=semantic#ea50c22790494f2f01e3964766b66ce13282a3e2"
 
 [[package]]
 name = "rustc-demangle"
