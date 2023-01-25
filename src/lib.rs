@@ -1,8 +1,5 @@
-#![doc = include_str!("../doc.md")]
-//!
-//! ---
-
 #![doc = include_str!("../README.md")]
+#![doc = include_str!("../doc.md")]
 
 use std::{collections::BTreeMap, ops::Range};
 

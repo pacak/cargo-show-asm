@@ -48,7 +48,6 @@ dependencies = [
 [[package]]
 name = "bpaf_derive"
 version = "0.3.3"
-source = "git+https://github.com/pacak/bpaf?branch=semantic#febc4fd975a6d08c2f589c40f3f67a0437f01ff1"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -295,7 +294,6 @@ checksum = "a3f87b73ce11b1619a3c6332f45341e0047173771e8b8b73f87bfeefb7b56244"
 [[package]]
 name = "roff"
 version = "0.2.1"
-source = "git+https://github.com/pacak/semantic?branch=semantic#ea50c22790494f2f01e3964766b66ce13282a3e2"
 
 [[package]]
 name = "rustc-demangle"

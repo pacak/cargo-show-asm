@@ -380,12 +380,15 @@ impl Focus {
 
 #[test]
 fn generate_docs() {
-    use bpaf::docugen::*;
+    use bpaf::docugen::{
+        roff::{man::*, semantic::*, write_updated},
+        *,
+    };
 
     let mut doc = Semantic::default();
 
     doc.subsection("Finding code to analyze");
-    doc += paragraph([
+    doc.paragraph([
         text(
             "Code in a typical cargo project can be located in a package itself or it can belong \
         to any external or workspace dependency package. Further code can belong to a library, \
@@ -396,10 +399,10 @@ fn generate_docs() {
         text(") you should pick a library and compile it in the test profile: "),
         literal("--profile test"),
     ]);
-    doc += select_fragment().meta().as_usage();
+    doc += usage(&select_fragment());
 
     doc.subsection("Compiling code with cargo");
-    doc += paragraph([
+    doc.paragraph([
         mono("cargo-show-asm"),
         text(" lets "),
         mono("cargo"),
@@ -407,26 +410,31 @@ fn generate_docs() {
         mono("cargo"),
         text("."),
     ]);
-    doc += cargo().meta().as_usage();
+    doc += usage(&cargo());
 
     doc.subsection("Picking the output format");
-    doc += paragraph([
+    doc.paragraph([
         mono("cargo-show-asm"),
         text(" can generate output in many different formats:"),
     ]);
-    doc += syntax().meta().as_usage();
+    doc += usage(&syntax());
 
     let file = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap()).join("doc.md");
-    let _x = write_updated(file, &doc.render_to_markdown()).unwrap();
+    let new = write_updated(file, doc.render_to_markdown().as_bytes()).unwrap();
     let file = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap()).join("doc.1");
-    let _y = write_updated(
-        file,
-        &doc.render_to_manpage("asdf", Section::General, &["abc", "def", "ghk"]),
-    )
-    .unwrap();
-    /*
+    let man = Manpage::new(
+        "cargo-show-asm",
+        Section::General,
+        &[
+            env!("CARGO_PKG_VERSION"),
+            "cargo-show-asm",
+            "Rust development tools",
+        ],
+    );
+    let new = write_updated(file, doc.render_to_manpage(man).as_bytes()).unwrap() || new;
+
     assert!(
-        !x,
+        !new,
         "Documentation was regenerated, please make sure  it was committed"
-    );*/
+    );
 }

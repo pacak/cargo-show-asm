@@ -1,0 +1,123 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH cargo-show-asm 1 0.2.12 cargo-show-asm Rust\ development\ tools
+.SS Finding\ code\ to\ analyze
+\fRCode in a typical cargo project can be located in a package itself or it can belong to any external or workspace dependency package. Further code can belong to a library, integration test, or any binary package might contain. To access code located in unit test (code you usually run with \fP\f(CRcargo test\fP\fR) you should pick a library and compile it in the test profile: \fP\f(CB\-\-profile test\fP
+.PP
+.SS Available\ options
+.TP
+\f(CB\-p\fP\fR, \fP\f(CB\-\-package\fP\f(CR=\fP\fISPEC\fP
+\fRPackage to use, defaults to a current one, required for workspace projects, can also point to a dependency\fP
+.PP
+.TP
+\f(CB\-\-lib\fP
+\fRShow results from library code\fP
+.PP
+.TP
+\f(CB\-\-test\fP\f(CR=\fP\fITEST\fP
+\fRShow results from an integration test\fP
+.PP
+.TP
+\f(CB\-\-bench\fP\f(CR=\fP\fIBENCH\fP
+\fRShow results from a benchmark\fP
+.PP
+.TP
+\f(CB\-\-example\fP\f(CR=\fP\fIEXAMPLE\fP
+\fRShow results from an example\fP
+.PP
+.TP
+\f(CB\-\-bin\fP\f(CR=\fP\fIBIN\fP
+\fRShow results from a binary\fP
+.PP
+.SS Compiling\ code\ with\ cargo
+\f(CRcargo\-show\-asm\fP\fR lets \fP\f(CRcargo\fP\fR to handle the compilation and allows you to pass parameters directly to \fP\f(CRcargo\fP\fR.\fP
+.PP
+.SS Available\ options
+.TP
+\f(CB\-\-manifest\-path\fP\f(CR=\fP\fIPATH\fP
+\fRPath to Cargo.toml, defaults to one in current folder\fP
+.PP
+.TP
+\f(CB\-\-target\-dir\fP\f(CR=\fP\fIDIR\fP
+\fRUse custom target directory for generated artifacts, create if missing\fP
+.PP
+.TP
+\f(CB\-\-dry\fP
+\fRProduce a build plan instead of actually building\fP
+.PP
+.TP
+\f(CB\-\-frozen\fP
+\fRRequires Cargo.lock and cache are up to date\fP
+.PP
+.TP
+\f(CB\-\-locked\fP
+\fRRequires Cargo.lock is up to date\fP
+.PP
+.TP
+\f(CB\-\-offline\fP
+\fRRun without accessing the network\fP
+.PP
+.TP
+\f(CB\-\-no\-default\-features\fP
+\fRDo not activate `default` feature\fP
+.PP
+.TP
+\f(CB\-\-all\-features\fP
+\fRActivate all available features\fP
+.PP
+.TP
+\f(CB\-\-features\fP\f(CR=\fP\fIFEATURE\fP
+\fRA feature to activate, can be used multiple times\fP
+.PP
+.TP
+\f(CB\-\-release\fP
+\fRCompile in release mode (default)\fP
+.PP
+.TP
+\f(CB\-\-dev\fP
+\fRCompile in dev mode\fP
+.PP
+.TP
+\f(CB\-\-profile\fP\f(CR=\fP\fIPROFILE\fP
+\fRBuild for this specific profile\fP
+.PP
+.TP
+\f(CB\-\-target\fP\f(CR=\fP\fITRIPLE\fP
+\fRBuild for the target triple\fP
+.PP
+.TP
+\f(CB\-Z\fP\f(CR=\fP\fIFLAG\fP
+\fRUnstable (nightly\-only) flags to Cargo, see \*(Aqcargo \-Z help\*(Aq for details\fP
+.PP
+.SS Picking\ the\ output\ format
+\f(CRcargo\-show\-asm\fP\fR can generate output in many different formats:\fP
+.PP
+.SS Available\ options
+.TP
+\f(CB\-\-intel\fP
+\fRShow assembly using Intel style\fP
+.PP
+.TP
+\f(CB\-\-att\fP
+\fRShow assembly using AT&T style\fP
+.PP
+.TP
+\f(CB\-\-llvm\fP
+\fRShow llvm\-ir\fP
+.PP
+.TP
+\f(CB\-\-mir\fP
+\fRShow MIR\fP
+.PP
+.TP
+\f(CB\-\-wasm\fP
+\fRShow WASM, needs wasm32\-unknown\-unknown target installed\fP
+.PP
+.TP
+\f(CB\-\-mca\-intel\fP
+\fRShow llvm\-mca analysis, Intel style asm\fP
+.PP
+.TP
+\f(CB\-\-mca\-att\fP
+\fRShow llvm\-mca analysis, AT&T style asm\fP
+.PP

@@ -15,6 +15,7 @@ license = "MIT OR Apache-2.0"
 anyhow = "1"
 #bpaf = { version = "0.7.7", features = ["bpaf_derive", "autocomplete", "manpage"], path = "../bpaf" }
 bpaf = { git = "https://github.com/pacak/bpaf", branch = "semantic", features = ["bpaf_derive", "autocomplete", "manpage"] }
+#bpaf = { path = "../bpaf", features = ["bpaf_derive", "autocomplete", "manpage"] }
 cargo_metadata = "0.15.2"
 line-span = "0.1"
 nom = "7"
