@@ -324,6 +324,40 @@ fn locate_asm_path_via_artifact(artifact: &Artifact, expect_ext: &str) -> anyhow
         }
     }
 
+    // for cdylib we have
+    // [..]/target/debug/deps/xx.d
+    // [..]/target/debug/deps/libxx.so <+ Hard linked/same contents
+    // [..]/target/debug/deps/xx.s      | <- asm file
+    // [..]/target/debug/libxx.d        |
+    // [..]/target/debug/libxx.so      <+ <- artifact
+    //
+    // on windows it's xx.dll / xx.s, on MacOS it's libxx.dylib / xx.s...
+    if artifact.target.kind.iter().any(|k| k == "cdylib") {
+        let cdylib_path = artifact
+            .filenames
+            .iter()
+            .find(|f| {
+                f.extension()
+                    .map_or(false, |e| ["so", "dylib", "dll"].contains(&e))
+            })
+            .expect("No cdylib?");
+        let deps_dir = cdylib_path.with_file_name("deps");
+        for entry in deps_dir.read_dir()? {
+            let entry = entry?;
+            let maybe_origin = entry.path();
+            if same_contents(cdylib_path, &maybe_origin)? {
+                let Some(name) = maybe_origin.file_name() else { continue };
+                let Some(name) = name.to_str() else { continue };
+                let name = name.strip_prefix("lib").unwrap_or(name);
+                // on windows this is xx.dll -> xx.s, no lib....
+                let asm_file = maybe_origin.with_file_name(name).with_extension(expect_ext);
+                if asm_file.exists() {
+                    return Ok(asm_file);
+                }
+            }
+        }
+    }
+
     // For bin or bin-type example artifacts, `filenames` provide hard-linked paths
     // without extra-filename.
     // We scans all possible original artifacts by checking hard links,

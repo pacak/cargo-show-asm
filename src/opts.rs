@@ -332,12 +332,12 @@ impl TryFrom<&'_ cargo_metadata::Target> for Focus {
 
     fn try_from(target: &cargo_metadata::Target) -> Result<Self, Self::Error> {
         match target.kind.first().map(|s| &**s) {
-            Some("lib" | "rlib") => Ok(Focus::Lib),
+            Some("lib" | "rlib" | "cdylib") => Ok(Focus::Lib),
             Some("test") => Ok(Focus::Test(target.name.clone())),
             Some("bench") => Ok(Focus::Bench(target.name.clone())),
             Some("example") => Ok(Focus::Example(target.name.clone())),
             Some("bin") => Ok(Focus::Bin(target.name.clone())),
-            _ => anyhow::bail!("Unknow target kind: {:?}", target.kind),
+            _ => anyhow::bail!("Unknown target kind: {:?}", target.kind),
         }
     }
 }
@@ -366,7 +366,12 @@ impl Focus {
     #[must_use]
     pub fn matches_artifact(&self, artifact: &Artifact) -> bool {
         let (kind, name) = self.as_parts();
-        let somewhat_matches = kind == "lib" && artifact.target.kind.iter().any(|i| i == "rlib");
+        let somewhat_matches = kind == "lib"
+            && artifact
+                .target
+                .kind
+                .iter()
+                .any(|i| ["rlib", "cdylib"].contains(&i.as_str()));
         let kind_matches = artifact.target.kind == [kind];
         (somewhat_matches || kind_matches)
             && name.map_or(true, |name| artifact.target.name == *name)
