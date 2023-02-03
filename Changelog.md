@@ -1,5 +1,9 @@
 # Change Log
 
+## [0.2.13] - 2023-02-03
+- support cdylib crates
+- bump deps
+
 ## [0.2.12] - 2023-01-13
 - allow to pass -Z flags directly to cargo
 - support for llvm-mca
