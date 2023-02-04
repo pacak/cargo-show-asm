@@ -29,7 +29,7 @@ fn reset_signal_pipe_handler() -> anyhow::Result<()> {
 
 fn spawn_cargo(
     cargo: &opts::Cargo,
-    format: opts::Format,
+    format: &opts::Format,
     syntax: opts::Syntax,
     target_cpu: Option<&str>,
     focus_package: &Package,
@@ -157,7 +157,7 @@ fn main() -> anyhow::Result<()> {
         .no_deps()
         .exec()?;
 
-    let focus_package = match opts.package {
+    let focus_package = match opts.select_fragment.package {
         Some(name) => metadata
             .packages
             .iter()
@@ -176,7 +176,7 @@ fn main() -> anyhow::Result<()> {
         }
     };
 
-    let focus_artifact = match opts.focus {
+    let focus_artifact = match opts.select_fragment.focus {
         Some(focus) => focus,
         None => match focus_package.targets.len() {
             0 => anyhow::bail!("No targets found"),
@@ -198,7 +198,7 @@ fn main() -> anyhow::Result<()> {
 
     let mut cargo_child = spawn_cargo(
         &opts.cargo,
-        opts.format,
+        &opts.format,
         opts.syntax,
         opts.target_cpu.as_deref(),
         focus_package,
@@ -246,7 +246,6 @@ fn main() -> anyhow::Result<()> {
             &asm_path,
             &opts.format,
             opts.syntax == Syntax::McaIntel,
-            &opts.mca_arg,
             &opts.cargo.target,
             &opts.target_cpu,
         ),
@@ -317,6 +316,40 @@ fn locate_asm_path_via_artifact(artifact: &Artifact, expect_ext: &str) -> anyhow
                     .unwrap()
                     .strip_prefix("lib")
                     .unwrap();
+                let asm_file = maybe_origin.with_file_name(name).with_extension(expect_ext);
+                if asm_file.exists() {
+                    return Ok(asm_file);
+                }
+            }
+        }
+    }
+
+    // for cdylib we have
+    // [..]/target/debug/deps/xx.d
+    // [..]/target/debug/deps/libxx.so <+ Hard linked/same contents
+    // [..]/target/debug/deps/xx.s      | <- asm file
+    // [..]/target/debug/libxx.d        |
+    // [..]/target/debug/libxx.so      <+ <- artifact
+    //
+    // on windows it's xx.dll / xx.s, on MacOS it's libxx.dylib / xx.s...
+    if artifact.target.kind.iter().any(|k| k == "cdylib") {
+        let cdylib_path = artifact
+            .filenames
+            .iter()
+            .find(|f| {
+                f.extension()
+                    .map_or(false, |e| ["so", "dylib", "dll"].contains(&e))
+            })
+            .expect("No cdylib?");
+        let deps_dir = cdylib_path.with_file_name("deps");
+        for entry in deps_dir.read_dir()? {
+            let entry = entry?;
+            let maybe_origin = entry.path();
+            if same_contents(cdylib_path, &maybe_origin)? {
+                let Some(name) = maybe_origin.file_name() else { continue };
+                let Some(name) = name.to_str() else { continue };
+                let name = name.strip_prefix("lib").unwrap_or(name);
+                // on windows this is xx.dll -> xx.s, no lib....
                 let asm_file = maybe_origin.with_file_name(name).with_extension(expect_ext);
                 if asm_file.exists() {
                     return Ok(asm_file);

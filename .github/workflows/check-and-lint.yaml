@@ -55,6 +55,9 @@ jobs:
       - name: Rlib project, AT&T asm
         run: cargo run -- --manifest-path sample_rlib/Cargo.toml --att
 
+      - name: cdylib project
+        run: cargo run -- --manifest-path sample_cdylib/Cargo.toml
+
   windows:
     runs-on: windows-latest
     name: Tests on windows
@@ -105,6 +108,9 @@ jobs:
       - name: Rlib project, AT&T asm
         run: cargo run -- --manifest-path sample_rlib/Cargo.toml --att
 
+      - name: cdylib project
+        run: cargo run -- --manifest-path sample_cdylib/Cargo.toml --everything
+
   macos:
     runs-on: macos-latest
     name: Tests on MacOS
@@ -154,3 +160,6 @@ jobs:
 
       - name: Rlib project, AT&T asm
         run: cargo run -- --manifest-path sample_rlib/Cargo.toml --att
+
+      - name: cdylib project
+        run: cargo run -- --manifest-path sample_cdylib/Cargo.toml --everything

@@ -46,6 +46,7 @@ pub fn suggest_name<'a>(search: &str, full: bool, items: impl IntoIterator<Item 
         } else {
             println!("No matching functions, try relaxing your search request");
         }
+        println!("You can pass --everything to see the demangled contents of a file");
     } else {
         println!("Try one of those by name or a sequence number");
     }
@@ -73,7 +74,7 @@ pub fn suggest_name<'a>(search: &str, full: bool, items: impl IntoIterator<Item 
 #[must_use]
 pub fn get_dump_range(
     goal: ToDump,
-    fmt: Format,
+    fmt: &Format,
     items: BTreeMap<Item, Range<usize>>,
 ) -> Option<Range<usize>> {
     if items.len() == 1 {

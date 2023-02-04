@@ -36,9 +36,9 @@ checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
 name = "bpaf"
-version = "0.7.7"
+version = "0.7.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e95b1464dea6edc21be413bf260662aef39490e150455ae3760019738600b4f"
+checksum = "863c0b21775e45ebf9bbb3a6d0cd9b3421c88a036e825359e3d4015561f3e23c"
 dependencies = [
  "bpaf_derive",
  "owo-colors",
@@ -75,7 +75,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-show-asm"
-version = "0.2.12"
+version = "0.2.13"
 dependencies = [
  "anyhow",
  "bpaf",

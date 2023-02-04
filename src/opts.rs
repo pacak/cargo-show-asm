@@ -27,20 +27,13 @@ fn check_target_dir(path: PathBuf) -> anyhow::Result<PathBuf> {
 ///   3. Get the full results:
 ///      % cargo asm -p isin --lib isin::base36::from_alphanum
 pub struct Options {
-    // what to compile
-    /// Package to use if ambigous
-    #[bpaf(long, short, argument("SPEC"))]
-    pub package: Option<String>,
-    #[bpaf(external, optional)]
-    pub focus: Option<Focus>,
+    // here is the the code located
+    #[bpaf(external)]
+    pub select_fragment: SelectFragment,
 
     // how to compile
     #[bpaf(external)]
     pub cargo: Cargo,
-
-    /// Pass parameter to llvm-mca for mca targets
-    #[bpaf(short('M'), long)]
-    pub mca_arg: Vec<String>,
 
     // how to display
     /// Generate code for a specific CPU
@@ -54,6 +47,18 @@ pub struct Options {
     // what to display
     #[bpaf(external)]
     pub to_dump: ToDump,
+}
+
+#[derive(Clone, Debug, Bpaf)]
+pub struct SelectFragment {
+    // what to compile
+    /// Package to use, defaults to a current one, required for workspace projects, can also point
+    /// to a dependency
+    #[bpaf(long, short, argument("SPEC"))]
+    pub package: Option<String>,
+
+    #[bpaf(external, optional)]
+    pub focus: Option<Focus>,
 }
 
 #[derive(Debug, Clone, Bpaf)]
@@ -171,7 +176,7 @@ fn verbosity() -> impl Parser<usize> {
 
 fn manifest_path() -> impl Parser<PathBuf> {
     long("manifest-path")
-        .help("Path to Cargo.toml")
+        .help("Path to Cargo.toml, defaults to one in current folder")
         .argument::<PathBuf>("PATH")
         .parse(|p| {
             if p.is_absolute() {
@@ -186,7 +191,7 @@ fn manifest_path() -> impl Parser<PathBuf> {
 }
 
 #[allow(clippy::struct_excessive_bools)]
-#[derive(Debug, Clone, Bpaf, Copy)]
+#[derive(Debug, Clone, Bpaf)]
 pub struct Format {
     /// Print interleaved Rust code
     pub rust: bool,
@@ -208,6 +213,10 @@ pub struct Format {
 
     /// Try to strip some of the non-assembly instruction information
     pub simplify: bool,
+
+    /// Pass parameter to llvm-mca for mca targets
+    #[bpaf(short('M'), long)]
+    pub mca_arg: Vec<String>,
 }
 
 #[derive(Debug, Clone, Bpaf, Eq, PartialEq, Copy)]
@@ -278,7 +287,7 @@ pub enum Focus {
     Lib,
 
     Test(
-        /// Show results from a test
+        /// Show results from an integration test
         #[bpaf(long("test"), argument("TEST"))]
         String,
     ),
@@ -323,12 +332,12 @@ impl TryFrom<&'_ cargo_metadata::Target> for Focus {
 
     fn try_from(target: &cargo_metadata::Target) -> Result<Self, Self::Error> {
         match target.kind.first().map(|s| &**s) {
-            Some("lib" | "rlib") => Ok(Focus::Lib),
+            Some("lib" | "rlib" | "cdylib") => Ok(Focus::Lib),
             Some("test") => Ok(Focus::Test(target.name.clone())),
             Some("bench") => Ok(Focus::Bench(target.name.clone())),
             Some("example") => Ok(Focus::Example(target.name.clone())),
             Some("bin") => Ok(Focus::Bin(target.name.clone())),
-            _ => anyhow::bail!("Unknow target kind: {:?}", target.kind),
+            _ => anyhow::bail!("Unknown target kind: {:?}", target.kind),
         }
     }
 }
@@ -357,7 +366,12 @@ impl Focus {
     #[must_use]
     pub fn matches_artifact(&self, artifact: &Artifact) -> bool {
         let (kind, name) = self.as_parts();
-        let somewhat_matches = kind == "lib" && artifact.target.kind.iter().any(|i| i == "rlib");
+        let somewhat_matches = kind == "lib"
+            && artifact
+                .target
+                .kind
+                .iter()
+                .any(|i| ["rlib", "cdylib"].contains(&i.as_str()));
         let kind_matches = artifact.target.kind == [kind];
         (somewhat_matches || kind_matches)
             && name.map_or(true, |name| artifact.target.name == *name)
