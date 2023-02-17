@@ -380,15 +380,12 @@ impl Focus {
 
 #[test]
 fn generate_docs() {
-    use bpaf::docugen::{
-        roff::{man::*, semantic::*, write_updated},
-        *,
-    };
+    use bpaf::docugen::*;
 
-    let mut doc = Semantic::default();
+    let mut doc = Doc::default();
 
     doc.subsection("Finding code to analyze");
-    doc.paragraph([
+    doc.paragraph(&[
         text(
             "Code in a typical cargo project can be located in a package itself or it can belong \
         to any external or workspace dependency package. Further code can belong to a library, \
@@ -399,10 +396,10 @@ fn generate_docs() {
         text(") you should pick a library and compile it in the test profile: "),
         literal("--profile test"),
     ]);
-    doc += usage(&select_fragment());
+    doc.push(usage(&select_fragment(), SectionName::Never));
 
     doc.subsection("Compiling code with cargo");
-    doc.paragraph([
+    doc.paragraph(&[
         mono("cargo-show-asm"),
         text(" lets "),
         mono("cargo"),
@@ -410,28 +407,29 @@ fn generate_docs() {
         mono("cargo"),
         text("."),
     ]);
-    doc += usage(&cargo());
+    doc.push(usage(&cargo(), SectionName::Never));
 
     doc.subsection("Picking the output format");
-    doc.paragraph([
+    doc.paragraph(&[
         mono("cargo-show-asm"),
         text(" can generate output in many different formats:"),
     ]);
-    doc += usage(&syntax());
+    doc.push(usage(&syntax(), SectionName::Never));
 
     let file = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap()).join("doc.md");
     let new = write_updated(file, doc.render_to_markdown().as_bytes()).unwrap();
     let file = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap()).join("doc.1");
-    let man = Manpage::new(
-        "cargo-show-asm",
-        Section::General,
-        &[
-            env!("CARGO_PKG_VERSION"),
+    let new = write_updated(
+        file,
+        doc.render_to_manpage(
             "cargo-show-asm",
-            "Rust development tools",
-        ],
-    );
-    let new = write_updated(file, doc.render_to_manpage(man).as_bytes()).unwrap() || new;
+            Section::General,
+            &[env!("CARGO_PKG_VERSION")],
+        )
+        .as_bytes(),
+    )
+    .unwrap()
+        || new;
 
     assert!(
         !new,

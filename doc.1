@@ -1,13 +1,13 @@
 .ie \n(.g .ds Aq \(aq
 .el .ds Aq '
-.TH cargo-show-asm 1 0.2.12 cargo-show-asm Rust\ development\ tools
+.TH cargo-show-asm 1 0.2.13
 .SS Finding\ code\ to\ analyze
-\fRCode in a typical cargo project can be located in a package itself or it can belong to any external or workspace dependency package. Further code can belong to a library, integration test, or any binary package might contain. To access code located in unit test (code you usually run with \fP\f(CRcargo test\fP\fR) you should pick a library and compile it in the test profile: \fP\f(CB\-\-profile test\fP
 .PP
-.SS Available\ options
+\fRCode in a typical cargo project can be located in a package itself or it can belong to any external or workspace dependency package. Further code can belong to a library, integration test, or any binary package might contain. To access code located in unit test (code you usually run with \fP\f(CRcargo test\fP\fR) you should pick a library and compile it in the test profile: \fP\f(CB\-\-profile test\fP
 .TP
 \f(CB\-p\fP\fR, \fP\f(CB\-\-package\fP\f(CR=\fP\fISPEC\fP
-\fRPackage to use, defaults to a current one, required for workspace projects, can also point to a dependency\fP
+\fRPackage to use, defaults to a current one, required for workspace projects, can also point
+to a dependency\fP
 .PP
 .TP
 \f(CB\-\-lib\fP
@@ -30,9 +30,8 @@
 \fRShow results from a binary\fP
 .PP
 .SS Compiling\ code\ with\ cargo
-\f(CRcargo\-show\-asm\fP\fR lets \fP\f(CRcargo\fP\fR to handle the compilation and allows you to pass parameters directly to \fP\f(CRcargo\fP\fR.\fP
 .PP
-.SS Available\ options
+\f(CRcargo\-show\-asm\fP\fR lets \fP\f(CRcargo\fP\fR to handle the compilation and allows you to pass parameters directly to \fP\f(CRcargo\fP\fR.\fP
 .TP
 \f(CB\-\-manifest\-path\fP\f(CR=\fP\fIPATH\fP
 \fRPath to Cargo.toml, defaults to one in current folder\fP
@@ -90,9 +89,8 @@
 \fRUnstable (nightly\-only) flags to Cargo, see \*(Aqcargo \-Z help\*(Aq for details\fP
 .PP
 .SS Picking\ the\ output\ format
-\f(CRcargo\-show\-asm\fP\fR can generate output in many different formats:\fP
 .PP
-.SS Available\ options
+\f(CRcargo\-show\-asm\fP\fR can generate output in many different formats:\fP
 .TP
 \f(CB\-\-intel\fP
 \fRShow assembly using Intel style\fP

@@ -1,8 +1,6 @@
 ## Finding code to analyze
 
-Code in a typical cargo project can be located in a package itself or it can belong to any external or workspace dependency package. Further code can belong to a library, integration test, or any binary package might contain. To access code located in unit test (code you usually run with <tt>cargo test</tt>) you should pick a library and compile it in the test profile: <tt><b>\-\-profile test</b></tt>
-
-## Available options
+<p>Code in a typical cargo project can be located in a package itself or it can belong to any external or workspace dependency package. Further code can belong to a library, integration test, or any binary package might contain. To access code located in unit test (code you usually run with <tt>cargo test</tt>) you should pick a library and compile it in the test profile: <tt><b>--profile test</b></tt></p>
 
 <dl>
 <dt><tt><b>-p</b></tt>, <tt><b>--package</b></tt><tt>=</tt><tt><i>SPEC</i></tt></dt>
@@ -21,9 +19,7 @@ to a dependency</dd>
 
 ## Compiling code with cargo
 
-<tt>cargo-show-asm</tt> lets <tt>cargo</tt> to handle the compilation and allows you to pass parameters directly to <tt>cargo</tt>.
-
-## Available options
+<p><tt>cargo-show-asm</tt> lets <tt>cargo</tt> to handle the compilation and allows you to pass parameters directly to <tt>cargo</tt>.</p>
 
 <dl>
 <dt><tt><b>--manifest-path</b></tt><tt>=</tt><tt><i>PATH</i></tt></dt>
@@ -57,9 +53,7 @@ to a dependency</dd>
 
 ## Picking the output format
 
-<tt>cargo-show-asm</tt> can generate output in many different formats:
-
-## Available options
+<p><tt>cargo-show-asm</tt> can generate output in many different formats:</p>
 
 <dl>
 <dt><tt><b>--intel</b></tt></dt>
