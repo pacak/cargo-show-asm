@@ -249,7 +249,9 @@ fn main() -> anyhow::Result<()> {
             &opts.cargo.target,
             &opts.target_cpu,
         ),
-        Syntax::Llvm => llvm::dump_function(opts.to_dump, &asm_path, &opts.format),
+        Syntax::Llvm | Syntax::LlvmInput => {
+            llvm::dump_function(opts.to_dump, &asm_path, &opts.format)
+        }
         Syntax::Mir => mir::dump_function(opts.to_dump, &asm_path, &opts.format),
     }
 }

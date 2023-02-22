@@ -229,6 +229,8 @@ pub enum Syntax {
     Att,
     /// Show llvm-ir
     Llvm,
+    /// Show llvm-ir before any LLVM passes
+    LlvmInput,
     /// Show MIR
     Mir,
     /// Show WASM, needs wasm32-unknown-unknown target installed
@@ -246,6 +248,7 @@ impl Syntax {
         match self {
             Self::Intel | Self::McaIntel => Some("llvm-args=-x86-asm-syntax=intel"),
             Self::Att | Self::McaAtt => Some("llvm-args=-x86-asm-syntax=att"),
+            Self::LlvmInput => Some("no-prepopulate-passes"),
             Self::Wasm | Self::Mir | Self::Llvm => None,
         }
     }
@@ -254,7 +257,7 @@ impl Syntax {
     pub fn emit(&self) -> &str {
         match self {
             Self::Intel | Self::Att | Self::Wasm | Self::McaIntel | Self::McaAtt => "asm",
-            Self::Llvm => "llvm-ir",
+            Self::Llvm | Self::LlvmInput => "llvm-ir",
             Self::Mir => "mir",
         }
     }
@@ -263,7 +266,7 @@ impl Syntax {
     pub fn ext(&self) -> &str {
         match self {
             Self::Intel | Self::McaAtt | Self::McaIntel | Self::Att | Self::Wasm => "s",
-            Self::Llvm => "ll",
+            Self::Llvm | Self::LlvmInput => "ll",
             Self::Mir => "mir",
         }
     }
