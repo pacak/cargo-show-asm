@@ -96,8 +96,11 @@ fn spawn_cargo(
     cmd.arg("--");
 
     // Rustc flags.
-    // We care about asm.
-    cmd.args(["--emit", syntax.emit()])
+    cmd
+        // Start with the user-supplied codegen flags, which we might need to override.
+        .args(cargo.codegen.iter().flat_map(|c| ["-C", c]))
+        // Next, we care about asm/wasm/llvm-ir/llvm-mac.
+        .args(["--emit", syntax.emit()])
         // So only one file gets created.
         .arg("-Ccodegen-units=1")
         // Debug info is needed to map to rust source.
