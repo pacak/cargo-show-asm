@@ -16,6 +16,9 @@ impl BlockRngCore for MyRngCore {
 
 impl SeedableRng for MyRngCore {
     type Seed = [u8; 32];
+
+    // Will appear in --llvm-input (before LLVM passes), but not in --llvm (after LLVM passes).
+    #[inline]
     fn from_seed(seed: Self::Seed) -> Self {
         Self(seed)
     }
