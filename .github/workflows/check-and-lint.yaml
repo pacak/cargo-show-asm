@@ -46,6 +46,9 @@ jobs:
       - name: Native version of cargo-show-asm (LLVM)
         run: cargo run -- --manifest-path sample/Cargo.toml --llvm sample::main
 
+      - name: Native version of cargo-show-asm (LLVM Input)
+        run: cargo run -- --manifest-path sample/Cargo.toml --llvm-input sample::main
+
       - name: Native version of cargo-show-asm (MIR)
         run: cargo run -- --manifest-path sample/Cargo.toml --mir "main()"
 
@@ -99,6 +102,9 @@ jobs:
       - name: Native version of cargo-show-asm (LLVM)
         run: cargo run -- --manifest-path sample/Cargo.toml --llvm sample::main
 
+      - name: Native version of cargo-show-asm (LLVM Input)
+        run: cargo run -- --manifest-path sample/Cargo.toml --llvm-input sample::main
+
       - name: Native version of cargo-show-asm (MIR)
         run: cargo run -- --manifest-path sample/Cargo.toml --mir "main()"
 
@@ -151,6 +157,9 @@ jobs:
 
       - name: Native version of cargo-show-asm (LLVM)
         run: cargo run -- --manifest-path sample/Cargo.toml --llvm sample::main
+
+      - name: Native version of cargo-show-asm (LLVM Input)
+        run: cargo run -- --manifest-path sample/Cargo.toml --llvm-input sample::main
 
       - name: Native version of cargo-show-asm (MIR)
         run: cargo run -- --manifest-path sample/Cargo.toml --mir "main()"
