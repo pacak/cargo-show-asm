@@ -9,6 +9,10 @@ use crate::{
     opts::{Format, ToDump},
 };
 
+/// dump mca analysis
+///
+/// # Errors
+/// Clippy, why do you care?
 pub fn dump_function(
     goal: ToDump,
     path: &Path,
@@ -55,9 +59,9 @@ pub fn dump_function(
         }
     };
 
-    let mut i = mca.stdin.take().unwrap();
-    let o = mca.stdout.take().unwrap();
-    let e = mca.stderr.take().unwrap();
+    let mut i = mca.stdin.take().expect("Stdin should be piped");
+    let o = mca.stdout.take().expect("Stdout should be piped");
+    let e = mca.stderr.take().expect("Stderr should be piped");
 
     if mca_intel {
         writeln!(i, ".intel_syntax")?;
