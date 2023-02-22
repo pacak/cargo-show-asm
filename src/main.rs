@@ -100,10 +100,17 @@ fn spawn_cargo(
     cmd.args(["--emit", syntax.emit()])
         // So only one file gets created.
         .arg("-Ccodegen-units=1")
-        // Debug info is needed to map to rust source.
-        .arg("-Cdebuginfo=2")
         .args(syntax.format().iter().flat_map(|s| ["-C", s]))
         .args(target_cpu.iter().map(|cpu| format!("-Ctarget-cpu={cpu}")));
+
+    // Debug info is needed to detect function boundaries in asm (Windows/Mac), and to map asm/wasm
+    // output to rust source.
+    if matches!(
+        syntax,
+        opts::Syntax::Intel | opts::Syntax::Att | opts::Syntax::Wasm
+    ) {
+        cmd.arg("-Cdebuginfo=2");
+    }
 
     cmd.stdin(Stdio::null())
         .stdout(Stdio::piped())
