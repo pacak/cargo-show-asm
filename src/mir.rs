@@ -19,6 +19,8 @@ fn find_items(lines: &CachedLines) -> BTreeMap<Item, Range<usize>> {
             }
         } else if line == "}" {
             if let Some(mut cur) = current_item.take() {
+                // go home clippy, you're drunk
+                #[allow(clippy::range_plus_one)]
                 let range = cur.len..ix + 1;
                 cur.len = range.len();
                 res.insert(cur, range);
@@ -57,6 +59,10 @@ fn dump_range(_fmt: &Format, strings: &[&str]) {
     }
 }
 
+/// dump mir code
+///
+/// # Errors
+/// Reports file IO errors
 pub fn dump_function(goal: ToDump, path: &Path, fmt: &Format) -> anyhow::Result<()> {
     let lines = CachedLines::without_ending(std::fs::read_to_string(path)?);
     let items = find_items(&lines);

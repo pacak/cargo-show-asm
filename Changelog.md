@@ -1,5 +1,11 @@
 # Change Log
 
+## [0.2.14] - 2023-02-22
+- Allow to pass -C flags directly to rustc
+- --llvm-input to show llvm-ir before any LLVM passes
+- Only generate debug info for LLVM resulting in cleaner
+Thanks to @jonasmalacofilho
+
 ## [0.2.13] - 2023-02-03
 - support cdylib crates
 - bump deps

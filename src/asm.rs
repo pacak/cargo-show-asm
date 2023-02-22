@@ -25,7 +25,11 @@ pub fn parse_file(input: &str) -> anyhow::Result<Vec<Statement>> {
             if leftovers.len() < 1000 {
                 anyhow::bail!("Didn't consume everything, leftovers: {leftovers:?}")
             } else {
-                let head = &leftovers[..leftovers.char_indices().nth(200).unwrap().0];
+                let head = &leftovers[..leftovers
+                    .char_indices()
+                    .nth(200)
+                    .expect("Shouldn't have that much unicode here...")
+                    .0];
                 anyhow::bail!("Didn't consume everything, leftovers prefix: {head:?}");
             }
         }

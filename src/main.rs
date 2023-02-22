@@ -106,13 +106,14 @@ fn spawn_cargo(
         .args(syntax.format().iter().flat_map(|s| ["-C", s]))
         .args(target_cpu.iter().map(|cpu| format!("-Ctarget-cpu={cpu}")));
 
-    // Debug info is needed to detect function boundaries in asm (Windows/Mac), and to map asm/wasm
-    // output to rust source.
-    if matches!(
-        syntax,
-        opts::Syntax::Intel | opts::Syntax::Att | opts::Syntax::Wasm
-    ) {
-        cmd.arg("-Cdebuginfo=2");
+    {
+        #[allow(clippy::enum_glob_use)]
+        use opts::Syntax::*;
+        // Debug info is needed to detect function boundaries in asm (Windows/Mac), and to map asm/wasm
+        // output to rust source.
+        if matches!(syntax, Intel | Att | Wasm | McaAtt | McaIntel) {
+            cmd.arg("-Cdebuginfo=2");
+        }
     }
 
     cmd.stdin(Stdio::null())

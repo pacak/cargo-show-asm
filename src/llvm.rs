@@ -57,6 +57,8 @@ fn find_items(lines: &CachedLines) -> BTreeMap<Item, Range<usize>> {
             }
         } else if line == "}" {
             if let Some(mut cur) = current_item.take() {
+                // go home clippy, you're drunk
+                #[allow(clippy::range_plus_one)]
                 let range = cur.len..ix + 1;
                 cur.len = range.len();
                 res.insert(cur, range);

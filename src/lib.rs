@@ -78,7 +78,13 @@ pub fn get_dump_range(
     items: BTreeMap<Item, Range<usize>>,
 ) -> Option<Range<usize>> {
     if items.len() == 1 {
-        return Some(items.into_iter().next().unwrap().1);
+        return Some(
+            items
+                .into_iter()
+                .next()
+                .expect("We just checked there's one item present")
+                .1,
+        );
     }
     match goal {
         // to dump everything just return an empty range
