@@ -1,5 +1,8 @@
 # Change Log
 
+## [0.2.15] - 2023-03-09
+- Override lto configuration to lto=no, #146
+
 ## [0.2.14] - 2023-02-22
 - Allow to pass -C flags directly to rustc
 - --llvm-input to show llvm-ir before any LLVM passes
