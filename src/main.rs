@@ -103,6 +103,7 @@ fn spawn_cargo(
         .args(["--emit", syntax.emit()])
         // So only one file gets created.
         .arg("-Ccodegen-units=1")
+        .arg("-Clto=no")
         .args(syntax.format().iter().flat_map(|s| ["-C", s]))
         .args(target_cpu.iter().map(|cpu| format!("-Ctarget-cpu={cpu}")));
 
