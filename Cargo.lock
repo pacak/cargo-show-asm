@@ -36,9 +36,9 @@ checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
 name = "bpaf"
-version = "0.7.9"
+version = "0.7.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "31f4c9de9c67618395106c81fb9461290a8910af29aa0188daec29001a1181ae"
+checksum = "423bafba382cc2c561f486bfcae41c6692833eaff0a631d10c37a9489ccd3783"
 dependencies = [
  "bpaf_derive",
  "owo-colors",
@@ -46,13 +46,13 @@ dependencies = [
 
 [[package]]
 name = "bpaf_derive"
-version = "0.3.4"
+version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "223f3c9e7034f98c9f315d9945fcc22831b3f03d9f4c42c96a7ab6abd209a195"
+checksum = "ae9ee23ce08bc40839a8153f4b873fcfa08405221ed2cd9a4968d1a94ad83234"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.3",
 ]
 
 [[package]]
@@ -259,18 +259,18 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.47"
+version = "1.0.52"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ea3d908b0e36316caf9e9e2c4625cdde190a7e6f440d794667ed17a1855e725"
+checksum = "1d0e1ae9e836cc3beddd63db0df682593d7e2d3d891ae8c9083d2113e1744224"
 dependencies = [
  "unicode-ident",
 ]
 
 [[package]]
 name = "quote"
-version = "1.0.21"
+version = "1.0.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bbe448f377a7d6961e30f5955f9b8d106c3f5e449d493ee1b125c1d43c2b5179"
+checksum = "4424af4bf778aae2051a77b60283332f386554255d722233d09fbfc7e30da2fc"
 dependencies = [
  "proc-macro2",
 ]
@@ -353,7 +353,7 @@ checksum = "4f1d362ca8fc9c3e3a7484440752472d68a6caa98f1ab81d99b5dfe517cec852"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 1.0.103",
 ]
 
 [[package]]
@@ -405,6 +405,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "syn"
+version = "2.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e8234ae35e70582bfa0f1fedffa6daa248e41dd045310b19800c4a36382c8f60"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "unicode-ident",
+]
+
+[[package]]
 name = "thiserror"
 version = "1.0.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -421,7 +432,7 @@ checksum = "982d17546b47146b28f7c22e3d08465f6b8903d0ea13c1660d9d84a6e7adcdbb"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 1.0.103",
 ]
 
 [[package]]
