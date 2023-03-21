@@ -13,7 +13,7 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 anyhow = "1"
-bpaf = { version = "0.7.9", features = ["bpaf_derive", "autocomplete"] }
+bpaf = { version = "0.7.10", features = ["bpaf_derive", "autocomplete"] }
 cargo_metadata = "0.15.3"
 line-span = "0.1"
 nom = "7"
