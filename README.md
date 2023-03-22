@@ -28,7 +28,7 @@ $ cargo install cargo-show-asm
 
 # Usage:
 
-```
+```console
 Show the code rustc generates for any function
 
 Usage: [-p SPEC] [--lib | --test TEST | --bench BENCH | --example EXAMPLE | --bin BIN] [--release |
