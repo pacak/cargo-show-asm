@@ -683,12 +683,7 @@ pub fn parse_statement(input: &str) -> IResult<&str, Statement> {
 }
 
 fn good_for_label(c: char) -> bool {
-    c == '.'
-        || c == '$'
-        || c == '_'
-        || ('a'..='z').contains(&c)
-        || ('A'..='Z').contains(&c)
-        || ('0'..='9').contains(&c)
+    c == '.' || c == '$' || c == '_' || c.is_ascii_alphanumeric()
 }
 impl Statement<'_> {
     pub(crate) fn is_end_of_fn(&self) -> bool {
