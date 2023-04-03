@@ -9,7 +9,7 @@ use crate::{
     demangle::{self, contents},
     get_dump_range,
     opts::{Format, ToDump},
-    Item,
+    safeprintln, Item,
 };
 use std::{
     collections::BTreeMap,
@@ -82,10 +82,10 @@ pub fn dump_function(goal: ToDump, path: &Path, fmt: &Format) -> anyhow::Result<
 fn dump_range(fmt: &Format, strings: &[&str]) {
     for line in strings {
         if line.starts_with("; ") {
-            println!("{}", color!(line, OwoColorize::bright_black));
+            safeprintln!("{}", color!(line, OwoColorize::bright_black));
         } else {
             let line = demangle::contents(line, fmt.full_name);
-            println!("{line}");
+            safeprintln!("{line}");
         }
     }
 }
@@ -159,9 +159,9 @@ pub fn collect_or_dump(
                         *name_entry += 1;
 
                         if seen {
-                            println!("{}", color!(name, OwoColorize::cyan));
-                            println!("{}", color!(attrs, OwoColorize::cyan));
-                            println!("{}", contents(&line, fmt.full_name));
+                            safeprintln!("{}", color!(name, OwoColorize::cyan));
+                            safeprintln!("{}", color!(attrs, OwoColorize::cyan));
+                            safeprintln!("{}", contents(&line, fmt.full_name));
                         }
                     } else {
                         state = State::Skipping;
@@ -172,7 +172,7 @@ pub fn collect_or_dump(
             }
             State::Define => {
                 if seen {
-                    println!("{}", contents(&line, fmt.full_name));
+                    safeprintln!("{}", contents(&line, fmt.full_name));
                 }
                 if line == "}" {
                     if let Some(mut cur) = current_item.take() {

@@ -2,7 +2,7 @@
 use crate::asm::statements::Label;
 use crate::cached_lines::CachedLines;
 use crate::demangle::LabelKind;
-use crate::{color, demangle, get_dump_range, Item};
+use crate::{color, demangle, esafeprintln, get_dump_range, safeprintln, Item};
 // TODO, use https://sourceware.org/binutils/docs/as/index.html
 use crate::opts::{Format, ToDump};
 
@@ -149,7 +149,7 @@ pub fn dump_range(
     let mut empty_line = false;
     for line in stmts.iter() {
         if fmt.verbosity > 2 {
-            println!("{line:?}");
+            safeprintln!("{line:?}");
         }
         if let Statement::Directive(Directive::File(_)) = &line {
         } else if let Statement::Directive(Directive::Loc(loc)) = &line {
@@ -166,8 +166,8 @@ pub fn dump_range(
             if let Some((fname, file)) = files.get(&loc.file) {
                 let rust_line = &file[loc.line as usize - 1];
                 let pos = format!("\t\t// {} : {}", fname.display(), loc.line);
-                println!("{}", color!(pos, OwoColorize::cyan));
-                println!(
+                safeprintln!("{}", color!(pos, OwoColorize::cyan));
+                safeprintln!(
                     "\t\t{}",
                     color!(rust_line.trim_start(), OwoColorize::bright_red)
                 );
@@ -179,9 +179,9 @@ pub fn dump_range(
         }) = line
         {
             if fmt.keep_labels || used.contains(id) {
-                println!("{line}");
+                safeprintln!("{line}");
             } else if !empty_line && *kind != LabelKind::Temp {
-                println!();
+                safeprintln!();
                 empty_line = true;
             }
         } else {
@@ -192,8 +192,8 @@ pub fn dump_range(
             empty_line = false;
             #[allow(clippy::match_bool)]
             match fmt.full_name {
-                true => println!("{line:#}"),
-                false => println!("{line}"),
+                true => safeprintln!("{line:#}"),
+                false => safeprintln!("{line}"),
             }
         }
     }
@@ -211,7 +211,7 @@ fn load_rust_sources<'a>(
             files.entry(f.index).or_insert_with(|| {
                 let path = f.path.as_full_path();
                 if fmt.verbosity > 1 {
-                    println!("Reading file #{} {}", f.index, path.display());
+                    safeprintln!("Reading file #{} {}", f.index, path.display());
                 }
                 if let Ok(payload) = std::fs::read_to_string(&path) {
                     return (path, CachedLines::without_ending(payload));
@@ -228,7 +228,7 @@ fn load_rust_sources<'a>(
                     if relative_path.file_name().is_some() {
                         let src = sysroot.join("lib/rustlib/src/rust").join(relative_path);
                         if !src.exists() {
-                            eprintln!("You need to install rustc sources to be able to see the rust annotations, try\n\
+                            esafeprintln!("You need to install rustc sources to be able to see the rust annotations, try\n\
                                        \trustup component add rust-src");
                             std::process::exit(1);
                         }
@@ -254,7 +254,7 @@ fn load_rust_sources<'a>(
                        return (path, CachedLines::without_ending(payload));
                     }
                 } else if fmt.verbosity > 0 {
-                    println!("File not found {}", path.display());
+                    safeprintln!("File not found {}", path.display());
                 }
                 // if file is not found - Just create a dummy
                 (path, CachedLines::without_ending(String::new()))
@@ -271,7 +271,7 @@ pub fn dump_function(
     fmt: &Format,
 ) -> anyhow::Result<()> {
     if fmt.verbosity > 2 {
-        println!("goal: {goal:?}");
+        safeprintln!("goal: {goal:?}");
     }
 
     let contents = std::fs::read_to_string(path)?;
@@ -279,7 +279,7 @@ pub fn dump_function(
     let functions = find_items(&statements);
 
     if fmt.verbosity > 2 {
-        println!("{functions:?}");
+        safeprintln!("{functions:?}");
     }
 
     let mut files = BTreeMap::new();
@@ -291,7 +291,7 @@ pub fn dump_function(
         dump_range(&files, fmt, &statements[range])?;
     } else {
         if fmt.verbosity > 0 {
-            println!("Going to print the whole file");
+            safeprintln!("Going to print the whole file");
         }
         dump_range(&files, fmt, &statements)?;
     }

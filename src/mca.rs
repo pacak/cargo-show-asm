@@ -5,8 +5,9 @@ use std::{
 };
 
 use crate::{
-    demangle, get_dump_range,
+    demangle, esafeprintln, get_dump_range,
     opts::{Format, ToDump},
+    safeprintln,
 };
 
 /// dump mca analysis
@@ -33,7 +34,7 @@ pub fn dump_function(
         &lines[range]
     } else {
         if fmt.verbosity > 0 {
-            println!("Going to use the whole file");
+            safeprintln!("Going to use the whole file");
         }
         &lines
     };
@@ -47,14 +48,14 @@ pub fn dump_function(
         .stderr(Stdio::piped());
 
     if fmt.verbosity >= 2 {
-        println!("running {:?}", mca);
+        safeprintln!("running {:?}", mca);
     }
     let mca = mca.spawn();
     let mut mca = match mca {
         Ok(mca) => mca,
         Err(err) => {
-            eprintln!("Failed to start llvm-mca, do you have it installed? The error was");
-            eprintln!("{err}");
+            esafeprintln!("Failed to start llvm-mca, do you have it installed? The error was");
+            esafeprintln!("{err}");
             std::process::exit(1);
         }
     };
@@ -83,12 +84,12 @@ pub fn dump_function(
     for line in BufRead::lines(BufReader::new(o)) {
         let line = line?;
         let line = demangle::contents(&line, fmt.full_name);
-        println!("{line}");
+        safeprintln!("{line}");
     }
 
     for line in BufRead::lines(BufReader::new(e)) {
         let line = line?;
-        eprintln!("{line}");
+        esafeprintln!("{line}");
     }
 
     Ok(())

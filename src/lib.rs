@@ -18,6 +18,51 @@ macro_rules! color {
     };
 }
 
+/// By default print* macro panics when print fails. Usually print fails when output stream is
+/// disconnected, for purposes of this application disconnected stream means output was piped
+/// somewhere and this something was terminated before printing completed.
+///
+/// At this point we might as well exit
+#[macro_export]
+macro_rules! safeprintln {
+    ($($x:expr),* $(,)?) => {{
+        use std::io::Write;
+        if writeln!(std::io::stdout(), $($x),*).is_err() {
+            std::process::exit(0);
+        }
+    }};
+}
+
+#[macro_export]
+macro_rules! safeprint {
+    ($($x:expr),* $(,)?) => {{
+        use std::io::Write;
+        if write!(std::io::stdout(), $($x),*).is_err() {
+            std::process::exit(0);
+        }
+    }};
+}
+
+#[macro_export]
+macro_rules! esafeprintln {
+    ($($x:expr),* $(,)?) => {{
+        use std::io::Write;
+        if writeln!(std::io::stderr(), $($x),*).is_err() {
+            std::process::exit(0);
+        }
+    }};
+}
+
+#[macro_export]
+macro_rules! esafeprint {
+    ($($x:expr),* $(,)?) => {{
+        use std::io::Write;
+        if write!(std::io::stderr(), $($x),*).is_err() {
+            std::process::exit(0);
+        }
+    }};
+}
+
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Item {
     /// demangled name
@@ -42,13 +87,13 @@ pub fn suggest_name<'a>(search: &str, full: bool, items: impl IntoIterator<Item 
 
     if names.is_empty() {
         if search.is_empty() {
-            println!("This target defines no functions (or cargo-show-asm can't find them)");
+            safeprintln!("This target defines no functions (or cargo-show-asm can't find them)");
         } else {
-            println!("No matching functions, try relaxing your search request");
+            safeprintln!("No matching functions, try relaxing your search request");
         }
-        println!("You can pass --everything to see the demangled contents of a file");
+        safeprintln!("You can pass --everything to see the demangled contents of a file");
     } else {
-        println!("Try one of those by name or a sequence number");
+        safeprintln!("Try one of those by name or a sequence number");
     }
 
     #[allow(clippy::cast_sign_loss)]
@@ -57,7 +102,7 @@ pub fn suggest_name<'a>(search: &str, full: bool, items: impl IntoIterator<Item 
 
     let mut ix = 0;
     for (name, lens) in &names {
-        println!(
+        safeprintln!(
             "{ix:width$} {:?} {:?}",
             color!(name, owo_colors::OwoColorize::green),
             color!(lens, owo_colors::OwoColorize::cyan),
@@ -96,7 +141,7 @@ pub fn get_dump_range(
                 Some(range.clone())
             } else {
                 let actual = items.len();
-                println!("You asked to display item #{value} (zero based), but there's only {actual} items");
+                safeprintln!("You asked to display item #{value} (zero based), but there's only {actual} items");
                 std::process::exit(1);
             }
         }
@@ -118,11 +163,11 @@ pub fn get_dump_range(
                 range.1.clone()
             } else if let Some(value) = nth {
                 let filtered = filtered.len();
-                println!("You asked to display item #{value} (zero based), but there's only {filtered} matching items");
+                safeprintln!("You asked to display item #{value} (zero based), but there's only {filtered} matching items");
                 std::process::exit(1);
             } else {
                 if filtered.is_empty() {
-                    println!("Can't find any items matching {function:?}");
+                    safeprintln!("Can't find any items matching {function:?}");
                 } else {
                     suggest_name(&function, fmt.full_name, filtered.iter().map(|x| x.0));
                 }

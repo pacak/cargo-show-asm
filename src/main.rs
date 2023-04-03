@@ -1,6 +1,6 @@
 use anyhow::Context;
 use cargo_metadata::{Artifact, Message, MetadataCommand, Package};
-use cargo_show_asm::{asm, llvm, mca, mir, opts};
+use cargo_show_asm::{asm, esafeprintln, llvm, mca, mir, opts};
 use once_cell::sync::Lazy;
 use std::{
     io::BufReader,
@@ -12,20 +12,6 @@ static CARGO_PATH: Lazy<PathBuf> =
     Lazy::new(|| std::env::var_os("CARGO").map_or_else(|| "cargo".into(), PathBuf::from));
 static RUSTC_PATH: Lazy<PathBuf> =
     Lazy::new(|| std::env::var_os("RUSTC").map_or_else(|| "rustc".into(), PathBuf::from));
-
-/// This should be called before calling any cli method or printing any output.
-fn reset_signal_pipe_handler() -> anyhow::Result<()> {
-    #[cfg(target_family = "unix")]
-    {
-        use nix::sys::signal;
-        // Safety: previous handler returned by signal can be invalid and trigger UB if used, we are not
-        // keeping it around so it's safe
-        unsafe {
-            signal::signal(signal::Signal::SIGPIPE, signal::SigHandler::SigDfl)?;
-        }
-    }
-    Ok(())
-}
 
 fn spawn_cargo(
     cargo: &opts::Cargo,
@@ -145,14 +131,13 @@ fn sysroot() -> anyhow::Result<PathBuf> {
 #[allow(clippy::too_many_lines)]
 fn main() -> anyhow::Result<()> {
     use opts::Syntax;
-    reset_signal_pipe_handler()?;
 
     let opts = opts::options().run();
     owo_colors::set_override(opts.format.color);
 
     let sysroot = sysroot()?;
     if opts.format.verbosity > 0 {
-        eprintln!("Found sysroot: {}", sysroot.display());
+        esafeprintln!("Found sysroot: {}", sysroot.display());
     }
 
     let unstable = opts
@@ -177,12 +162,12 @@ fn main() -> anyhow::Result<()> {
             .with_context(|| format!("Package '{name}' is not found"))?,
         None if metadata.packages.len() == 1 => &metadata.packages[0],
         None => {
-            eprintln!(
+            esafeprintln!(
                 "{:?} refers to multiple packages, you need to specify which one to use",
                 opts.cargo.manifest_path
             );
             for package in &metadata.packages {
-                eprintln!("\t-p {}", package.name);
+                esafeprintln!("\t-p {}", package.name);
             }
             anyhow::bail!("Multiple packages found")
         }
@@ -194,13 +179,13 @@ fn main() -> anyhow::Result<()> {
             0 => anyhow::bail!("No targets found"),
             1 => opts::Focus::try_from(&focus_package.targets[0])?,
             _ => {
-                eprintln!(
+                esafeprintln!(
                     "{} defines multiple targets, you need to specify which one to use:",
                     focus_package.name
                 );
                 for target in &focus_package.targets {
                     if let Ok(focus) = opts::Focus::try_from(target) {
-                        eprintln!("\t{}", focus.as_cargo_args().collect::<Vec<_>>().join(" "));
+                        esafeprintln!("\t{}", focus.as_cargo_args().collect::<Vec<_>>().join(" "));
                     }
                 }
                 anyhow::bail!("Multiple targets found")
@@ -232,21 +217,21 @@ fn main() -> anyhow::Result<()> {
         }
     }
     // add some spacing between cargo's output and ours
-    eprintln!();
+    esafeprintln!();
     if !success {
         let status = cargo_child.wait()?;
-        eprintln!("Cargo failed with {status}");
+        esafeprintln!("Cargo failed with {status}");
         std::process::exit(101);
     }
     let artifact = result_artifact.context("No artifact found")?;
 
     if opts.format.verbosity > 0 {
-        eprintln!("Artifact files: {:?}", artifact.filenames);
+        esafeprintln!("Artifact files: {:?}", artifact.filenames);
     }
 
     let asm_path = locate_asm_path_via_artifact(&artifact, opts.syntax.ext())?;
     if opts.format.verbosity > 0 {
-        eprintln!("Asm file: {}", asm_path.display());
+        esafeprintln!("Asm file: {}", asm_path.display());
     }
 
     match opts.syntax {

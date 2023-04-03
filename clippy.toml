@@ -1,0 +1,6 @@
+disallowed-macros = [
+    { path = "std::print", reason = "it throws ugly errors, use safeprint" },
+    { path = "std::eprint", reason = "it throws ugly errors, use esafeprint" },
+    { path = "std::println", reason = "it throws ugly errors, use safeprintln" },
+    { path = "std::eprintln", reason = "it throws ugly errors, use esafeprint" },
+]

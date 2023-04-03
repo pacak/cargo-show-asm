@@ -2,7 +2,7 @@ use crate::{
     cached_lines::CachedLines,
     color, get_dump_range,
     opts::{Format, ToDump},
-    Item,
+    safeprintln, Item,
 };
 use owo_colors::OwoColorize;
 use std::{collections::BTreeMap, ops::Range, path::Path};
@@ -52,9 +52,9 @@ fn find_items(lines: &CachedLines) -> BTreeMap<Item, Range<usize>> {
 fn dump_range(_fmt: &Format, strings: &[&str]) {
     for line in strings {
         if let Some(ix) = line.rfind("//") {
-            println!("{}{}", &line[..ix], color!(&line[ix..], OwoColorize::cyan));
+            safeprintln!("{}{}", &line[..ix], color!(&line[ix..], OwoColorize::cyan));
         } else {
-            println!("{line}");
+            safeprintln!("{line}");
         }
     }
 }
