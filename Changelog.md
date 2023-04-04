@@ -1,5 +1,9 @@
 # Change Log
 
+## [0.2.16] - 2023-04-04
+- drop some dependencies
+- support for strange looking file names in dwarf info
+
 ## [0.2.15] - 2023-03-09
 - Override lto configuration to lto=no, #146
 

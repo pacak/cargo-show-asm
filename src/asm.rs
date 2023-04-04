@@ -236,6 +236,28 @@ fn load_rust_sources<'a>(
                             return (path, CachedLines::without_ending(payload));
                         }
                     }
+                } else if path.starts_with("/private/tmp") {
+                    // Hmm... I'm not even sure ...
+                    // /private/tmp/rust-20230325-7327-rbrpyq/rustc-1.68.1-src/library/core/src/option.rs
+
+                    let relative_path = {
+                        let mut components = path.components();
+                        // skip first three dirs in path
+                        components.by_ref().take(5).for_each(|_| ());
+                        components.as_path()
+                    };
+                    if relative_path.file_name().is_some() {
+                        let src = sysroot.join("lib/rustlib/src/rust").join(relative_path);
+                        if !src.exists() {
+                            esafeprintln!("You need to install rustc sources to be able to see the rust annotations, try\n\
+                                       \trustup component add rust-src");
+                            std::process::exit(1);
+                        }
+                        if let Ok(payload) = std::fs::read_to_string(src) {
+                            return (path, CachedLines::without_ending(payload));
+                        }
+                    }
+
                 } else if path.starts_with("/cargo/registry/") {
                     // file looks like this and located ~/.cargo/registry/ ...
                     // /cargo/registry/src/github.com-1ecc6299db9ec823/hashbrown-0.12.3/src/raw/bitmask.rs
