@@ -1,5 +1,9 @@
 # Change Log
 
+## [0.2.17] - 2023-04-11
+- look harder for source code, don't panic if it can't be found
+- bump deps
+
 ## [0.2.16] - 2023-04-04
 - drop some dependencies
 - support for strange looking file names in dwarf info
