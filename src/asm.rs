@@ -13,7 +13,7 @@ use statements::{parse_statement, Directive, Loc, Statement};
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Range;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub fn parse_file(input: &str) -> anyhow::Result<Vec<Statement>> {
     // eat all statements until the eof, so we can report the proper errors on failed parse
@@ -134,7 +134,7 @@ fn used_labels<'a>(stmts: &'_ [Statement<'a>]) -> BTreeSet<&'a str> {
 }
 
 pub fn dump_range(
-    files: &BTreeMap<u64, (std::borrow::Cow<Path>, CachedLines)>,
+    files: &BTreeMap<u64, (std::borrow::Cow<Path>, Option<CachedLines>)>,
     fmt: &Format,
     stmts: &[Statement],
 ) -> anyhow::Result<()> {
@@ -163,14 +163,33 @@ pub fn dump_range(
                 continue;
             }
             prev_loc = *loc;
-            if let Some((fname, file)) = files.get(&loc.file) {
-                let rust_line = &file[loc.line as usize - 1];
-                let pos = format!("\t\t// {} : {}", fname.display(), loc.line);
-                safeprintln!("{}", color!(pos, OwoColorize::cyan));
-                safeprintln!(
-                    "\t\t{}",
-                    color!(rust_line.trim_start(), OwoColorize::bright_red)
-                );
+            match files.get(&loc.file) {
+                Some((fname, Some(file))) => {
+                    let rust_line = &file[loc.line as usize - 1];
+                    let pos = format!("\t\t// {} : {}", fname.display(), loc.line);
+                    safeprintln!("{}", color!(pos, OwoColorize::cyan));
+                    safeprintln!(
+                        "\t\t{}",
+                        color!(rust_line.trim_start(), OwoColorize::bright_red)
+                    );
+                }
+                Some((fname, None)) => {
+                    if fmt.verbosity > 0 {
+                        safeprintln!(
+                            "\t\t{} {}",
+                            color!("//", OwoColorize::cyan),
+                            color!(
+                                "Can't locate the file, please open a ticket with cargo-show-asm",
+                                OwoColorize::red
+                            ),
+                        );
+                    }
+                    let pos = format!("\t\t// {} : {}", fname.display(), loc.line);
+                    safeprintln!("{}", color!(pos, OwoColorize::cyan));
+                }
+                None => {
+                    panic!("DWARF file refers to an undefined location {loc:?}");
+                }
             }
             empty_line = false;
         } else if let Statement::Label(Label {
@@ -200,11 +219,90 @@ pub fn dump_range(
     Ok(())
 }
 
+// DWARF information contains references to souce files
+// It can point to 3 different items:
+// 1. a real file, cargo-show-asm can just read it
+// 2. a file from rustlib, sources are under $sysroot/lib/rustlib/src/rust/$suffix
+//    Some examples:
+//        /rustc/a55dd71d5fb0ec5a6a3a9e8c27b2127ba491ce52/library/core/src/iter/range.rs
+//        /private/tmp/rust-20230325-7327-rbrpyq/rustc-1.68.1-src/library/core/src/option.rs
+// 3. a file from prebuilt (?) hashbrown, sources are probably available under
+//    cargo registry, most likely under ~/.cargo/registry/$suffix
+//    Some examples:
+//        /cargo/registry/src/github.com-1ecc6299db9ec823/hashbrown-0.12.3/src/raw/bitmask.rs
+//        /Users/runner/.cargo/registry/src/github.com-1ecc6299db9ec823/hashbrown-0.12.3/src/map.rs
+fn locate_sources(sysroot: &Path, path: &Path) -> Option<PathBuf> {
+    // a real file that simply exists
+    if path.exists() {
+        return Some(path.into());
+    }
+
+    let no_rust_src = || {
+        esafeprintln!(
+            "You need to install rustc sources to be able to see the rust annotations, try\n\
+                                       \trustup component add rust-src"
+        );
+        std::process::exit(1);
+    };
+
+    // rust sources, Linux style
+    if path.starts_with("/rustc/") {
+        let mut source = sysroot.join("lib/rustlib/src/rust");
+        for part in path.components().skip(3) {
+            source.push(part);
+        }
+        if source.exists() {
+            return Some(source);
+        } else {
+            no_rust_src();
+        }
+    }
+
+    // rust sources, MacOS style
+    if path.starts_with("/private/tmp") && path.components().any(|c| c.as_os_str() == "library") {
+        let mut source = sysroot.join("lib/rustlib/src/rust");
+        for part in path.components().skip(5) {
+            source.push(part);
+        }
+        if source.exists() {
+            return Some(source);
+        } else {
+            no_rust_src();
+        }
+    }
+
+    // cargo registry, Linux and MacOS look for cargo/registry and .cargo/registry
+    if let Some(ix) = path
+        .components()
+        .position(|c| c.as_os_str() == "cargo" || c.as_os_str() == ".cargo")
+        .and_then(|ix| path.components().nth(ix).zip(Some(ix)))
+        .and_then(|(c, ix)| (c.as_os_str() == "registry").then_some(ix))
+    {
+        // It does what I want as far as *nix is concerned, might not work for Windows...
+        #[allow(deprecated)]
+        let mut source = std::env::home_dir().expect("No home dir?");
+
+        source.push(".cargo");
+        for part in path.components().skip(ix) {
+            source.push(part);
+        }
+        if source.exists() {
+            return Some(source);
+        } else {
+            panic!(
+                "{path:?} looks like it can be a cargo registry reference but we failed to get it"
+            );
+        }
+    }
+
+    None
+}
+
 fn load_rust_sources<'a>(
     sysroot: &Path,
     statements: &'a [Statement],
     fmt: &Format,
-    files: &mut BTreeMap<u64, (Cow<'a, Path>, CachedLines)>,
+    files: &mut BTreeMap<u64, (Cow<'a, Path>, Option<CachedLines>)>,
 ) {
     for line in statements {
         if let Statement::Directive(Directive::File(f)) = line {
@@ -213,73 +311,17 @@ fn load_rust_sources<'a>(
                 if fmt.verbosity > 1 {
                     safeprintln!("Reading file #{} {}", f.index, path.display());
                 }
-                if let Ok(payload) = std::fs::read_to_string(&path) {
-                    return (path, CachedLines::without_ending(payload));
-                } else if path.starts_with("/rustc/") {
-                    // file looks like this and is located in rustlib sysroot
-                    // /rustc/a55dd71d5fb0ec5a6a3a9e8c27b2127ba491ce52/library/core/src/iter/range.rs
 
-                    let relative_path = {
-                        let mut components = path.components();
-                        // skip first three dirs in path
-                        components.by_ref().take(3).for_each(|_| ());
-                        components.as_path()
-                    };
-                    if relative_path.file_name().is_some() {
-                        let src = sysroot.join("lib/rustlib/src/rust").join(relative_path);
-                        if !src.exists() {
-                            esafeprintln!("You need to install rustc sources to be able to see the rust annotations, try\n\
-                                       \trustup component add rust-src");
-                            std::process::exit(1);
-                        }
-                        if let Ok(payload) = std::fs::read_to_string(src) {
-                            return (path, CachedLines::without_ending(payload));
-                        }
+                if let Some(filepath) = locate_sources(sysroot, &path) {
+                    let sources = std::fs::read_to_string(filepath).expect("Can't read a file");
+                    let lines = CachedLines::without_ending(sources);
+                    (path, Some(lines))
+                } else {
+                    if fmt.verbosity > 0 {
+                        safeprintln!("File not found {}", path.display());
                     }
-                } else if path.starts_with("/private/tmp") {
-                    // Hmm... I'm not even sure ...
-                    // /private/tmp/rust-20230325-7327-rbrpyq/rustc-1.68.1-src/library/core/src/option.rs
-
-                    let relative_path = {
-                        let mut components = path.components();
-                        // skip first three dirs in path
-                        components.by_ref().take(5).for_each(|_| ());
-                        components.as_path()
-                    };
-                    if relative_path.file_name().is_some() {
-                        let src = sysroot.join("lib/rustlib/src/rust").join(relative_path);
-                        if !src.exists() {
-                            esafeprintln!("You need to install rustc sources to be able to see the rust annotations, try\n\
-                                       \trustup component add rust-src");
-                            std::process::exit(1);
-                        }
-                        if let Ok(payload) = std::fs::read_to_string(src) {
-                            return (path, CachedLines::without_ending(payload));
-                        }
-                    }
-
-                } else if path.starts_with("/cargo/registry/") {
-                    // file looks like this and located ~/.cargo/registry/ ...
-                    // /cargo/registry/src/github.com-1ecc6299db9ec823/hashbrown-0.12.3/src/raw/bitmask.rs
-
-                    // It does what I want as far as *nix is concerned, might not work for Windows...
-                    #[allow(deprecated)]
-                    let mut homedir = std::env::home_dir().expect("No home dir?");
-
-                    let mut components = path.components();
-                    // drop `/cargo` part
-                        components.by_ref().take(2).for_each(|_| ());
-                    homedir.push(".cargo");
-                    let src = homedir.join(components.as_path());
-
-                    if let Ok(payload) = std::fs::read_to_string(src) {
-                       return (path, CachedLines::without_ending(payload));
-                    }
-                } else if fmt.verbosity > 0 {
-                    safeprintln!("File not found {}", path.display());
+                    (path, None)
                 }
-                // if file is not found - Just create a dummy
-                (path, CachedLines::without_ending(String::new()))
             });
         }
     }
