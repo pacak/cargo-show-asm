@@ -161,8 +161,8 @@ pub enum CompileMode {
     /// Compile in dev mode
     Dev,
     Custom(
-        /// Build for this specific profile
-        #[bpaf(long("profile"), argument("PROFILE"))]
+        /// Build for this specific profile, you can also use `dev` and `release` here
+        #[bpaf(env("CARGO_SHOW_ASM_PROFILE"), long("profile"), argument("PROFILE"))]
         String,
     ),
 }
