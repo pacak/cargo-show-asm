@@ -26,6 +26,7 @@ supports-color = "2.0"
 
 [features]
 bright-color = ["bpaf/bright-color"]
+default = ["dull-color"]
 dull-color = ["bpaf/dull-color"]
 
 [[bin]]
