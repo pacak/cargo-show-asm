@@ -1,5 +1,9 @@
 # Change Log
 
+## [0.2.18] - 2023-05-11
+- you can also specify default profile using `CARGO_SHOW_ASM_PROFILE` env variable
+- bump bpaf to 0.8.0, add dull colors by default
+
 ## [0.2.17] - 2023-04-11
 - look harder for source code, don't panic if it can't be found
 - bump deps
