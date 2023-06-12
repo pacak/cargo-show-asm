@@ -189,9 +189,9 @@ checksum = "99227334921fae1a979cf0bfdfcc6b3e5ce376ef57e16fb6fb3ea2ed6095f80c"
 
 [[package]]
 name = "line-span"
-version = "0.1.3"
+version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "806de604a37f6d73a83c850af7b3ba33a44f330d12fd5e4ac216645b54da912b"
+checksum = "ca2763031c8ba0a01718d4a99ab592c7af33e731317f2c77707e3097e5dc470b"
 
 [[package]]
 name = "linux-raw-sys"
