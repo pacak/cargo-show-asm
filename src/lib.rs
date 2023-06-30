@@ -18,9 +18,10 @@ macro_rules! color {
     };
 }
 
-/// By default print* macro panics when print fails. Usually print fails when output stream is
-/// disconnected, for purposes of this application disconnected stream means output was piped
-/// somewhere and this something was terminated before printing completed.
+/// Safe version of `print[ln]!` macro
+/// By default `print[ln]!` macro panics when print fails. Usually print fails when output
+/// stream is disconnected, for purposes of this application disconnected stream means output
+/// was piped somewhere and this something was terminated before printing completed.
 ///
 /// At this point we might as well exit
 #[macro_export]

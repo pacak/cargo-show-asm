@@ -13,7 +13,8 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 anyhow = "1"
-bpaf = { version = "0.8.0", features = ["bpaf_derive", "autocomplete"] }
+#bpaf = { version = "0.8.0", features = ["bpaf_derive", "autocomplete"] }
+bpaf = { git = "https://github.com/pacak/bpaf", branch = "rc-0.9.0", features = ["bpaf_derive", "autocomplete"] }
 cargo_metadata = "0.15.4"
 line-span = "0.1"
 nom = "7"
