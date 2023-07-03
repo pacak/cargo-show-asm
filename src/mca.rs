@@ -18,6 +18,7 @@ pub fn dump_function(
     goal: ToDump,
     path: &Path,
     fmt: &Format,
+    mca_args: &[String],
     mca_intel: bool,
     triple: &Option<String>,
     target_cpu: &Option<String>,
@@ -40,7 +41,7 @@ pub fn dump_function(
     };
 
     let mut mca = Command::new("llvm-mca");
-    mca.args(&fmt.mca_arg)
+    mca.args(mca_args)
         .args(triple.iter().flat_map(|t| ["--mtriple", t]))
         .args(target_cpu.iter().flat_map(|t| ["--mcpu", t]))
         .stdin(Stdio::piped())

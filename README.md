@@ -28,73 +28,121 @@ $ cargo install cargo-show-asm
 
 # Usage:
 
-```console
-Show the code rustc generates for any function
-
-Usage: [-p SPEC] [--lib | --test TEST | --bench BENCH | --example EXAMPLE | --bin BIN] [--release |
---dev | --profile PROFILE] [--target TRIPLE] -C FLAG... -Z FLAG... [--native | --target-cpu CPU]
-[--rust] [--simplify] -M ARG... [--intel | --att | --llvm | --llvm-input | --mir | --wasm |
---mca-intel | --mca-att] [--everything | <ITEM_INDEX> | <FUNCTION> [<INDEX>]]
-
-Usage:
-  1. Focus on a single assembly producing target:
-     % cargo asm -p isin --lib   # here we are targeting lib in isin crate
-  2. Narrow down a function:
-     % cargo asm -p isin --lib from_ # here "from_" is part of the function you are interested intel
-  3. Get the full results:
-     % cargo asm -p isin --lib isin::base36::from_alphanum
-
-Available positional items:
-    <ITEM_INDEX>  Dump name with this index
-    <FUNCTION>    Dump function with that specific name / filter functions containing this string
-    <INDEX>       Select specific function when there's several with the same name
-
-Available options:
-    -p, --package <SPEC>  Package to use, defaults to a current one, required for workspace projects,
-                          can also point to a dependency
-        --lib             Show results from library code
-        --test <TEST>     Show results from an integration test
-        --bench <BENCH>   Show results from a benchmark
-        --example <EXAMPLE>  Show results from an example
-        --bin <BIN>       Show results from a binary
-        --manifest-path <PATH>  Path to Cargo.toml, defaults to one in current folder
-        --target-dir <DIR>  [env:CARGO_TARGET_DIR: N/A]
-                          Use custom target directory for generated artifacts, create if missing
-        --dry             Produce a build plan instead of actually building
-        --frozen          Requires Cargo.lock and cache are up to date
-        --locked          Requires Cargo.lock is up to date
-        --offline         Run without accessing the network
-        --no-default-features  Do not activate `default` feature
-        --all-features    Activate all available features
-        --features <FEATURE>  A feature to activate, can be used multiple times
-        --release         Compile in release mode (default)
-        --dev             Compile in dev mode
-        --profile <PROFILE>  Build for this specific profile
-        --target <TRIPLE>  Build for the target triple
-    -C <FLAG>             Codegen flags to rustc, see 'rustc -C help' for details
-    -Z <FLAG>             Unstable (nightly-only) flags to Cargo, see 'cargo -Z help' for details
-        --native          Optimize for the CPU running the compiler
-        --target-cpu <CPU>  Optimize code for a specific CPU, see 'rustc --print target-cpus'
-        --rust            Print interleaved Rust code
-        --color           Enable color highlighting
-        --no-color        Disable color highlighting
-        --full-name       Include full demangled name instead of just prefix
-        --keep-labels     Keep all the original labels
-    -v, --verbose         more verbose output, can be specified multiple times
-        --simplify        Try to strip some of the non-assembly instruction information
-    -M, --mca-arg <ARG>   Pass parameter to llvm-mca for mca targets
-        --intel           Show assembly using Intel style
-        --att             Show assembly using AT&T style
-        --llvm            Show llvm-ir
-        --llvm-input      Show llvm-ir before any LLVM passes
-        --mir             Show MIR
-        --wasm            Show WASM, needs wasm32-unknown-unknown target installed
-        --mca-intel       Show llvm-mca analysis, Intel style asm
-        --mca-att         Show llvm-mca analysis, AT&T style asm
-        --everything      Dump the whole asm file
-    -h, --help            Prints help information
-    -V, --version         Prints version information
-```
+<div class="bpaf-doc">
+# cargo asm<br>
+<p>Show the code rustc generates for any function</p><p><b>Usage</b>: <tt><b>cargo asm</b></tt> [<tt><b>-p</b></tt>=<tt><i>SPEC</i></tt>] [<tt><i>ARTIFACT</i></tt>] [<tt><b>-M</b></tt>=<tt><i>ARG</i></tt>]... [<tt><i>TARGET-CPU</i></tt>] [<tt><b>--rust</b></tt>] [<tt><b>--simplify</b></tt>] [<tt><i>OUTPUT-FORMAT</i></tt>] [<tt><b>--everything</b></tt> | <tt><i>FUNCTION</i></tt> [<tt><i>INDEX</i></tt>]]</p><p>Usage:<br>
+ 1. Focus on a single assembly producing target:<br>
+    % cargo asm -p isin --lib   # here we are targeting lib in isin crate<br>
+ 2. Narrow down a function:<br>
+    % cargo asm -p isin --lib from_ # here "from_" is part of the function you are interested intel<br>
+ 3. Get the full results:<br>
+    % cargo asm -p isin --lib isin::base36::from_alphanum</p><p><div>
+<b>Pick artifact for analysis:</b></div><dl><dt><tt><b>    --lib</b></tt></dt>
+<dd>Show results from library code</dd>
+<dt><tt><b>    --test</b></tt>=<tt><i>TEST</i></tt></dt>
+<dd>Show results from an integration test</dd>
+<dt><tt><b>    --bench</b></tt>=<tt><i>BENCH</i></tt></dt>
+<dd>Show results from a benchmark</dd>
+<dt><tt><b>    --example</b></tt>=<tt><i>EXAMPLE</i></tt></dt>
+<dd>Show results from an example</dd>
+<dt><tt><b>    --bin</b></tt>=<tt><i>BIN</i></tt></dt>
+<dd>Show results from a binary</dd>
+</dl>
+</p><p><div>
+<b>Cargo options</b></div><dl><dt><tt><b>    --manifest-path</b></tt>=<tt><i>PATH</i></tt></dt>
+<dd>Path to Cargo.toml, defaults to one in current folder</dd>
+<dt><tt><b>    --target-dir</b></tt>=<tt><i>DIR</i></tt></dt>
+<dd>Use custom target directory for generated artifacts, create if missing</dd>
+<dt></dt>
+<dd>Uses environment variable <tt><b>CARGO_TARGET_DIR</b></tt></dd>
+<dt><tt><b>    --dry</b></tt></dt>
+<dd>Produce a build plan instead of actually building</dd>
+<dt><tt><b>    --frozen</b></tt></dt>
+<dd>Requires Cargo.lock and cache are up to date</dd>
+<dt><tt><b>    --locked</b></tt></dt>
+<dd>Requires Cargo.lock is up to date</dd>
+<dt><tt><b>    --offline</b></tt></dt>
+<dd>Run without accessing the network</dd>
+<dt><tt><b>    --no-default-features</b></tt></dt>
+<dd>Do not activate `default` feature</dd>
+<dt><tt><b>    --all-features</b></tt></dt>
+<dd>Activate all available features</dd>
+<dt><tt><b>    --features</b></tt>=<tt><i>FEATURE</i></tt></dt>
+<dd>A feature to activate, can be used multiple times</dd>
+<dt><tt><b>    --release</b></tt></dt>
+<dd>Compile in release mode (default)</dd>
+<dt><tt><b>    --dev</b></tt></dt>
+<dd>Compile in dev mode</dd>
+<dt><tt><b>    --profile</b></tt>=<tt><i>PROFILE</i></tt></dt>
+<dd>Build for this specific profile, you can also use `dev` and `release` here</dd>
+<dt></dt>
+<dd>Uses environment variable <tt><b>CARGO_SHOW_ASM_PROFILE</b></tt></dd>
+<dt><tt><b>    --target</b></tt>=<tt><i>TRIPLE</i></tt></dt>
+<dd>Build for the target triple</dd>
+<dt><tt><b>-C</b></tt>=<tt><i>FLAG</i></tt></dt>
+<dd>Codegen flags to rustc, see 'rustc -C help' for details</dd>
+<dt><tt><b>-Z</b></tt>=<tt><i>FLAG</i></tt></dt>
+<dd>Unstable (nightly-only) flags to Cargo, see 'cargo -Z help' for details</dd>
+</dl>
+</p><p><div>
+<b>Postprocessing options:</b></div><dl><dt><tt><b>    --rust</b></tt></dt>
+<dd>Print interleaved Rust code</dd>
+<dt><tt><b>    --color</b></tt></dt>
+<dd>Enable color highlighting</dd>
+<dt><tt><b>    --no-color</b></tt></dt>
+<dd>Disable color highlighting</dd>
+<dt><tt><b>    --full-name</b></tt></dt>
+<dd>Include full demangled name instead of just prefix</dd>
+<dt><tt><b>    --keep-labels</b></tt></dt>
+<dd>Keep all the original labels</dd>
+<dt><tt><b>-v</b></tt>, <tt><b>--verbose</b></tt></dt>
+<dd>more verbose output, can be specified multiple times</dd>
+<dt><tt><b>    --simplify</b></tt></dt>
+<dd>Try to strip some of the non-assembly instruction information</dd>
+</dl>
+</p><p><div>
+<b>Pick output format:</b></div><dl><dt><tt><b>    --intel</b></tt></dt>
+<dd>Show assembly using Intel style</dd>
+<dt><tt><b>    --att</b></tt></dt>
+<dd>Show assembly using AT&T style</dd>
+<dt><tt><b>    --llvm</b></tt></dt>
+<dd>Show llvm-ir</dd>
+<dt><tt><b>    --llvm-input</b></tt></dt>
+<dd>Show llvm-ir before any LLVM passes</dd>
+<dt><tt><b>    --mir</b></tt></dt>
+<dd>Show MIR</dd>
+<dt><tt><b>    --wasm</b></tt></dt>
+<dd>Show WASM, needs wasm32-unknown-unknown target installed</dd>
+<dt><tt><b>    --mca-intel</b></tt></dt>
+<dd>Show llvm-mca analysis, Intel style asm</dd>
+<dt><tt><b>    --mca-att</b></tt></dt>
+<dd>Show llvm-mca analysis, AT&T style asm</dd>
+</dl>
+</p><p><div>
+<b>Pick item to display from the artifact</b></div><dl><dt><tt><b>    --everything</b></tt></dt>
+<dd>Dump the whole file</dd>
+<dt><tt><i>FUNCTION</i></tt></dt>
+<dd>Dump a function with a given name, filter functions by name</dd>
+<dt><tt><i>INDEX</i></tt></dt>
+<dd>Select specific function when there's several with the same name</dd>
+</dl>
+</p><p><div>
+<b>Available options:</b></div><dl><dt><tt><b>-p</b></tt>, <tt><b>--package</b></tt>=<tt><i>SPEC</i></tt></dt>
+<dd>Package to use, defaults to a current one,<br>
+required for workspace projects, can also point to a dependency</dd>
+<dt><tt><b>-M</b></tt>, <tt><b>--mca-arg</b></tt>=<tt><i>ARG</i></tt></dt>
+<dd>Pass parameter to llvm-mca for mca targets</dd>
+<dt><tt><b>    --native</b></tt></dt>
+<dd>Optimize for the CPU running the compiler</dd>
+<dt><tt><b>    --target-cpu</b></tt>=<tt><i>CPU</i></tt></dt>
+<dd>Optimize code for a specific CPU, see 'rustc --print target-cpus'</dd>
+<dt><tt><b>-h</b></tt>, <tt><b>--help</b></tt></dt>
+<dd>Prints help information</dd>
+<dt><tt><b>-V</b></tt>, <tt><b>--version</b></tt></dt>
+<dd>Prints version information</dd>
+</dl>
+</p>
+</div>
 
 You can start by running `cargo asm` with no parameters - it will suggests how to narrow the
 search scope - for workspace crates you need to specify a crate to work with, for crates
