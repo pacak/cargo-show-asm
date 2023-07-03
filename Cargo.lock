@@ -36,19 +36,20 @@ checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
 name = "bpaf"
-version = "0.8.1"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8bac242287491ba761f8943d48c2b3eca2b30485187a7a13fa6b2168c058f342"
+checksum = "0a2d6d770b7a8dfcaade8b3d173b500873da50474c6f2ebc62c92911be166460"
 dependencies = [
  "bpaf_derive",
  "owo-colors",
+ "supports-color 2.0.0",
 ]
 
 [[package]]
 name = "bpaf_derive"
-version = "0.4.1"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af3c1dc174c8c49192fe1553cb25f75ba410a4b26b2bf5ca620307579e9ca078"
+checksum = "cb60ea6b95d354f1d33ddc0328c5417db91f7b5c80abc6e98f689034560d8b9d"
 dependencies = [
  "proc-macro2",
  "quote",
