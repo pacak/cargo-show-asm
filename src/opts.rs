@@ -1,4 +1,4 @@
-use bpaf::{construct, long, short, Bpaf, Parser};
+use bpaf::{construct, doc::Style, long, short, Bpaf, Parser};
 use cargo_metadata::Artifact;
 use std::path::PathBuf;
 
@@ -35,6 +35,10 @@ pub struct Options {
     #[bpaf(external)]
     pub cargo: Cargo,
 
+    /// Pass parameter to llvm-mca for mca targets
+    #[bpaf(short('M'), long)]
+    pub mca_arg: Vec<String>,
+
     // how to display
     /// Generate code for a specific CPU
     #[bpaf(external)]
@@ -52,7 +56,9 @@ pub struct Options {
 #[derive(Clone, Debug, Bpaf)]
 pub struct SelectFragment {
     // what to compile
-    /// Package to use, defaults to a current one, required for workspace projects, can also point
+    /// Package to use, defaults to a current one,
+    ///
+    /// required for workspace projects, can also point
     /// to a dependency
     #[bpaf(long, short, argument("SPEC"))]
     pub package: Option<String>,
@@ -63,6 +69,8 @@ pub struct SelectFragment {
 
 #[derive(Debug, Clone, Bpaf)]
 #[allow(clippy::struct_excessive_bools)]
+/// Cargo options
+#[bpaf(hide_usage)]
 pub struct Cargo {
     #[bpaf(external, hide_usage)]
     pub manifest_path: PathBuf,
@@ -105,11 +113,13 @@ pub struct Cargo {
 }
 
 #[derive(Debug, Clone, Bpaf)]
+/// Pick item to display from the artifact
 #[bpaf(fallback(ToDump::Unspecified))]
 pub enum ToDump {
-    /// Dump the whole asm file
+    /// Dump the whole file
     Everything,
 
+    #[bpaf(hide)]
     ByIndex {
         /// Dump name with this index
         #[bpaf(positional("ITEM_INDEX"))]
@@ -117,7 +127,7 @@ pub enum ToDump {
     },
 
     Function {
-        /// Dump function with that specific name / filter functions containing this string
+        /// Dump a function with a given name, filter functions by name
         #[bpaf(positional("FUNCTION"))]
         function: String,
 
@@ -126,7 +136,7 @@ pub enum ToDump {
         nth: Option<usize>,
     },
 
-    #[bpaf(hide)]
+    #[bpaf(skip)]
     Unspecified,
 }
 
@@ -137,7 +147,9 @@ fn target_cpu() -> impl Parser<Option<String>> {
     let cpu = long("target-cpu")
         .help("Optimize code for a specific CPU, see 'rustc --print target-cpus'")
         .argument::<String>("CPU");
-    construct!([native, cpu]).optional()
+    construct!([native, cpu])
+        .custom_usage(&[("TARGET-CPU", Style::Metavar)])
+        .optional()
 }
 
 #[derive(Bpaf, Clone, Debug)]
@@ -195,6 +207,7 @@ fn manifest_path() -> impl Parser<PathBuf> {
 
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Bpaf)]
+/// Postprocessing options:
 pub struct Format {
     /// Print interleaved Rust code
     pub rust: bool,
@@ -216,14 +229,11 @@ pub struct Format {
 
     /// Try to strip some of the non-assembly instruction information
     pub simplify: bool,
-
-    /// Pass parameter to llvm-mca for mca targets
-    #[bpaf(short('M'), long)]
-    pub mca_arg: Vec<String>,
 }
 
 #[derive(Debug, Clone, Bpaf, Eq, PartialEq, Copy)]
-#[bpaf(fallback(Syntax::Intel))]
+#[bpaf(custom_usage(&[("OUTPUT-FORMAT", Style::Metavar)]), fallback(Syntax::Intel))]
+/// Pick output format:
 pub enum Syntax {
     /// Show assembly using Intel style
     #[bpaf(long("intel"), long("asm"))]
@@ -288,6 +298,8 @@ fn color_detection() -> impl Parser<bool> {
 }
 
 #[derive(Debug, Clone, Bpaf)]
+/// Pick artifact for analysis:
+#[bpaf(custom_usage(&[("ARTIFACT", Style::Metavar)]))]
 pub enum Focus {
     /// Show results from library code
     Lib,
@@ -382,4 +394,35 @@ impl Focus {
         (somewhat_matches || kind_matches)
             && name.map_or(true, |name| artifact.target.name == *name)
     }
+}
+
+#[cfg(unix)]
+#[cfg(test)]
+fn write_updated(new_val: &str, path: impl AsRef<std::path::Path>) -> std::io::Result<bool> {
+    use std::io::Read;
+    use std::io::Seek;
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .read(true)
+        .create(true)
+        .open(path)?;
+    let mut current_val = String::new();
+    file.read_to_string(&mut current_val)?;
+    if current_val != new_val {
+        file.set_len(0)?;
+        file.seek(std::io::SeekFrom::Start(0))?;
+        std::io::Write::write_all(&mut file, new_val.as_bytes())?;
+        Ok(false)
+    } else {
+        Ok(true)
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn docs_are_up_to_date() {
+    let usage = options().render_html("cargo asm");
+    let readme = std::fs::read_to_string("README.tpl").unwrap();
+    let docs = readme.replacen("<USAGE>", &usage, 1);
+    assert!(write_updated(&docs, "README.md").unwrap());
 }

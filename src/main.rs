@@ -242,6 +242,7 @@ fn main() -> anyhow::Result<()> {
             opts.to_dump,
             &asm_path,
             &opts.format,
+            &opts.mca_arg,
             opts.syntax == Syntax::McaIntel,
             &opts.cargo.target,
             &opts.target_cpu,
