@@ -212,6 +212,25 @@ fn main() -> anyhow::Result<()> {
                 success = fin.success;
                 break;
             }
+            Message::TextLine(x) => {
+                // 1.71.1 added support for debuginfo=line-tables-only and line-directives-only
+                // cargo-metadata did not and cannot easily add this without a breaking release
+                //
+                // Since we don't really use profile info from the Artifact structure we
+                // can replace it with something it cargo-metadata can parse.
+                if !x.contains(r#""debuginfo":"line"#) {
+                    continue;
+                }
+                let x = x.replace(r#""debuginfo":"line-tables-only""#, r#""debuginfo":2"#);
+                let x = x.replace(r#""debuginfo":"line-directives-only""#, r#""debuginfo":2"#);
+                if let Some(Ok(Message::CompilerArtifact(artifact))) =
+                    Message::parse_stream(x.as_bytes()).next()
+                {
+                    if focus_artifact.matches_artifact(&artifact) {
+                        result_artifact = Some(artifact);
+                    }
+                }
+            }
             _ => {}
         }
     }

@@ -14,4 +14,8 @@ rand_core = "0.6"
 default = ["superbanana"]
 superbanana = []
 
+
+[profile.release]
+debug = "line-tables-only"
+
 [workspace]
