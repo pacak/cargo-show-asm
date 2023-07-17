@@ -421,7 +421,7 @@ fn write_updated(new_val: &str, path: impl AsRef<std::path::Path>) -> std::io::R
 #[cfg(unix)]
 #[test]
 fn docs_are_up_to_date() {
-    let usage = options().render_html("cargo asm");
+    let usage = options().render_markdown("cargo asm");
     let readme = std::fs::read_to_string("README.tpl").unwrap();
     let docs = readme.replacen("<USAGE>", &usage, 1);
     assert!(write_updated(&docs, "README.md").unwrap());

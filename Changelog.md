@@ -1,5 +1,9 @@
 # Change Log
 
+## [0.2.20] - 2023-06-17
+- workaround for fancier debuginfo not supported by cargo-metadata
+- usage in README is now generated in markdown
+
 ## [0.2.19] - 2023-06-05
 - bump bpaf to 0.9.1, usage in README is now generated
 - bump deps

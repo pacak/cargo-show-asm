@@ -26,11 +26,7 @@ $ cargo install cargo-show-asm
   - Wasm code
   - llvm-mca analysis
 
-# Usage:
-
-<div class="bpaf-doc">
 <USAGE>
-</div>
 
 You can start by running `cargo asm` with no parameters - it will suggests how to narrow the
 search scope - for workspace crates you need to specify a crate to work with, for crates
