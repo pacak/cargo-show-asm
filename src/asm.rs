@@ -338,7 +338,10 @@ pub fn dump_function(
         safeprintln!("goal: {goal:?}");
     }
 
-    let contents = std::fs::read_to_string(path)?;
+    // For some reason llvm/rustc can produce non utf8 files...
+    let payload = std::fs::read(path)?;
+    let contents = String::from_utf8_lossy(&payload).into_owned();
+
     let statements = parse_file(&contents)?;
     let functions = find_items(&statements);
 
