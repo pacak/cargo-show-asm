@@ -1,6 +1,6 @@
 # Change Log
 
-## [0.2.21] - 2023-08-11
+## [0.2.21] - 2023-08-12
 - support wonky non-utf8 files produced by rustc/llvm o_O
 
 ## [0.2.20] - 2023-06-17
