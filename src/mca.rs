@@ -25,7 +25,10 @@ pub fn dump_function(
 ) -> anyhow::Result<()> {
     use std::io::Write;
 
-    let contents = std::fs::read_to_string(path)?;
+    // For some reason llvm/rustc can produce non utf8 files...
+    let payload = std::fs::read(path)?;
+    let contents = String::from_utf8_lossy(&payload).into_owned();
+
     let statements = crate::asm::parse_file(&contents)?;
     let functions = crate::asm::find_items(&statements);
 

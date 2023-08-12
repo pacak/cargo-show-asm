@@ -64,7 +64,10 @@ fn dump_range(_fmt: &Format, strings: &[&str]) {
 /// # Errors
 /// Reports file IO errors
 pub fn dump_function(goal: ToDump, path: &Path, fmt: &Format) -> anyhow::Result<()> {
-    let lines = CachedLines::without_ending(std::fs::read_to_string(path)?);
+    // For some reason llvm/rustc can produce non utf8 files...
+    let payload = std::fs::read(path)?;
+    let contents = String::from_utf8_lossy(&payload).into_owned();
+    let lines = CachedLines::without_ending(contents);
     let items = find_items(&lines);
     let strs = lines.iter().collect::<Vec<_>>();
     match get_dump_range(goal, fmt, items) {
