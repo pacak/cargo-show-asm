@@ -23,7 +23,7 @@ regex = "1"
 rustc-demangle = "0.1"
 same-file = "1.0.6"
 supports-color = "2.0"
-
+serde = "<=1.0.171"
 
 [dev-dependencies]
 bpaf = { version = "0.9.4", features = ["bpaf_derive", "autocomplete", "docgen"] }
