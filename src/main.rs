@@ -345,7 +345,9 @@ fn locate_asm_path_via_artifact(artifact: &Artifact, expect_ext: &str) -> anyhow
             let entry = entry?;
             let maybe_origin = entry.path();
             if same_contents(cdylib_path, &maybe_origin)? {
-                let Some(name) = maybe_origin.file_name() else { continue };
+                let Some(name) = maybe_origin.file_name() else {
+                    continue;
+                };
                 let Some(name) = name.to_str() else { continue };
                 let name = name.strip_prefix("lib").unwrap_or(name);
                 // on windows this is xx.dll -> xx.s, no lib....
