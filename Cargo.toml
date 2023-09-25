@@ -22,7 +22,7 @@ owo-colors = { version = "3", features = ["supports-colors"] }
 regex = "1"
 rustc-demangle = "0.1"
 same-file = "1.0.6"
-supports-color = "2.0"
+supports-color = "2.1"
 serde = "<=1.0.171"
 
 [dev-dependencies]
