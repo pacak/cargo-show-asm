@@ -13,7 +13,7 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 anyhow = "1"
-bpaf = { version = "0.9.5", features = ["bpaf_derive", "autocomplete"] }
+bpaf = { version = "0.9.6", features = ["bpaf_derive", "autocomplete"] }
 cargo_metadata = "0.18.0"
 line-span = "0.1"
 nom = "7"
@@ -26,7 +26,7 @@ supports-color = "2.1"
 serde = "<=1.0.171"
 
 [dev-dependencies]
-bpaf = { version = "0.9.5", features = ["bpaf_derive", "autocomplete", "docgen"] }
+bpaf = { version = "0.9.6", features = ["bpaf_derive", "autocomplete", "docgen"] }
 
 [features]
 bright-color = ["bpaf/bright-color"]
