@@ -1,5 +1,9 @@
 # Change Log
 
+## [0.2.22] - unreleased
+- bump a bunch of deps
+- add license files
+
 ## [0.2.21] - 2023-08-12
 - support wonky non-utf8 files produced by rustc/llvm o_O
 
