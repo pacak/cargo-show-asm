@@ -59,7 +59,10 @@ jobs:
         run: cargo run -- --manifest-path sample_rlib/Cargo.toml --att
 
       - name: cdylib project
-        run: cargo run -- --manifest-path sample_cdylib/Cargo.toml
+        run: cargo run -- --manifest-path sample_cdylib/Cargo.toml add
+
+      - name: cdylib project, underscore prefix
+        run: cargo run -- --manifest-path sample_cdylib/Cargo.toml _mul
 
   windows:
     runs-on: windows-latest
@@ -171,4 +174,7 @@ jobs:
         run: cargo run -- --manifest-path sample_rlib/Cargo.toml --att
 
       - name: cdylib project
-        run: cargo run -- --manifest-path sample_cdylib/Cargo.toml --everything
+        run: cargo run -- --manifest-path sample_cdylib/Cargo.toml add
+
+      - name: cdylib project, underscore prefix
+        run: cargo run -- --manifest-path sample_cdylib/Cargo.toml _mul

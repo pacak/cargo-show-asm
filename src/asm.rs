@@ -1,5 +1,5 @@
 #![allow(clippy::missing_errors_doc)]
-use crate::asm::statements::Label;
+use crate::asm::statements::{GenericDirective, Label};
 use crate::cached_lines::CachedLines;
 use crate::demangle::LabelKind;
 use crate::{color, demangle, esafeprintln, get_dump_range, safeprintln, Item};
@@ -88,28 +88,82 @@ pub fn find_items(lines: &[Statement]) -> BTreeMap<Item, Range<usize>> {
                     len: ix,
                 });
                 *name_entry += 1;
-            } else if label.kind == LabelKind::Unknown {
-                if let Some(Statement::Directive(Directive::SectionStart(ss))) =
-                    lines.get(sec_start)
-                {
-                    if let Some(ss) = ss.strip_prefix(".text.") {
-                        if ss.starts_with(label.id) {
-                            let name = label.id.to_string();
-                            let name_entry = names.entry(name.clone()).or_insert(0);
-                            item = Some(Item {
-                                name: name.clone(),
-                                hashed: name.clone(),
-                                index: *name_entry,
-                                len: ix,
-                            });
-                            *name_entry += 1;
-                        }
-                    }
+            } else if matches!(label.kind, LabelKind::Unknown | LabelKind::Global) {
+                if let Some(mut i) = handle_non_mangled_labels(lines, ix, label, sec_start) {
+                    let name_entry = names.entry(i.name.clone()).or_insert(0);
+                    i.index = *name_entry;
+                    item = Some(i);
+                    *name_entry += 1;
                 }
             }
         }
     }
     res
+}
+
+/// Handles the non-mangled labels found in the given lines of ASM statements.
+///
+/// Returns item if the label is a valid function item, otherwise returns None.
+/// NOTE: Does not set `item.index`.
+fn handle_non_mangled_labels(
+    lines: &[Statement],
+    ix: usize,
+    label: &Label,
+    sec_start: usize,
+) -> Option<Item> {
+    match lines.get(sec_start) {
+        Some(Statement::Directive(Directive::SectionStart(ss))) => {
+            if *ss == "__TEXT,__text,regular,pure_instructions" {
+                // macOS first symbol, symbols after this are resolved using
+                // globl Generic Directive below because of the globl hack in
+                // `find_items`.
+
+                // Search for .globl between sec_start and ix
+                for line in &lines[sec_start..ix] {
+                    if let Statement::Directive(Directive::Generic(GenericDirective(g))) = line {
+                        if let Some(item) = get_item_in_section("globl\t", ix, label, g, true) {
+                            return Some(item);
+                        }
+                    }
+                }
+                None
+            } else {
+                get_item_in_section(".text.", ix, label, ss, false)
+            }
+        }
+        Some(Statement::Directive(Directive::Generic(GenericDirective(g)))) => {
+            get_item_in_section("globl\t", ix, label, g, true)
+        }
+        _ => None,
+    }
+}
+
+/// Checks if the provided section `ss` starts with the provided `prefix`.
+/// If it does, it further checks if the section starts with the `label`.
+/// If both conditions are satisfied, it creates a new [`Item`], but sets item.index to 0.
+fn get_item_in_section(
+    prefix: &str,
+    ix: usize,
+    label: &Label,
+    ss: &str,
+    strip_underscore: bool,
+) -> Option<Item> {
+    if let Some(ss) = ss.strip_prefix(prefix) {
+        if ss.starts_with(label.id) {
+            let name = if strip_underscore && label.id.starts_with('_') {
+                String::from(&label.id[1..])
+            } else {
+                String::from(label.id)
+            };
+            return Some(Item {
+                name: name.clone(),
+                hashed: name,
+                index: 0, // Written later in find_items
+                len: ix,
+            });
+        }
+    }
+    None
 }
 
 fn used_labels<'a>(stmts: &'_ [Statement<'a>]) -> BTreeSet<&'a str> {
