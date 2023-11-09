@@ -171,4 +171,4 @@ jobs:
         run: cargo run -- --manifest-path sample_rlib/Cargo.toml --att
 
       - name: cdylib project
-        run: cargo run -- --manifest-path sample_cdylib/Cargo.toml --everything
+        run: cargo run -- --manifest-path sample_cdylib/Cargo.toml
