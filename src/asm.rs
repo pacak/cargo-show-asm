@@ -226,6 +226,7 @@ pub fn dump_range(
 //    Some examples:
 //        /rustc/a55dd71d5fb0ec5a6a3a9e8c27b2127ba491ce52/library/core/src/iter/range.rs
 //        /private/tmp/rust-20230325-7327-rbrpyq/rustc-1.68.1-src/library/core/src/option.rs
+//        /rustc/cc66ad468955717ab92600c770da8c1601a4ff33\\library\\core\\src\\convert\\mod.rs
 // 3. a file from prebuilt (?) hashbrown, sources are probably available under
 //    cargo registry, most likely under ~/.cargo/registry/$suffix
 //    Some examples:
@@ -313,9 +314,20 @@ fn load_rust_sources<'a>(
                 }
 
                 if let Some(filepath) = locate_sources(sysroot, &path) {
-                    let sources = std::fs::read_to_string(filepath).expect("Can't read a file");
-                    let lines = CachedLines::without_ending(sources);
-                    (path, Some(lines))
+                    if fmt.verbosity > 2 {
+                        safeprintln!("Resolved name is {filepath:?}");
+                    }
+                    let sources = std::fs::read_to_string(&filepath).expect("Can't read a file");
+                    if sources.is_empty() {
+                        safeprintln!("Ignoring empty file {filepath:?}!");
+                        (path, None)
+                    } else {
+                        if fmt.verbosity > 2 {
+                            safeprintln!("Got {} bytes", sources.len());
+                        }
+                        let lines = CachedLines::without_ending(sources);
+                        (path, Some(lines))
+                    }
                 } else {
                     if fmt.verbosity > 0 {
                         safeprintln!("File not found {}", path.display());
