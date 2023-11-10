@@ -1,6 +1,8 @@
 # Change Log
 
-## [0.2.22] - unreleased
+## [0.2.22] - 2023-10-10
+- better support for no_mangle in MacOS
+- ignore empty source files - seen them on Windows
 - bump a bunch of deps
 - add license files
 
