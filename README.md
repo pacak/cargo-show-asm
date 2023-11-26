@@ -115,12 +115,18 @@ Show the code rustc generates for any function
   Disable color highlighting
 - **`    --full-name`** &mdash; 
   Include full demangled name instead of just prefix
-- **`    --keep-labels`** &mdash; 
+- **`-K`**, **`--keep-labels`** &mdash; 
   Keep all the original labels
+- **`-B`**, **`--keep-blanks`** &mdash; 
+  Strip redundant labels, but keep spaces in their place
+- **`-R`**, **`--reduce-labels`** &mdash; 
+  Strip redundant labels entirely
 - **`-v`**, **`--verbose`** &mdash; 
   more verbose output, can be specified multiple times
 - **`    --simplify`** &mdash; 
   Try to strip some of the non-assembly instruction information
+- **`-b`**, **`--keep-blank`** &mdash; 
+  Keep blank lines
 
 
 

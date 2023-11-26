@@ -4,7 +4,7 @@ use crate::cached_lines::CachedLines;
 use crate::demangle::LabelKind;
 use crate::{color, demangle, esafeprintln, get_dump_range, safeprintln, Item};
 // TODO, use https://sourceware.org/binutils/docs/as/index.html
-use crate::opts::{Format, ToDump};
+use crate::opts::{Format, RedundantLabels, ToDump};
 
 mod statements;
 
@@ -194,7 +194,7 @@ pub fn dump_range(
 ) -> anyhow::Result<()> {
     let mut prev_loc = Loc::default();
 
-    let used = if fmt.keep_labels {
+    let used = if fmt.redundant_labels == RedundantLabels::Keep {
         BTreeSet::new()
     } else {
         used_labels(stmts)
@@ -251,11 +251,20 @@ pub fn dump_range(
             id,
         }) = line
         {
-            if fmt.keep_labels || used.contains(id) {
-                safeprintln!("{line}");
-            } else if !empty_line && *kind != LabelKind::Temp {
-                safeprintln!();
-                empty_line = true;
+            match fmt.redundant_labels {
+                _ if used.contains(id) => {
+                    safeprintln!("{line}");
+                }
+                RedundantLabels::Keep => {
+                    safeprintln!("{line}");
+                }
+                RedundantLabels::Blanks => {
+                    if !empty_line && *kind != LabelKind::Temp {
+                        safeprintln!();
+                        empty_line = true;
+                    }
+                }
+                RedundantLabels::Strip => {}
             }
         } else {
             if fmt.simplify && matches!(line, Statement::Directive(_) | Statement::Dunno(_)) {
