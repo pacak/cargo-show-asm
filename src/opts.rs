@@ -219,9 +219,8 @@ pub struct Format {
     #[bpaf(hide_usage)]
     pub full_name: bool,
 
-    /// Keep all the original labels
-    #[bpaf(hide_usage)]
-    pub keep_labels: bool,
+    #[bpaf(external, hide_usage)]
+    pub redundant_labels: RedundantLabels,
 
     /// more verbose output, can be specified multiple times
     #[bpaf(external)]
@@ -229,6 +228,24 @@ pub struct Format {
 
     /// Try to strip some of the non-assembly instruction information
     pub simplify: bool,
+
+    /// Keep blank lines
+    #[bpaf(short('b'), long, hide_usage)]
+    pub keep_blank: bool,
+}
+
+#[derive(Debug, Clone, Bpaf, Eq, PartialEq)]
+#[bpaf(fallback(RedundantLabels::Strip))]
+pub enum RedundantLabels {
+    /// Keep all the original labels
+    #[bpaf(short('K'), long("keep-labels"))]
+    Keep,
+    /// Strip redundant labels, but keep spaces in their place
+    #[bpaf(short('B'), long("keep-blanks"))]
+    Blanks,
+    /// Strip redundant labels entirely
+    #[bpaf(short('R'), long("reduce-labels"))]
+    Strip,
 }
 
 #[derive(Debug, Clone, Bpaf, Eq, PartialEq, Copy)]

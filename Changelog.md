@@ -1,5 +1,9 @@
 # Change Log
 
+## [0.2.23] - 2023-11-26
+- Add an option to strip blank lines and make it default, original behavior is accessible
+  with `-B` option
+
 ## [0.2.22] - 2023-10-10
 - better support for no_mangle in MacOS
 - ignore empty source files - seen them on Windows
