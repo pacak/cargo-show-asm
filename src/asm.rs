@@ -82,6 +82,7 @@ pub fn find_items(lines: &[Statement]) -> BTreeMap<Item, Range<usize>> {
                 let name = format!("{dem:#?}");
                 let name_entry = names.entry(name.clone()).or_insert(0);
                 item = Some(Item {
+                    mangled_name: label.id.to_owned(),
                     name,
                     hashed,
                     index: *name_entry,
@@ -156,6 +157,7 @@ fn get_item_in_section(
                 String::from(label.id)
             };
             return Some(Item {
+                mangled_name: label.id.to_owned(),
                 name: name.clone(),
                 hashed: name,
                 index: 0, // Written later in find_items

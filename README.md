@@ -127,6 +127,10 @@ Show the code rustc generates for any function
   Try to strip some of the non-assembly instruction information
 - **`-b`**, **`--keep-blank`** &mdash; 
   Keep blank lines
+- **--keep-mangled** &mdash;
+  Do not demangle symbol names
+- **--demangle** &mdash;
+  Demangle symbol names (default)
 
 
 

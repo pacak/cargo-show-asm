@@ -232,6 +232,10 @@ pub struct Format {
     /// Keep blank lines
     #[bpaf(short('b'), long, hide_usage)]
     pub keep_blank: bool,
+
+    /// Demangle symbols
+    #[bpaf(external)]
+    pub demangle: Demangle,
 }
 
 #[derive(Debug, Clone, Bpaf, Eq, PartialEq)]
@@ -246,6 +250,17 @@ pub enum RedundantLabels {
     /// Strip redundant labels entirely
     #[bpaf(short('R'), long("reduce-labels"))]
     Strip,
+}
+
+#[derive(Debug, Copy, Clone, Bpaf, Eq, PartialEq)]
+#[bpaf(fallback(Demangle::Yes))]
+pub enum Demangle {
+    /// Do not demangle symbol names
+    #[bpaf(long("keep-mangled"))]
+    No,
+    /// Demangle symbol names (default)
+    #[bpaf(long("demangle"))]
+    Yes,
 }
 
 #[derive(Debug, Clone, Bpaf, Eq, PartialEq, Copy)]
