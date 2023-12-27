@@ -30,7 +30,7 @@ $ cargo install cargo-show-asm
 
 Show the code rustc generates for any function
 
-**Usage**: **`cargo asm`** \[**`-p`**=_`SPEC`_\] \[_`ARTIFACT`_\] \[**`-M`**=_`ARG`_\]... \[_`TARGET-CPU`_\] \[**`--rust`**\] \[**`--simplify`**\] \[_`OUTPUT-FORMAT`_\] \[**`--everything`** | _`FUNCTION`_ \[_`INDEX`_\]\]
+**Usage**: **`cargo asm`** \[**`-p`**=_`SPEC`_\] \[_`ARTIFACT`_\] \[**`-M`**=_`ARG`_\]... \[_`TARGET-CPU`_\] \[**`--rust`**\] \[**`--simplify`**\] \[**`--keep-mangled`** | **`--demangle`**\] \[_`OUTPUT-FORMAT`_\] \[**`--everything`** | _`FUNCTION`_ \[_`INDEX`_\]\]
 
  Usage:
  1. Focus on a single assembly producing target:
@@ -127,9 +127,9 @@ Show the code rustc generates for any function
   Try to strip some of the non-assembly instruction information
 - **`-b`**, **`--keep-blank`** &mdash; 
   Keep blank lines
-- **`--keep-mangled`** &mdash;
+- **`    --keep-mangled`** &mdash; 
   Do not demangle symbol names
-- **`--demangle`** &mdash;
+- **`    --demangle`** &mdash; 
   Demangle symbol names (default)
 
 
