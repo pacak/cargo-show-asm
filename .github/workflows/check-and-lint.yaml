@@ -43,8 +43,14 @@ jobs:
       - name: Native version of cargo-show-asm (Intel ASM) + atom
         run: cargo run -- --manifest-path sample/Cargo.toml --target-cpu atom --intel sample::main --rust
 
+      - name: Native version of cargo-show-asm with symbol mangling (Intel ASM)
+        run: cargo run -- --manifest-path sample/Cargo.toml --intel sample::main --rust --keep-mangled
+
       - name: Native version of cargo-show-asm (LLVM)
         run: cargo run -- --manifest-path sample/Cargo.toml --llvm sample::main
+
+      - name: Native version of cargo-show-asm with symbol mangling (LLVM)
+        run: cargo run -- --manifest-path sample/Cargo.toml --llvm --keep-mangled sample::main
 
       - name: Native version of cargo-show-asm (LLVM Input)
         run: cargo run -- --manifest-path sample/Cargo.toml --llvm-input sample::main
@@ -102,8 +108,14 @@ jobs:
       - name: Native version of cargo-show-asm (Intel ASM) + atom
         run: cargo run -- --manifest-path sample/Cargo.toml --target-cpu atom --intel sample::main --rust
 
+      - name: Native version of cargo-show-asm with symbol mangling (Intel ASM)
+        run: cargo run -- --manifest-path sample/Cargo.toml --intel sample::main --rust --keep-mangled
+
       - name: Native version of cargo-show-asm (LLVM)
         run: cargo run -- --manifest-path sample/Cargo.toml --llvm sample::main
+
+      - name: Native version of cargo-show-asm with symbol mangling (LLVM)
+        run: cargo run -- --manifest-path sample/Cargo.toml --llvm --keep-mangled sample::main
 
       - name: Native version of cargo-show-asm (LLVM Input)
         run: cargo run -- --manifest-path sample/Cargo.toml --llvm-input sample::main
@@ -158,8 +170,14 @@ jobs:
       - name: Native version of cargo-show-asm (Intel ASM) + atom
         run: cargo run -- --manifest-path sample/Cargo.toml --target-cpu atom --intel sample::main --rust
 
+      - name: Native version of cargo-show-asm with symbol mangling (Intel ASM)
+        run: cargo run -- --manifest-path sample/Cargo.toml --intel sample::main --rust --keep-mangled
+
       - name: Native version of cargo-show-asm (LLVM)
         run: cargo run -- --manifest-path sample/Cargo.toml --llvm sample::main
+
+      - name: Native version of cargo-show-asm with symbol mangling (LLVM)
+        run: cargo run -- --manifest-path sample/Cargo.toml --llvm --keep-mangled sample::main
 
       - name: Native version of cargo-show-asm (LLVM Input)
         run: cargo run -- --manifest-path sample/Cargo.toml --llvm-input sample::main
