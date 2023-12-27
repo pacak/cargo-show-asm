@@ -275,9 +275,9 @@ pub fn dump_range(
 
             empty_line = false;
             #[allow(clippy::match_bool)]
-            match fmt.full_name {
-                true => safeprintln!("{line:#}"),
-                false => safeprintln!("{line}"),
+            match fmt.name_display {
+                crate::opts::NameDisplay::Full => safeprintln!("{line:#}"),
+                _ => safeprintln!("{line}"),
             }
         }
     }

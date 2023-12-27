@@ -2,7 +2,7 @@
 
 use std::{collections::BTreeMap, ops::Range};
 
-use opts::{Demangle, Format, ToDump};
+use opts::{Format, NameDisplay, ToDump};
 pub mod asm;
 pub mod cached_lines;
 pub mod demangle;
@@ -80,22 +80,18 @@ pub struct Item {
 
 pub fn suggest_name<'a>(
     search: &str,
-    full: bool,
-    mangled: bool,
+    name_display: &NameDisplay,
     items: impl IntoIterator<Item = &'a Item>,
 ) {
     let mut count = 0usize;
     let names = items.into_iter().fold(BTreeMap::new(), |mut m, item| {
         count += 1;
-        m.entry(if mangled {
-            &item.mangled_name
-        } else if full {
-            &item.hashed
-        } else {
-            &item.name
-        })
-        .or_insert_with(Vec::new)
-        .push(item.len);
+        let entry = match name_display {
+            NameDisplay::Full => &item.hashed,
+            NameDisplay::Short => &item.name,
+            NameDisplay::Mangled => &item.mangled_name,
+        };
+        m.entry(entry).or_insert_with(Vec::new).push(item.len);
         m
     });
 
@@ -183,12 +179,7 @@ pub fn get_dump_range(
                 if filtered.is_empty() {
                     safeprintln!("Can't find any items matching {function:?}");
                 } else {
-                    suggest_name(
-                        &function,
-                        fmt.full_name,
-                        fmt.demangle == Demangle::No,
-                        filtered.iter().map(|x| x.0),
-                    );
+                    suggest_name(&function, &fmt.name_display, filtered.iter().map(|x| x.0));
                 }
                 std::process::exit(1);
             };
@@ -198,7 +189,7 @@ pub fn get_dump_range(
         // Unspecified, so print suggestions and exit
         ToDump::Unspecified => {
             let items = items.into_keys().collect::<Vec<_>>();
-            suggest_name("", fmt.full_name, fmt.demangle == Demangle::No, &items);
+            suggest_name("", &fmt.name_display, &items);
             unreachable!("suggest_name exits");
         }
     }

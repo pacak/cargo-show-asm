@@ -215,9 +215,8 @@ pub struct Format {
     #[bpaf(external(color_detection), hide_usage)]
     pub color: bool,
 
-    /// Include full demangled name instead of just prefix
-    #[bpaf(hide_usage)]
-    pub full_name: bool,
+    #[bpaf(hide_usage, external)]
+    pub name_display: NameDisplay,
 
     #[bpaf(external, hide_usage)]
     pub redundant_labels: RedundantLabels,
@@ -232,10 +231,6 @@ pub struct Format {
     /// Keep blank lines
     #[bpaf(short('b'), long, hide_usage)]
     pub keep_blank: bool,
-
-    /// Demangle symbols
-    #[bpaf(external)]
-    pub demangle: Demangle,
 }
 
 #[derive(Debug, Clone, Bpaf, Eq, PartialEq)]
@@ -253,14 +248,18 @@ pub enum RedundantLabels {
 }
 
 #[derive(Debug, Copy, Clone, Bpaf, Eq, PartialEq)]
-#[bpaf(fallback(Demangle::Yes))]
-pub enum Demangle {
+#[bpaf(fallback(NameDisplay::Short))]
+pub enum NameDisplay {
+    #[bpaf(long("full-name"))]
+    /// Include full demangled name instead of just prefix
+    Full,
+
+    /// Include demangled names without hash suffix (default)
+    Short,
+
     /// Do not demangle symbol names
     #[bpaf(long("keep-mangled"))]
-    No,
-    /// Demangle symbol names (default)
-    #[bpaf(long("demangle"))]
-    Yes,
+    Mangled,
 }
 
 #[derive(Debug, Clone, Bpaf, Eq, PartialEq, Copy)]
