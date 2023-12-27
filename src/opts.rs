@@ -255,6 +255,7 @@ pub enum NameDisplay {
     Full,
 
     /// Include demangled names without hash suffix (default)
+    #[bpaf(long("short-name"))]
     Short,
 
     /// Do not demangle symbol names
