@@ -30,7 +30,7 @@ $ cargo install cargo-show-asm
 
 Show the code rustc generates for any function
 
-**Usage**: **`cargo asm`** \[**`-p`**=_`SPEC`_\] \[_`ARTIFACT`_\] \[**`-M`**=_`ARG`_\]... \[_`TARGET-CPU`_\] \[**`--rust`**\] \[**`--simplify`**\] \[**`--keep-mangled`** | **`--demangle`**\] \[_`OUTPUT-FORMAT`_\] \[**`--everything`** | _`FUNCTION`_ \[_`INDEX`_\]\]
+**Usage**: **`cargo asm`** \[**`-p`**=_`SPEC`_\] \[_`ARTIFACT`_\] \[**`-M`**=_`ARG`_\]... \[_`TARGET-CPU`_\] \[**`--rust`**\] \[**`--simplify`**\] \[_`OUTPUT-FORMAT`_\] \[**`--everything`** | _`FUNCTION`_ \[_`INDEX`_\]\]
 
  Usage:
  1. Focus on a single assembly producing target:
@@ -115,6 +115,10 @@ Show the code rustc generates for any function
   Disable color highlighting
 - **`    --full-name`** &mdash; 
   Include full demangled name instead of just prefix
+- **`    --short`** &mdash; 
+  Include demangled names without hash suffix (default)
+- **`    --keep-mangled`** &mdash; 
+  Do not demangle symbol names
 - **`-K`**, **`--keep-labels`** &mdash; 
   Keep all the original labels
 - **`-B`**, **`--keep-blanks`** &mdash; 
@@ -127,10 +131,6 @@ Show the code rustc generates for any function
   Try to strip some of the non-assembly instruction information
 - **`-b`**, **`--keep-blank`** &mdash; 
   Keep blank lines
-- **`    --keep-mangled`** &mdash; 
-  Do not demangle symbol names
-- **`    --demangle`** &mdash; 
-  Demangle symbol names (default)
 
 
 
