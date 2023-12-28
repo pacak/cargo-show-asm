@@ -115,6 +115,10 @@ Show the code rustc generates for any function
   Disable color highlighting
 - **`    --full-name`** &mdash; 
   Include full demangled name instead of just prefix
+- **`    --short-name`** &mdash; 
+  Include demangled names without hash suffix (default)
+- **`    --keep-mangled`** &mdash; 
+  Do not demangle symbol names
 - **`-K`**, **`--keep-labels`** &mdash; 
   Keep all the original labels
 - **`-B`**, **`--keep-blanks`** &mdash; 

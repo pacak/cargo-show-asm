@@ -8,7 +8,7 @@ use crate::{
     color,
     demangle::{self, contents},
     get_dump_range,
-    opts::{Format, ToDump},
+    opts::{Format, NameDisplay, ToDump},
     safeprintln, Item,
 };
 use std::{
@@ -39,20 +39,22 @@ fn find_items(lines: &CachedLines) -> BTreeMap<Item, Range<usize>> {
             continue;
         } else if let (true, Some(name)) = (current_item.is_none(), line.strip_prefix("; ")) {
             current_item = Some(Item {
+                mangled_name: name.to_owned(),
                 name: name.to_owned(),
                 hashed: String::new(),
                 index: res.len(),
                 len: ix,
             });
         } else if line.starts_with("define ") {
-            if let (Some(cur), Some(hashed)) = (
+            if let (Some(cur), Some((mangled_name, hashed))) = (
                 &mut current_item,
                 regex
                     .captures(line)
                     .and_then(|c| c.get(1))
                     .map(|c| c.as_str())
-                    .and_then(demangle::demangled),
+                    .and_then(|c| Some((c.to_owned(), demangle::demangled(c)?))),
             ) {
+                cur.mangled_name = mangled_name;
                 cur.hashed = format!("{hashed:?}");
             }
         } else if line == "}" {
@@ -88,7 +90,7 @@ fn dump_range(fmt: &Format, strings: &[&str]) {
         if line.starts_with("; ") {
             safeprintln!("{}", color!(line, OwoColorize::bright_black));
         } else {
-            let line = demangle::contents(line, fmt.full_name);
+            let line = demangle::contents(line, fmt.name_display == NameDisplay::Full);
             safeprintln!("{line}");
         }
     }
@@ -142,11 +144,11 @@ pub fn collect_or_dump(
                 if line.starts_with("define ") {
                     state = State::Define;
 
-                    if let Some(hashed) = regex
+                    if let Some((mangled_name, hashed)) = regex
                         .captures(&line)
                         .and_then(|c| c.get(1))
                         .map(|c| c.as_str())
-                        .and_then(demangle::demangled)
+                        .and_then(|c| Some((c.to_owned(), demangle::demangled(c)?)))
                     {
                         let hashed = format!("{hashed:?}");
                         let name_entry = names.entry(name.clone()).or_insert(0);
@@ -155,6 +157,7 @@ pub fn collect_or_dump(
                         });
 
                         current_item = Some(Item {
+                            mangled_name,
                             name: name.clone(),
                             hashed,
                             index: *name_entry,
@@ -165,7 +168,10 @@ pub fn collect_or_dump(
                         if seen {
                             safeprintln!("{}", color!(name, OwoColorize::cyan));
                             safeprintln!("{}", color!(attrs, OwoColorize::cyan));
-                            safeprintln!("{}", contents(&line, fmt.full_name));
+                            safeprintln!(
+                                "{}",
+                                contents(&line, fmt.name_display == NameDisplay::Full)
+                            );
                         }
                     } else {
                         state = State::Skipping;
@@ -176,7 +182,7 @@ pub fn collect_or_dump(
             }
             State::Define => {
                 if seen {
-                    safeprintln!("{}", contents(&line, fmt.full_name));
+                    safeprintln!("{}", contents(&line, fmt.name_display == NameDisplay::Full));
                 }
                 if line == "}" {
                     if let Some(mut cur) = current_item.take() {

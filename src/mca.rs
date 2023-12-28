@@ -6,7 +6,7 @@ use std::{
 
 use crate::{
     demangle, esafeprintln, get_dump_range,
-    opts::{Format, ToDump},
+    opts::{Format, NameDisplay, ToDump},
     safeprintln,
 };
 
@@ -87,7 +87,7 @@ pub fn dump_function(
 
     for line in BufRead::lines(BufReader::new(o)) {
         let line = line?;
-        let line = demangle::contents(&line, fmt.full_name);
+        let line = demangle::contents(&line, fmt.name_display == NameDisplay::Full);
         safeprintln!("{line}");
     }
 

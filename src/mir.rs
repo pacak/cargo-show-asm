@@ -38,6 +38,7 @@ fn find_items(lines: &CachedLines) -> BTreeMap<Item, Range<usize>> {
                 break;
             }
             current_item = Some(Item {
+                mangled_name: name.to_owned(),
                 name: name.to_owned(),
                 hashed: name.to_owned(),
                 index: res.len(),
