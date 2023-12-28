@@ -4,7 +4,7 @@ use crate::cached_lines::CachedLines;
 use crate::demangle::LabelKind;
 use crate::{color, demangle, esafeprintln, get_dump_range, safeprintln, Item};
 // TODO, use https://sourceware.org/binutils/docs/as/index.html
-use crate::opts::{Format, RedundantLabels, ToDump};
+use crate::opts::{Format, NameDisplay, RedundantLabels, ToDump};
 
 mod statements;
 
@@ -275,9 +275,9 @@ pub fn dump_range(
 
             empty_line = false;
             match fmt.name_display {
-                crate::opts::NameDisplay::Full => safeprintln!("{line:#}"),
-                crate::opts::NameDisplay::Short => safeprintln!("{line}"),
-                crate::opts::NameDisplay::Mangled => safeprintln!("{line:-}"),
+                NameDisplay::Full => safeprintln!("{line:#}"),
+                NameDisplay::Short => safeprintln!("{line}"),
+                NameDisplay::Mangled => safeprintln!("{line:-}"),
             }
         }
     }

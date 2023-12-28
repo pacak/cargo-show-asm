@@ -1,5 +1,10 @@
 # Change Log
 
+## [0.2.24] - 2023-12-28
+- add an option to keep mangled name, thanks to @osiewicz
+- add syntax highlight for mangled names
+- bump dependencies
+
 ## [0.2.23] - 2023-11-26
 - Add an option to strip blank lines and make it default, original behavior is accessible
   with `-B` option

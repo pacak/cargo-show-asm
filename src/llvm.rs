@@ -8,7 +8,7 @@ use crate::{
     color,
     demangle::{self, contents},
     get_dump_range,
-    opts::{Format, NameDisplay, ToDump},
+    opts::{Format, ToDump},
     safeprintln, Item,
 };
 use std::{
@@ -90,7 +90,7 @@ fn dump_range(fmt: &Format, strings: &[&str]) {
         if line.starts_with("; ") {
             safeprintln!("{}", color!(line, OwoColorize::bright_black));
         } else {
-            let line = demangle::contents(line, fmt.name_display == NameDisplay::Full);
+            let line = demangle::contents(line, fmt.name_display);
             safeprintln!("{line}");
         }
     }
@@ -168,10 +168,7 @@ pub fn collect_or_dump(
                         if seen {
                             safeprintln!("{}", color!(name, OwoColorize::cyan));
                             safeprintln!("{}", color!(attrs, OwoColorize::cyan));
-                            safeprintln!(
-                                "{}",
-                                contents(&line, fmt.name_display == NameDisplay::Full)
-                            );
+                            safeprintln!("{}", contents(&line, fmt.name_display));
                         }
                     } else {
                         state = State::Skipping;
@@ -182,7 +179,7 @@ pub fn collect_or_dump(
             }
             State::Define => {
                 if seen {
-                    safeprintln!("{}", contents(&line, fmt.name_display == NameDisplay::Full));
+                    safeprintln!("{}", contents(&line, fmt.name_display));
                 }
                 if line == "}" {
                     if let Some(mut cur) = current_item.take() {

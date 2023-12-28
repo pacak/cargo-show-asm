@@ -1,4 +1,4 @@
-use crate::color;
+use crate::{color, opts::NameDisplay};
 use once_cell::sync::Lazy;
 use owo_colors::OwoColorize;
 use regex::{Regex, RegexSet, Replacer};
@@ -102,16 +102,22 @@ pub fn color_comment(input: &str) -> Cow<'_, str> {
 }
 
 struct Demangler {
-    full_name: bool,
+    display: NameDisplay,
 }
 impl Replacer for Demangler {
     fn replace_append(&mut self, cap: &regex::Captures<'_>, dst: &mut std::string::String) {
         if let Ok(dem) = rustc_demangle::try_demangle(&cap[1]) {
             use std::fmt::Write;
-            if self.full_name {
-                write!(dst, "{:?}", color!(dem, OwoColorize::green)).unwrap();
-            } else {
-                write!(dst, "{:#?}", color!(dem, OwoColorize::green)).unwrap();
+            match self.display {
+                NameDisplay::Full => {
+                    write!(dst, "{:?}", color!(dem, OwoColorize::green)).unwrap();
+                }
+                NameDisplay::Short => {
+                    write!(dst, "{:#?}", color!(dem, OwoColorize::green)).unwrap();
+                }
+                NameDisplay::Mangled => {
+                    write!(dst, "{}", color!(&cap[1], OwoColorize::green)).unwrap();
+                }
             }
         } else {
             dst.push_str(&cap[0]);
@@ -120,13 +126,15 @@ impl Replacer for Demangler {
 }
 
 #[must_use]
-pub fn contents(input: &str, full_name: bool) -> Cow<'_, str> {
-    GLOBAL_LABELS.replace_all(input, Demangler { full_name })
+pub fn contents(input: &str, display: NameDisplay) -> Cow<'_, str> {
+    GLOBAL_LABELS.replace_all(input, Demangler { display })
 }
 
 #[cfg(test)]
 mod test {
     use owo_colors::set_override;
+
+    use crate::opts::NameDisplay;
 
     use super::{contents, name};
     const MAC: &str =
@@ -147,9 +155,19 @@ mod test {
     }
 
     #[test]
+    fn linux_no_demangle_call() {
+        set_override(true);
+        let x = contents(CALL_L, NameDisplay::Mangled);
+        assert_eq!(
+            "[rip + \u{1b}[32m_ZN58_$LT$nom..error..ErrorKind$u20$as$u20$core..fmt..Debug$GT$3fmt17hb98704099c11c31fE\u{1b}[39m]",
+            x
+        );
+    }
+
+    #[test]
     fn linux_demangle_call() {
         set_override(true);
-        let x = contents(CALL_L, false);
+        let x = contents(CALL_L, NameDisplay::Short);
         assert_eq!(
             "[rip + \u{1b}[32m<nom::error::ErrorKind as core::fmt::Debug>::fmt\u{1b}[39m]",
             x
@@ -159,7 +177,7 @@ mod test {
     #[test]
     fn mac_demangle_call() {
         set_override(true);
-        let x = contents(CALL_M, false);
+        let x = contents(CALL_M, NameDisplay::Short);
         assert_eq!(
             "[rip + \u{1b}[32m<nom::error::ErrorKind as core::fmt::Debug>::fmt\u{1b}[39m]",
             x
@@ -169,7 +187,7 @@ mod test {
     #[test]
     fn mac_demangle_call2() {
         set_override(true);
-        let x = contents(CALL_M, true);
+        let x = contents(CALL_M, NameDisplay::Full);
         assert_eq!(
             "[rip + \u{1b}[32m<nom::error::ErrorKind as core::fmt::Debug>::fmt::hb98704099c11c31f\u{1b}[39m]",
             x
