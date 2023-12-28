@@ -274,10 +274,10 @@ pub fn dump_range(
             }
 
             empty_line = false;
-            #[allow(clippy::match_bool)]
             match fmt.name_display {
                 crate::opts::NameDisplay::Full => safeprintln!("{line:#}"),
-                _ => safeprintln!("{line}"),
+                crate::opts::NameDisplay::Short => safeprintln!("{line}"),
+                crate::opts::NameDisplay::Mangled => safeprintln!("{line:-}"),
             }
         }
     }

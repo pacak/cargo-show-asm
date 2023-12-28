@@ -57,7 +57,12 @@ impl std::fmt::Display for Instruction<'_> {
             write!(f, "{}", color!(self.op, OwoColorize::bright_blue))?;
         }
         if let Some(args) = self.args {
-            let args = demangle::contents(args, f.alternate());
+            let args = if f.sign_minus() {
+                // Do not demangle
+                Cow::from(args)
+            } else {
+                demangle::contents(args, f.alternate())
+            };
             let w_label = demangle::color_local_labels(&args);
             let w_comment = demangle::color_comment(&w_label);
             write!(f, " {w_comment}")?;
@@ -78,7 +83,9 @@ impl std::fmt::Display for Statement<'_> {
                 }
             }
             Statement::Instruction(i) => {
-                if f.alternate() {
+                if f.sign_minus() {
+                    write!(f, "\t{i:-#}")
+                } else if f.alternate() {
                     write!(f, "\t{i:#}")
                 } else {
                     write!(f, "\t{i}")
