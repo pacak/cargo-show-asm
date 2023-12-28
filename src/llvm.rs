@@ -31,7 +31,7 @@ enum State {
 fn find_items(lines: &CachedLines) -> BTreeMap<Item, Range<usize>> {
     struct ItemParseState {
         item: Item,
-        range: Range<usize>,
+        start: usize,
     }
     let mut res = BTreeMap::new();
     let mut current_item = None::<ItemParseState>;
@@ -49,8 +49,9 @@ fn find_items(lines: &CachedLines) -> BTreeMap<Item, Range<usize>> {
                     hashed: String::new(),
                     index: res.len(),
                     len: 0,
+                    non_blank_len: 0,
                 },
-                range: ix..ix + 1,
+                start: ix,
             });
         } else if line.starts_with("define ") {
             if let (Some(cur), Some((mangled_name, hashed))) = (
@@ -66,13 +67,14 @@ fn find_items(lines: &CachedLines) -> BTreeMap<Item, Range<usize>> {
             }
         } else if line.starts_with("  ") && !line.starts_with("   ") {
             if let Some(cur) = &mut current_item {
-                cur.item.len += 1;
+                cur.item.non_blank_len += 1;
             }
         } else if line == "}" {
-            if let Some(cur) = current_item.take() {
+            if let Some(mut cur) = current_item.take() {
                 // go home clippy, you're drunk
                 #[allow(clippy::range_plus_one)]
-                let range = cur.range.start..ix + 1;
+                let range = cur.start..ix + 1;
+                cur.item.len = range.len();
                 res.insert(cur.item, range);
             }
         }
@@ -172,6 +174,7 @@ pub fn collect_or_dump(
                             hashed,
                             index: *name_entry,
                             len: ix,
+                            non_blank_len: 0,
                         });
                         *name_entry += 1;
 
@@ -194,6 +197,7 @@ pub fn collect_or_dump(
                 if line == "}" {
                     if let Some(mut cur) = current_item.take() {
                         cur.len = ix - cur.len;
+                        cur.non_blank_len = cur.len;
                         if goal.map_or(true, |goal| goal.0.is_empty() || cur.name.contains(goal.0))
                         {
                             items.push(cur);
