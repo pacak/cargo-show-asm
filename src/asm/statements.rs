@@ -12,6 +12,7 @@ use nom::{AsChar, IResult};
 use owo_colors::OwoColorize;
 
 use crate::demangle::LabelKind;
+use crate::opts::NameDisplay;
 use crate::{color, demangle};
 
 #[derive(Clone, Debug)]
@@ -51,18 +52,14 @@ impl<'a> Instruction<'a> {
 
 impl std::fmt::Display for Instruction<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let display = NameDisplay::from(&*f);
         if self.op.starts_with("#DEBUG_VALUE:") {
             write!(f, "{}", color!(self.op, OwoColorize::blue))?;
         } else {
             write!(f, "{}", color!(self.op, OwoColorize::bright_blue))?;
         }
         if let Some(args) = self.args {
-            let args = if f.sign_minus() {
-                // Do not demangle
-                Cow::from(args)
-            } else {
-                demangle::contents(args, f.alternate())
-            };
+            let args = demangle::contents(args, display);
             let w_label = demangle::color_local_labels(&args);
             let w_comment = demangle::color_comment(&w_label);
             write!(f, " {w_comment}")?;
@@ -99,6 +96,7 @@ impl std::fmt::Display for Statement<'_> {
 
 impl std::fmt::Display for Directive<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let display = NameDisplay::from(&*f);
         match self {
             Directive::File(ff) => ff.fmt(f),
             Directive::Loc(l) => l.fmt(f),
@@ -107,7 +105,7 @@ impl std::fmt::Display for Directive<'_> {
                 f.write_str(&format!(".set {}", color!(g, OwoColorize::bright_black)))
             }
             Directive::SectionStart(s) => {
-                let dem = demangle::contents(s, f.alternate());
+                let dem = demangle::contents(s, display);
                 f.write_str(&format!(
                     "{} {}",
                     color!(".section", OwoColorize::bright_black),
@@ -140,11 +138,12 @@ impl std::fmt::Display for File<'_> {
 
 impl std::fmt::Display for GenericDirective<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let display = NameDisplay::from(&*f);
         write!(
             f,
             "\t.{}",
             color!(
-                demangle::contents(self.0, f.alternate()),
+                demangle::contents(self.0, display),
                 OwoColorize::bright_black
             )
         )
@@ -172,13 +171,26 @@ impl std::fmt::Display for Loc<'_> {
     }
 }
 
+impl From<&std::fmt::Formatter<'_>> for NameDisplay {
+    fn from(f: &std::fmt::Formatter) -> Self {
+        if f.sign_minus() {
+            NameDisplay::Mangled
+        } else if f.alternate() {
+            NameDisplay::Full
+        } else {
+            NameDisplay::Short
+        }
+    }
+}
+
 impl std::fmt::Display for Label<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let display = NameDisplay::from(&*f);
         write!(
             f,
             "{}:",
             color!(
-                demangle::contents(self.id, f.alternate()),
+                demangle::contents(self.id, display),
                 OwoColorize::bright_black
             )
         )
