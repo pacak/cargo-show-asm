@@ -74,7 +74,7 @@ pub struct Item {
     pub hashed: String,
     /// sequential number of demangled name
     pub index: usize,
-    /// number of lines
+    /// number of non-blank lines
     pub len: usize,
 }
 
