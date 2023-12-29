@@ -29,8 +29,12 @@ enum State {
 }
 
 fn find_items(lines: &CachedLines) -> BTreeMap<Item, Range<usize>> {
+    struct ItemParseState {
+        item: Item,
+        start: usize,
+    }
     let mut res = BTreeMap::new();
-    let mut current_item = None::<Item>;
+    let mut current_item = None::<ItemParseState>;
     let regex = Regex::new("@\"?(_?_[a-zA-Z0-9_$.]+)\"?\\(").expect("regexp should be valid");
 
     for (ix, line) in lines.iter().enumerate() {
@@ -38,12 +42,16 @@ fn find_items(lines: &CachedLines) -> BTreeMap<Item, Range<usize>> {
             #[allow(clippy::needless_continue)] // silly clippy, readability suffers otherwise
             continue;
         } else if let (true, Some(name)) = (current_item.is_none(), line.strip_prefix("; ")) {
-            current_item = Some(Item {
-                mangled_name: name.to_owned(),
-                name: name.to_owned(),
-                hashed: String::new(),
-                index: res.len(),
-                len: ix,
+            current_item = Some(ItemParseState {
+                item: Item {
+                    mangled_name: name.to_owned(),
+                    name: name.to_owned(),
+                    hashed: String::new(),
+                    index: res.len(),
+                    len: 0,
+                    non_blank_len: 0,
+                },
+                start: ix,
             });
         } else if line.starts_with("define ") {
             if let (Some(cur), Some((mangled_name, hashed))) = (
@@ -54,22 +62,48 @@ fn find_items(lines: &CachedLines) -> BTreeMap<Item, Range<usize>> {
                     .map(|c| c.as_str())
                     .and_then(|c| Some((c.to_owned(), demangle::demangled(c)?))),
             ) {
-                cur.mangled_name = mangled_name;
-                cur.hashed = format!("{hashed:?}");
+                cur.item.mangled_name = mangled_name;
+                cur.item.hashed = format!("{hashed:?}");
+            }
+        } else if !line_is_blank(line) {
+            if let Some(cur) = &mut current_item {
+                cur.item.non_blank_len += 1;
             }
         } else if line == "}" {
             if let Some(mut cur) = current_item.take() {
                 // go home clippy, you're drunk
                 #[allow(clippy::range_plus_one)]
-                let range = cur.len..ix + 1;
-                cur.len = range.len();
-                res.insert(cur, range);
+                let range = cur.start..ix + 1;
+                cur.item.len = range.len();
+                res.insert(cur.item, range);
             }
         }
     }
     res
 }
 
+/// Returns true if the line should not be counted as meaningful for the function definition.
+///
+/// LLVM functions can contain whitespace-only lines or lines with labels/comments that are not codegened,
+/// thus counted towards function size.
+/// llvm-lines uses similar heuristic to drop lines from its counts.
+fn line_is_blank(line: &str) -> bool {
+    // Valid instructions have exactly two spaces as formatting.
+    // Notable exceptions include comments (lines starting with ';') and
+    // labels (lines starting with alphanumeric characters).
+    let is_comment_or_label = !line.starts_with("  ");
+    // That's not the end of story though. A line can have more than two spaces at the start of line,
+    // but in that case it is an extension of the instruction started at previous line.
+    // For example:
+    //  invoke void @_ZN4bpaf7literal17hd39eb03fefd4e354E(ptr sret(%"bpaf::params::ParseAny<()>") align 8 %_5, ptr align 1 %cmd.0, i64 %cmd.1)
+    //        to label %bb1 unwind label %cleanup, !dbg !4048
+    //
+    // First line is an instruction, so it should be counted towards function size.
+    // The second one is a part of the instruction started on the previous line, so we should not
+    // count that towards the function size.
+    let is_multiline_instruction_extension = line.starts_with("   ");
+    is_comment_or_label || is_multiline_instruction_extension
+}
 pub fn dump_function(goal: ToDump, path: &Path, fmt: &Format) -> anyhow::Result<()> {
     // For some reason llvm/rustc can produce non utf8 files...
     let payload = std::fs::read(path)?;
@@ -162,6 +196,7 @@ pub fn collect_or_dump(
                             hashed,
                             index: *name_entry,
                             len: ix,
+                            non_blank_len: 0,
                         });
                         *name_entry += 1;
 
@@ -184,6 +219,7 @@ pub fn collect_or_dump(
                 if line == "}" {
                     if let Some(mut cur) = current_item.take() {
                         cur.len = ix - cur.len;
+                        cur.non_blank_len = cur.len;
                         if goal.map_or(true, |goal| goal.0.is_empty() || cur.name.contains(goal.0))
                         {
                             items.push(cur);

@@ -76,6 +76,8 @@ pub struct Item {
     pub index: usize,
     /// number of lines
     pub len: usize,
+    /// number of non-blank lines
+    pub non_blank_len: usize,
 }
 
 pub fn suggest_name<'a>(
@@ -91,7 +93,9 @@ pub fn suggest_name<'a>(
             NameDisplay::Short => &item.name,
             NameDisplay::Mangled => &item.mangled_name,
         };
-        m.entry(entry).or_insert_with(Vec::new).push(item.len);
+        m.entry(entry)
+            .or_insert_with(Vec::new)
+            .push(item.non_blank_len);
         m
     });
 

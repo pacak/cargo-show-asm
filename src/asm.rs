@@ -74,6 +74,7 @@ pub fn find_items(lines: &[Statement]) -> BTreeMap<Item, Range<usize>> {
             let range = sec_start..sec_end;
             if let Some(mut item) = item.take() {
                 item.len = ix - item.len;
+                item.non_blank_len = item.len;
                 res.insert(item, range);
             }
         } else if let Statement::Label(label) = line {
@@ -87,6 +88,7 @@ pub fn find_items(lines: &[Statement]) -> BTreeMap<Item, Range<usize>> {
                     hashed,
                     index: *name_entry,
                     len: ix,
+                    non_blank_len: 0,
                 });
                 *name_entry += 1;
             } else if matches!(label.kind, LabelKind::Unknown | LabelKind::Global) {
@@ -162,6 +164,7 @@ fn get_item_in_section(
                 hashed: name,
                 index: 0, // Written later in find_items
                 len: ix,
+                non_blank_len: 0,
             });
         }
     }

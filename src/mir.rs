@@ -43,6 +43,7 @@ fn find_items(lines: &CachedLines) -> BTreeMap<Item, Range<usize>> {
                 hashed: name.to_owned(),
                 index: res.len(),
                 len: start,
+                non_blank_len: 0,
             });
         }
     }
