@@ -65,7 +65,7 @@ fn find_items(lines: &CachedLines) -> BTreeMap<Item, Range<usize>> {
                 cur.item.mangled_name = mangled_name;
                 cur.item.hashed = format!("{hashed:?}");
             }
-        } else if line.starts_with("  ") && !line.starts_with("   ") {
+        } else if !line_is_blank(line) {
             if let Some(cur) = &mut current_item {
                 cur.item.non_blank_len += 1;
             }
@@ -82,6 +82,28 @@ fn find_items(lines: &CachedLines) -> BTreeMap<Item, Range<usize>> {
     res
 }
 
+/// Returns true if the line should not be counted as meaningful for the function definition.
+///
+/// LLVM functions can contain whitespace-only lines or lines with labels/comments that are not codegened,
+/// thus counted towards function size.
+/// llvm-lines uses similar heuristic to drop lines from its counts.
+fn line_is_blank(line: &str) -> bool {
+    // Valid instructions have exactly two spaces as formatting.
+    // Notable exceptions include comments (lines starting with ';') and
+    // labels (lines starting with alphanumeric characters).
+    let is_comment_or_label = !line.starts_with("  ");
+    // That's not the end of story though. A line can have more than two spaces at the start of line,
+    // but in that case it is an extension of the instruction started at previous line.
+    // For example:
+    //  invoke void @_ZN4bpaf7literal17hd39eb03fefd4e354E(ptr sret(%"bpaf::params::ParseAny<()>") align 8 %_5, ptr align 1 %cmd.0, i64 %cmd.1)
+    //        to label %bb1 unwind label %cleanup, !dbg !4048
+    //
+    // First line is an instruction, so it should be counted towards function size.
+    // The second one is a part of the instruction started on the previous line, so we should not
+    // count that towards the function size.
+    let is_multiline_instruction_extension = line.starts_with("   ");
+    is_comment_or_label || is_multiline_instruction_extension
+}
 pub fn dump_function(goal: ToDump, path: &Path, fmt: &Format) -> anyhow::Result<()> {
     // For some reason llvm/rustc can produce non utf8 files...
     let payload = std::fs::read(path)?;
