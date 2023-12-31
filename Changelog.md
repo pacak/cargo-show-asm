@@ -1,5 +1,10 @@
 # Change Log
 
+## [0.2.25] - 2023-12-31
+- Improve accuracy of llvm lines, see https://github.com/pacak/cargo-show-asm/pull/229
+thanks to @osiewicz
+- fix CI
+
 ## [0.2.24] - 2023-12-28
 - add an option to keep mangled name, thanks to @osiewicz
 - add syntax highlight for mangled names
