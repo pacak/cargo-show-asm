@@ -81,7 +81,7 @@ struct LabelColorizer;
 impl Replacer for LabelColorizer {
     fn replace_append(&mut self, caps: &regex::Captures<'_>, dst: &mut String) {
         use std::fmt::Write;
-        write!(dst, "{}", color!(&caps[0], OwoColorize::bright_black)).unwrap();
+        write!(dst, "{}", color!(&caps[0], OwoColorize::bright_yellow)).unwrap();
     }
 }
 

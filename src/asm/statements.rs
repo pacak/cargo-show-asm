@@ -102,19 +102,19 @@ impl std::fmt::Display for Directive<'_> {
             Directive::Loc(l) => l.fmt(f),
             Directive::Generic(g) => g.fmt(f),
             Directive::Set(g) => {
-                f.write_str(&format!(".set {}", color!(g, OwoColorize::bright_black)))
+                f.write_str(&format!(".set {}", color!(g, OwoColorize::bright_cyan)))
             }
             Directive::SectionStart(s) => {
                 let dem = demangle::contents(s, display);
                 f.write_str(&format!(
                     "{} {}",
-                    color!(".section", OwoColorize::bright_black),
+                    color!(".section", OwoColorize::bright_red),
                     dem
                 ))
             }
             Directive::SubsectionsViaSym => f.write_str(&format!(
                 ".{}",
-                color!("subsections_via_symbols", OwoColorize::bright_black)
+                color!("subsections_via_symbols", OwoColorize::bright_red)
             )),
         }
     }
@@ -144,7 +144,7 @@ impl std::fmt::Display for GenericDirective<'_> {
             "\t.{}",
             color!(
                 demangle::contents(self.0, display),
-                OwoColorize::bright_black
+                OwoColorize::bright_magenta
             )
         )
     }
@@ -191,7 +191,7 @@ impl std::fmt::Display for Label<'_> {
             "{}:",
             color!(
                 demangle::contents(self.id, display),
-                OwoColorize::bright_black
+                OwoColorize::bright_yellow
             )
         )
     }

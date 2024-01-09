@@ -122,7 +122,7 @@ pub fn dump_function(goal: ToDump, path: &Path, fmt: &Format) -> anyhow::Result<
 fn dump_range(fmt: &Format, strings: &[&str]) {
     for line in strings {
         if line.starts_with("; ") {
-            safeprintln!("{}", color!(line, OwoColorize::bright_black));
+            safeprintln!("{}", color!(line, OwoColorize::bright_cyan));
         } else {
             let line = demangle::contents(line, fmt.name_display);
             safeprintln!("{line}");
