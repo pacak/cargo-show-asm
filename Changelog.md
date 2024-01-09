@@ -1,5 +1,10 @@
 # Change Log
 
+## [0.2.26] - 2024-01-09
+- avoid using hard to see colors
+thanks to @epontan
+- bump deps
+
 ## [0.2.25] - 2023-12-31
 - Improve accuracy of llvm lines, see https://github.com/pacak/cargo-show-asm/pull/229
 thanks to @osiewicz
