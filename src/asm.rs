@@ -300,6 +300,9 @@ pub fn dump_range(
 //    Some examples:
 //        /cargo/registry/src/github.com-1ecc6299db9ec823/hashbrown-0.12.3/src/raw/bitmask.rs
 //        /Users/runner/.cargo/registry/src/github.com-1ecc6299db9ec823/hashbrown-0.12.3/src/map.rs
+// 4. rustc sources:
+//    /rustc/89e2160c4ca5808657ed55392620ed1dbbce78d1/compiler/rustc_span/src/span_encoding.rs
+//    $sysroot/lib/rustlib/rust-src/rust/compiler/rustc_span/src/span_encoding.rs
 fn locate_sources(sysroot: &Path, path: &Path) -> Option<PathBuf> {
     // a real file that simply exists
     if path.exists() {
@@ -313,6 +316,20 @@ fn locate_sources(sysroot: &Path, path: &Path) -> Option<PathBuf> {
         );
         std::process::exit(1);
     };
+
+    // /rustc/89e2160c4ca5808657ed55392620ed1dbbce78d1/compiler/rustc_span/src/span_encoding.rs
+    if path.starts_with("/rustc") && path.iter().any(|c| c == "compiler") {
+        let mut source = sysroot.join("lib/rustlib/rustc-src/rust");
+        for part in path.components().skip(3) {
+            source.push(part);
+        }
+
+        if source.exists() {
+            return Some(source);
+        } else {
+            no_rust_src();
+        }
+    }
 
     // rust sources, Linux style
     if path.starts_with("/rustc/") {
