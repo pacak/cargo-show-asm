@@ -1,5 +1,8 @@
 # Change Log
 
+## [0.2.27] - 2024-01-14
+- look for rustc source code in the right place, see https://github.com/pacak/cargo-show-asm/issues/238
+
 ## [0.2.26] - 2024-01-09
 - avoid using hard to see colors
 thanks to @epontan
