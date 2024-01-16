@@ -208,7 +208,7 @@ pub fn dump_range(
     };
 
     let mut empty_line = false;
-    for line in stmts.iter() {
+    for line in stmts {
         if fmt.verbosity > 2 {
             safeprintln!("{line:?}");
         }

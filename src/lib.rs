@@ -86,18 +86,17 @@ pub fn suggest_name<'a>(
     items: impl IntoIterator<Item = &'a Item>,
 ) {
     let mut count = 0usize;
-    let names = items.into_iter().fold(BTreeMap::new(), |mut m, item| {
-        count += 1;
-        let entry = match name_display {
-            NameDisplay::Full => &item.hashed,
-            NameDisplay::Short => &item.name,
-            NameDisplay::Mangled => &item.mangled_name,
-        };
-        m.entry(entry)
-            .or_insert_with(Vec::new)
-            .push(item.non_blank_len);
-        m
-    });
+    let names: BTreeMap<&String, Vec<usize>> =
+        items.into_iter().fold(BTreeMap::new(), |mut m, item| {
+            count += 1;
+            let entry = match name_display {
+                NameDisplay::Full => &item.hashed,
+                NameDisplay::Short => &item.name,
+                NameDisplay::Mangled => &item.mangled_name,
+            };
+            m.entry(entry).or_default().push(item.non_blank_len);
+            m
+        });
 
     if names.is_empty() {
         if search.is_empty() {
@@ -169,7 +168,7 @@ pub fn get_dump_range(
 
             let range = if nth.is_none() && filtered.len() == 1 {
                 filtered
-                    .get(0)
+                    .first()
                     .expect("Must have one item as checked above")
                     .1
                     .clone()
