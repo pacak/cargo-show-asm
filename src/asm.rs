@@ -4,7 +4,7 @@ use crate::cached_lines::CachedLines;
 use crate::demangle::LabelKind;
 use crate::{color, demangle, esafeprintln, get_dump_range, safeprintln, Item};
 // TODO, use https://sourceware.org/binutils/docs/as/index.html
-use crate::opts::{Format, NameDisplay, RedundantLabels, ToDump};
+use crate::opts::{Format, NameDisplay, RedundantLabels, SourcesFrom, ToDump};
 
 mod statements;
 
@@ -14,6 +14,8 @@ use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
+
+type SourceFile<'a> = (Cow<'a, Path>, Option<(Source, CachedLines)>);
 
 pub fn parse_file(input: &str) -> anyhow::Result<Vec<Statement>> {
     // eat all statements until the eof, so we can report the proper errors on failed parse
@@ -193,7 +195,7 @@ fn used_labels<'a>(stmts: &'_ [Statement<'a>]) -> BTreeSet<&'a str> {
 }
 
 pub fn dump_range(
-    files: &BTreeMap<u64, (std::borrow::Cow<Path>, Option<CachedLines>)>,
+    files: &BTreeMap<u64, SourceFile>,
     fmt: &Format,
     stmts: &[Statement],
 ) -> anyhow::Result<()> {
@@ -206,7 +208,7 @@ pub fn dump_range(
     };
 
     let mut empty_line = false;
-    for line in stmts.iter() {
+    for line in stmts {
         if fmt.verbosity > 2 {
             safeprintln!("{line:?}");
         }
@@ -223,14 +225,16 @@ pub fn dump_range(
             }
             prev_loc = *loc;
             match files.get(&loc.file) {
-                Some((fname, Some(file))) => {
-                    let rust_line = &file[loc.line as usize - 1];
-                    let pos = format!("\t\t// {} : {}", fname.display(), loc.line);
-                    safeprintln!("{}", color!(pos, OwoColorize::cyan));
-                    safeprintln!(
-                        "\t\t{}",
-                        color!(rust_line.trim_start(), OwoColorize::bright_red)
-                    );
+                Some((fname, Some((source, file)))) => {
+                    if source.show_for(fmt.sources_from) {
+                        let rust_line = &file[loc.line as usize - 1];
+                        let pos = format!("\t\t// {} : {}", fname.display(), loc.line);
+                        safeprintln!("{}", color!(pos, OwoColorize::cyan));
+                        safeprintln!(
+                            "\t\t{}",
+                            color!(rust_line.trim_start(), OwoColorize::bright_red)
+                        );
+                    }
                 }
                 Some((fname, None)) => {
                     if fmt.verbosity > 0 {
@@ -287,6 +291,30 @@ pub fn dump_range(
     Ok(())
 }
 
+#[derive(Debug, Clone)]
+pub enum Source {
+    Crate,
+    External,
+    Stdlib,
+    Rustc,
+}
+
+impl Source {
+    fn show_for(&self, from: SourcesFrom) -> bool {
+        match self {
+            Source::Crate => true,
+            Source::External => match from {
+                SourcesFrom::ThisWorkspace => false,
+                SourcesFrom::AllCrates | SourcesFrom::AllSources => true,
+            },
+            Source::Rustc | Source::Stdlib => match from {
+                SourcesFrom::ThisWorkspace | SourcesFrom::AllCrates => false,
+                SourcesFrom::AllSources => true,
+            },
+        }
+    }
+}
+
 // DWARF information contains references to souce files
 // It can point to 3 different items:
 // 1. a real file, cargo-show-asm can just read it
@@ -303,10 +331,16 @@ pub fn dump_range(
 // 4. rustc sources:
 //    /rustc/89e2160c4ca5808657ed55392620ed1dbbce78d1/compiler/rustc_span/src/span_encoding.rs
 //    $sysroot/lib/rustlib/rust-src/rust/compiler/rustc_span/src/span_encoding.rs
-fn locate_sources(sysroot: &Path, path: &Path) -> Option<PathBuf> {
+fn locate_sources(sysroot: &Path, workspace: &Path, path: &Path) -> Option<(Source, PathBuf)> {
     // a real file that simply exists
     if path.exists() {
-        return Some(path.into());
+        let source = if path.starts_with(workspace) {
+            Source::Crate
+        } else {
+            Source::External
+        };
+
+        return Some((source, path.into()));
     }
 
     let no_rust_src = || {
@@ -325,7 +359,7 @@ fn locate_sources(sysroot: &Path, path: &Path) -> Option<PathBuf> {
         }
 
         if source.exists() {
-            return Some(source);
+            return Some((Source::Rustc, source));
         } else {
             no_rust_src();
         }
@@ -338,7 +372,7 @@ fn locate_sources(sysroot: &Path, path: &Path) -> Option<PathBuf> {
             source.push(part);
         }
         if source.exists() {
-            return Some(source);
+            return Some((Source::Stdlib, source));
         } else {
             no_rust_src();
         }
@@ -351,7 +385,7 @@ fn locate_sources(sysroot: &Path, path: &Path) -> Option<PathBuf> {
             source.push(part);
         }
         if source.exists() {
-            return Some(source);
+            return Some((Source::Stdlib, source));
         } else {
             no_rust_src();
         }
@@ -373,7 +407,7 @@ fn locate_sources(sysroot: &Path, path: &Path) -> Option<PathBuf> {
             source.push(part);
         }
         if source.exists() {
-            return Some(source);
+            return Some((Source::External, source));
         } else {
             panic!(
                 "{path:?} looks like it can be a cargo registry reference but we failed to get it"
@@ -386,9 +420,10 @@ fn locate_sources(sysroot: &Path, path: &Path) -> Option<PathBuf> {
 
 fn load_rust_sources<'a>(
     sysroot: &Path,
+    workspace: &Path,
     statements: &'a [Statement],
     fmt: &Format,
-    files: &mut BTreeMap<u64, (Cow<'a, Path>, Option<CachedLines>)>,
+    files: &mut BTreeMap<u64, SourceFile<'a>>,
 ) {
     for line in statements {
         if let Statement::Directive(Directive::File(f)) = line {
@@ -398,7 +433,7 @@ fn load_rust_sources<'a>(
                     safeprintln!("Reading file #{} {}", f.index, path.display());
                 }
 
-                if let Some(filepath) = locate_sources(sysroot, &path) {
+                if let Some((source, filepath)) = locate_sources(sysroot, workspace, &path) {
                     if fmt.verbosity > 2 {
                         safeprintln!("Resolved name is {filepath:?}");
                     }
@@ -411,7 +446,7 @@ fn load_rust_sources<'a>(
                             safeprintln!("Got {} bytes", sources.len());
                         }
                         let lines = CachedLines::without_ending(sources);
-                        (path, Some(lines))
+                        (path, Some((source, lines)))
                     }
                 } else {
                     if fmt.verbosity > 0 {
@@ -428,6 +463,7 @@ fn load_rust_sources<'a>(
 pub fn dump_function(
     goal: ToDump,
     path: &Path,
+    workspace: &Path,
     sysroot: &Path,
     fmt: &Format,
 ) -> anyhow::Result<()> {
@@ -448,7 +484,7 @@ pub fn dump_function(
 
     let mut files = BTreeMap::new();
     if fmt.rust {
-        load_rust_sources(sysroot, &statements, fmt, &mut files);
+        load_rust_sources(sysroot, workspace, &statements, fmt, &mut files);
     }
 
     if let Some(range) = get_dump_range(goal, fmt, functions) {

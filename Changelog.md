@@ -1,5 +1,14 @@
 # Change Log
 
+## [0.2.28] - 2024-01-17
+- Add a set of options to limit rust source code to workspace, regular crates or all available
+  code:
+
+        --this-workspace      Show rust sources from current workspace only
+        --all-crates          Show rust sources from current workspace and from rust registry
+        --all-sources         Show all the rust sources including stdlib and compiler
+
+
 ## [0.2.27] - 2024-01-14
 - look for rustc source code in the right place, see https://github.com/pacak/cargo-show-asm/issues/238
 

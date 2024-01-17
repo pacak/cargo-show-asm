@@ -234,9 +234,13 @@ fn main() -> anyhow::Result<()> {
     }
 
     match opts.syntax {
-        Syntax::Intel | Syntax::Att | Syntax::Wasm => {
-            asm::dump_function(opts.to_dump, &asm_path, &sysroot, &opts.format)
-        }
+        Syntax::Intel | Syntax::Att | Syntax::Wasm => asm::dump_function(
+            opts.to_dump,
+            &asm_path,
+            metadata.workspace_root.as_std_path(),
+            &sysroot,
+            &opts.format,
+        ),
         Syntax::McaAtt | Syntax::McaIntel => mca::dump_function(
             opts.to_dump,
             &asm_path,

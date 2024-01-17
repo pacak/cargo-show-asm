@@ -231,6 +231,20 @@ pub struct Format {
     /// Keep blank lines
     #[bpaf(short('b'), long, hide_usage)]
     pub keep_blank: bool,
+
+    #[bpaf(external)]
+    pub sources_from: SourcesFrom,
+}
+
+#[derive(Debug, Clone, Copy, Bpaf)]
+#[bpaf(fallback(SourcesFrom::AllSources))]
+pub enum SourcesFrom {
+    /// Show rust sources from current workspace only
+    ThisWorkspace,
+    /// Show rust sources from current workspace and from rust registry
+    AllCrates,
+    /// Show all the rust sources including stdlib and compiler
+    AllSources,
 }
 
 #[derive(Debug, Clone, Bpaf, Eq, PartialEq)]
