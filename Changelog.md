@@ -1,5 +1,9 @@
 # Change Log
 
+
+## [0.2.29] - 2024-01-23
+- fix function selection by index, see https://github.com/pacak/cargo-show-asm/issues/244
+
 ## [0.2.28] - 2024-01-17
 - Add a set of options to limit rust source code to workspace, regular crates or all available
   code:
