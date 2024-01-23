@@ -66,8 +66,8 @@ macro_rules! esafeprint {
 
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Item {
-    /// mangled name
-    pub mangled_name: String,
+    // name and hashed MUST be first two fields - they are
+    // used to produce correct Ord/PartialOrd
     /// demangled name
     pub name: String,
     /// demangled name with hash
@@ -78,6 +78,8 @@ pub struct Item {
     pub len: usize,
     /// number of non-blank lines
     pub non_blank_len: usize,
+    /// mangled name
+    pub mangled_name: String,
 }
 
 pub fn suggest_name<'a>(
