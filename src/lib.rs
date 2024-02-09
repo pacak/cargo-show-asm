@@ -1,6 +1,9 @@
 #![doc = include_str!("../README.md")]
 
-use std::{collections::BTreeMap, ops::Range};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    ops::Range,
+};
 
 use opts::{Format, NameDisplay, ToDump};
 pub mod asm;
@@ -198,4 +201,53 @@ pub fn get_dump_range(
             unreachable!("suggest_name exits");
         }
     }
+}
+
+trait RawLines {
+    fn lines(&self, range: Range<usize>) -> impl Iterator<Item = &str>;
+}
+
+impl RawLines for &[&str] {
+    fn lines(&self, range: Range<usize>) -> impl Iterator<Item = &str> {
+        self[range].iter().copied()
+    }
+}
+
+fn get_context_for<R: RawLines>(
+    depth: usize,
+    all_stmts: R,
+    self_range: Range<usize>,
+    items: &BTreeMap<Item, Range<usize>>,
+) -> Vec<Range<usize>> {
+    let mut out = Vec::new();
+    if depth == 0 {
+        return out;
+    }
+    let items = items
+        .iter()
+        .map(|(item, range)| (item.mangled_name.as_str(), range.clone()))
+        .collect::<BTreeMap<_, _>>();
+    let mut pending = vec![(self_range.clone(), depth)];
+    let mut processed = BTreeSet::new();
+    while let Some((range, depth)) = pending.pop() {
+        for raw in all_stmts
+            .lines(range)
+            .filter_map(demangle::global_reference)
+        {
+            if !processed.insert(raw) {
+                continue;
+            }
+            if let Some(range) = items.get(raw) {
+                if range == &self_range {
+                    continue;
+                }
+                if depth > 0 {
+                    pending.push((range.clone(), depth - 1));
+                }
+                out.push(range.clone());
+            }
+        }
+    }
+    out.sort_by_key(|r| r.start);
+    out
 }

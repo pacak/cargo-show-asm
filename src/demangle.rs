@@ -130,6 +130,11 @@ pub fn contents(input: &str, display: NameDisplay) -> Cow<'_, str> {
     GLOBAL_LABELS.replace_all(input, Demangler { display })
 }
 
+#[must_use]
+pub fn global_reference(input: &str) -> Option<&str> {
+    GLOBAL_LABELS.find(input).map(|m| m.as_str())
+}
+
 #[cfg(test)]
 mod test {
     use owo_colors::set_override;
