@@ -1,3 +1,5 @@
+#![allow(clippy::disallowed_macros)]
+
 use rand_core::block::{BlockRng, BlockRngCore};
 use rand_core::{RngCore, SeedableRng};
 
