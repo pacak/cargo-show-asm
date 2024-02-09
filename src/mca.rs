@@ -34,7 +34,7 @@ pub fn dump_function(
 
     let lines = contents.lines().collect::<Vec<_>>();
 
-    let lines = if let Some(range) = get_dump_range(goal, fmt, functions) {
+    let lines = if let Some(range) = get_dump_range(goal, fmt, &functions) {
         &lines[range]
     } else {
         if fmt.verbosity > 0 {

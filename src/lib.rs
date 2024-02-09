@@ -135,15 +135,15 @@ pub fn suggest_name<'a>(
 pub fn get_dump_range(
     goal: ToDump,
     fmt: &Format,
-    items: BTreeMap<Item, Range<usize>>,
+    items: &BTreeMap<Item, Range<usize>>,
 ) -> Option<Range<usize>> {
     if items.len() == 1 {
         return Some(
             items
-                .into_iter()
+                .values()
                 .next()
-                .expect("We just checked there's one item present")
-                .1,
+                .cloned()
+                .expect("We just checked there's one item present"),
         );
     }
     match goal {
@@ -193,8 +193,8 @@ pub fn get_dump_range(
 
         // Unspecified, so print suggestions and exit
         ToDump::Unspecified => {
-            let items = items.into_keys().collect::<Vec<_>>();
-            suggest_name("", &fmt.name_display, &items);
+            let items = items.keys();
+            suggest_name("", &fmt.name_display, items);
             unreachable!("suggest_name exits");
         }
     }

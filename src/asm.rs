@@ -487,7 +487,7 @@ pub fn dump_function(
         load_rust_sources(sysroot, workspace, &statements, fmt, &mut files);
     }
 
-    if let Some(range) = get_dump_range(goal, fmt, functions) {
+    if let Some(range) = get_dump_range(goal, fmt, &functions) {
         dump_range(&files, fmt, &statements[range])?;
     } else {
         if fmt.verbosity > 0 {
