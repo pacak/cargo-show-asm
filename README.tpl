@@ -83,6 +83,13 @@ generic parameters and if it is exported (in case of a library) and not inlined 
 binary, example, test, etc). If your function takes a generic parameter - try making a monomorphic
 wrapper around it and make it `pub` and `#[inline(never)]`.
 
+# Include related functions?
+
+So suppose you have a function `foo` that calls some other function - `bar`. With `--context N`
+or it's short variant `-c N` you can ask cargo-show-asm to include body of bar to the input.
+This is done recursively up to N steps. See https://github.com/pacak/cargo-show-asm/issues/247
+
+
 # What about `cargo-asm`?
 
 `cargo-asm` is not maintained: <https://github.com/gnzlbg/cargo-asm/issues/244>. This crate is a reimplementation which addresses a number of its shortcomings, including:

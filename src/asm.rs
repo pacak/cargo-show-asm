@@ -2,7 +2,9 @@
 use crate::asm::statements::{GenericDirective, Label};
 use crate::cached_lines::CachedLines;
 use crate::demangle::LabelKind;
-use crate::{color, demangle, esafeprintln, get_dump_range, safeprintln, Item};
+use crate::{
+    color, demangle, esafeprintln, get_context_for, get_dump_range, safeprintln, Item, RawLines,
+};
 // TODO, use https://sourceware.org/binutils/docs/as/index.html
 use crate::opts::{Format, NameDisplay, RedundantLabels, SourcesFrom, ToDump};
 
@@ -459,6 +461,15 @@ fn load_rust_sources<'a>(
     }
 }
 
+impl RawLines for &[Statement<'_>] {
+    fn lines(&self, range: Range<usize>) -> impl Iterator<Item = &str> {
+        self[range].iter().flat_map(|s| match s {
+            Statement::Instruction(i) => i.args,
+            _ => None,
+        })
+    }
+}
+
 /// try to print `goal` from `path`, collect available items otherwise
 pub fn dump_function(
     goal: ToDump,
@@ -487,8 +498,18 @@ pub fn dump_function(
         load_rust_sources(sysroot, workspace, &statements, fmt, &mut files);
     }
 
-    if let Some(range) = get_dump_range(goal, fmt, functions) {
+    if let Some(range) = get_dump_range(goal, fmt, &functions) {
+        let context = get_context_for(fmt.context, &statements[..], range.clone(), &functions);
         dump_range(&files, fmt, &statements[range])?;
+        if !context.is_empty() {
+            safeprintln!(
+                "\n\n======================= Additional context ========================="
+            );
+            for range in context {
+                safeprintln!("\n");
+                dump_range(&files, fmt, &statements[range])?;
+            }
+        }
     } else {
         if fmt.verbosity > 0 {
             safeprintln!("Going to print the whole file");

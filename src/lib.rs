@@ -1,6 +1,9 @@
 #![doc = include_str!("../README.md")]
 
-use std::{collections::BTreeMap, ops::Range};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    ops::Range,
+};
 
 use opts::{Format, NameDisplay, ToDump};
 pub mod asm;
@@ -135,15 +138,15 @@ pub fn suggest_name<'a>(
 pub fn get_dump_range(
     goal: ToDump,
     fmt: &Format,
-    items: BTreeMap<Item, Range<usize>>,
+    items: &BTreeMap<Item, Range<usize>>,
 ) -> Option<Range<usize>> {
     if items.len() == 1 {
         return Some(
             items
-                .into_iter()
+                .values()
                 .next()
-                .expect("We just checked there's one item present")
-                .1,
+                .cloned()
+                .expect("We just checked there's one item present"),
         );
     }
     match goal {
@@ -193,9 +196,58 @@ pub fn get_dump_range(
 
         // Unspecified, so print suggestions and exit
         ToDump::Unspecified => {
-            let items = items.into_keys().collect::<Vec<_>>();
-            suggest_name("", &fmt.name_display, &items);
+            let items = items.keys();
+            suggest_name("", &fmt.name_display, items);
             unreachable!("suggest_name exits");
         }
     }
+}
+
+trait RawLines {
+    fn lines(&self, range: Range<usize>) -> impl Iterator<Item = &str>;
+}
+
+impl RawLines for &[&str] {
+    fn lines(&self, range: Range<usize>) -> impl Iterator<Item = &str> {
+        self[range].iter().copied()
+    }
+}
+
+fn get_context_for<R: RawLines>(
+    depth: usize,
+    all_stmts: R,
+    self_range: Range<usize>,
+    items: &BTreeMap<Item, Range<usize>>,
+) -> Vec<Range<usize>> {
+    let mut out = Vec::new();
+    if depth == 0 {
+        return out;
+    }
+    let items = items
+        .iter()
+        .map(|(item, range)| (item.mangled_name.as_str(), range.clone()))
+        .collect::<BTreeMap<_, _>>();
+    let mut pending = vec![(self_range.clone(), depth)];
+    let mut processed = BTreeSet::new();
+    while let Some((range, depth)) = pending.pop() {
+        for raw in all_stmts
+            .lines(range)
+            .filter_map(demangle::global_reference)
+        {
+            if !processed.insert(raw) {
+                continue;
+            }
+            if let Some(range) = items.get(raw) {
+                if range == &self_range {
+                    continue;
+                }
+                if depth > 0 {
+                    pending.push((range.clone(), depth - 1));
+                }
+                out.push(range.clone());
+            }
+        }
+    }
+    out.sort_by_key(|r| r.start);
+    out
 }

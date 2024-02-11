@@ -30,7 +30,7 @@ $ cargo install cargo-show-asm
 
 Show the code rustc generates for any function
 
-**Usage**: **`cargo asm`** \[**`-p`**=_`SPEC`_\] \[_`ARTIFACT`_\] \[**`-M`**=_`ARG`_\]... \[_`TARGET-CPU`_\] \[**`--rust`**\] \[**`--simplify`**\] \[**`--this-workspace`** | **`--all-crates`** | **`--all-sources`**\] \[_`OUTPUT-FORMAT`_\] \[**`--everything`** | _`FUNCTION`_ \[_`INDEX`_\]\]
+**Usage**: **`cargo asm`** \[**`-p`**=_`SPEC`_\] \[_`ARTIFACT`_\] \[**`-M`**=_`ARG`_\]... \[_`TARGET-CPU`_\] \[**`--rust`**\] \[**`-c`**=_`COUNT`_\] \[**`--simplify`**\] \[**`--this-workspace`** | **`--all-crates`** | **`--all-sources`**\] \[_`OUTPUT-FORMAT`_\] \[**`--everything`** | _`FUNCTION`_ \[_`INDEX`_\]\]
 
  Usage:
  1. Focus on a single assembly producing target:
@@ -109,6 +109,10 @@ Show the code rustc generates for any function
 **Postprocessing options:**
 - **`    --rust`** &mdash; 
   Print interleaved Rust code
+- **`-c`**, **`--context`**=_`COUNT`_ &mdash; 
+  Include other called functions, recursively, up to COUNT depth
+   
+  [default: 0]
 - **`    --color`** &mdash; 
   Enable color highlighting
 - **`    --no-color`** &mdash; 
@@ -243,6 +247,13 @@ $ cargo asm --lib Debug
 generic parameters and if it is exported (in case of a library) and not inlined (in case of a
 binary, example, test, etc). If your function takes a generic parameter - try making a monomorphic
 wrapper around it and make it `pub` and `#[inline(never)]`.
+
+# Include related functions?
+
+So suppose you have a function `foo` that calls some other function - `bar`. With `--context N`
+or it's short variant `-c N` you can ask cargo-show-asm to include body of bar to the input.
+This is done recursively up to N steps. See https://github.com/pacak/cargo-show-asm/issues/247
+
 
 # What about `cargo-asm`?
 

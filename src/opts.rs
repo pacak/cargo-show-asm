@@ -212,6 +212,10 @@ pub struct Format {
     /// Print interleaved Rust code
     pub rust: bool,
 
+    /// Include other called functions, recursively, up to COUNT depth
+    #[bpaf(short, long, argument("COUNT"), fallback(0), display_fallback)]
+    pub context: usize,
+
     #[bpaf(external(color_detection), hide_usage)]
     pub color: bool,
 

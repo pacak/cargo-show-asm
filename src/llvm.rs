@@ -7,7 +7,7 @@ use crate::{
     cached_lines::CachedLines,
     color,
     demangle::{self, contents},
-    get_dump_range,
+    get_context_for, get_dump_range,
     opts::{Format, ToDump},
     safeprintln, Item,
 };
@@ -112,8 +112,20 @@ pub fn dump_function(goal: ToDump, path: &Path, fmt: &Format) -> anyhow::Result<
     let lines = CachedLines::without_ending(contents);
     let items = find_items(&lines);
     let strs = lines.iter().collect::<Vec<_>>();
-    match get_dump_range(goal, fmt, items) {
-        Some(range) => dump_range(fmt, &strs[range]),
+    match get_dump_range(goal, fmt, &items) {
+        Some(range) => {
+            let context = get_context_for(fmt.context, &strs[..], range.clone(), &items);
+            dump_range(fmt, &strs[range]);
+            if !context.is_empty() {
+                safeprintln!(
+                    "\n\n======================= Additional context ========================="
+                );
+                for range in context {
+                    safeprintln!("\n");
+                    dump_range(fmt, &strs[range]);
+                }
+            }
+        }
         None => dump_range(fmt, &strs),
     };
     Ok(())

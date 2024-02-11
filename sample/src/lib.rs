@@ -1,3 +1,5 @@
+#![allow(clippy::disallowed_macros)]
+
 use rand_core::block::{BlockRng, BlockRngCore};
 use rand_core::{RngCore, SeedableRng};
 
@@ -55,6 +57,13 @@ pub fn main() {
     for x in set.iter() {
         println!("{}", x);
     }
+
+    println!("Total: {}", get_length(set));
+}
+
+#[inline(never)]
+fn get_length<T>(it: hashbrown::HashSet<T>) -> usize {
+    it.len()
 }
 
 pub fn okay() {
