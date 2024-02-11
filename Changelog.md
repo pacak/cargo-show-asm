@@ -1,5 +1,8 @@
 # Change Log
 
+## [0.2.30] - 2024-02-11
+- Add an option `-c` / `--context` to recursively include functions called from target as
+  additional context
 
 ## [0.2.29] - 2024-01-23
 - fix function selection by index, see https://github.com/pacak/cargo-show-asm/issues/244
