@@ -204,18 +204,18 @@ pub fn get_dump_range(
 }
 
 trait RawLines {
-    fn lines(&self, range: Range<usize>) -> impl Iterator<Item = &str>;
+    fn lines(&self) -> Option<&str>;
 }
 
-impl RawLines for &[&str] {
-    fn lines(&self, range: Range<usize>) -> impl Iterator<Item = &str> {
-        self[range].iter().copied()
+impl RawLines for &str {
+    fn lines(&self) -> Option<&str> {
+        Some(self)
     }
 }
 
 fn get_context_for<R: RawLines>(
     depth: usize,
-    all_stmts: R,
+    all_stmts: &[R],
     self_range: Range<usize>,
     items: &BTreeMap<Item, Range<usize>>,
 ) -> Vec<Range<usize>> {
@@ -230,8 +230,9 @@ fn get_context_for<R: RawLines>(
     let mut pending = vec![(self_range.clone(), depth)];
     let mut processed = BTreeSet::new();
     while let Some((range, depth)) = pending.pop() {
-        for raw in all_stmts
-            .lines(range)
+        for raw in all_stmts[range]
+            .iter()
+            .filter_map(R::lines)
             .filter_map(demangle::global_reference)
         {
             if !processed.insert(raw) {

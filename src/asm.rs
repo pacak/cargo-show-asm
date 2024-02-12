@@ -461,12 +461,12 @@ fn load_rust_sources<'a>(
     }
 }
 
-impl RawLines for &[Statement<'_>] {
-    fn lines(&self, range: Range<usize>) -> impl Iterator<Item = &str> {
-        self[range].iter().flat_map(|s| match s {
+impl RawLines for Statement<'_> {
+    fn lines(&self) -> Option<&str> {
+        match self {
             Statement::Instruction(i) => i.args,
             _ => None,
-        })
+        }
     }
 }
 
