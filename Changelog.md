@@ -39,7 +39,7 @@ thanks to @osiewicz
   with `-B` option
 
 ## [0.2.22] - 2023-10-10
-- better support for no_mangle in MacOS
+- better support for no_mangle in macOS
 - ignore empty source files - seen them on Windows
 - bump a bunch of deps
 - add license files
@@ -86,7 +86,7 @@ Thanks to @jonasmalacofilho
 
 ## [0.2.11] - 2023-01-11
 - fix filtering by index and name at the same time
-- --test, --bench, etc can be used without argument to list available items
+- --test, --bench, etc. can be used without argument to list available items
 thanks to @danielparks
 - bump deps
 
@@ -131,7 +131,7 @@ Thanks to @RustyYato
 - fix `--color` and `--no-color`, regression since 0.2.0
 
 ## [0.2.1] - 2022-10-29
-- number of MacOS specific bugfixes
+- number of macOS specific bugfixes
 - update deps
 - more detailed output with verbosity flags
 
@@ -177,7 +177,7 @@ Thanks to @elichai
 ## [0.1.17] - 2022-09-12
 - fix typo in default features
 Thanks to @mooli
-- fix more crosscompilation issues
+- fix more cross-compilation issues
 Thanks to @WIgor
 
 ## [0.1.16] - 2022-09-03
@@ -186,7 +186,7 @@ Thanks to @WIgor
 Thanks to @yotamofek
 
 ## [0.1.15] - 2022-08-23
-- Update bpaf to 0.5.2, should start give more user fiendly suggestions
+- Update bpaf to 0.5.2, should start give more user friendly suggestions
 
 ## [0.1.14] - 2022-08-20
 - Also accept target dir from `env:CARGO_TARGET_DIR`
@@ -198,7 +198,7 @@ Thanks to @yotamofek
 - Dump single match as is
 
 ## [0.1.11] - 2022-07-23
-- Improved crosscompilation support
+- Improved cross-compilation support
 
 ## [0.1.10] - 2022-07-05
 - Upgrade cargo dependency

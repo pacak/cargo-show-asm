@@ -52,7 +52,7 @@ pub fn dump_function(
         .stderr(Stdio::piped());
 
     if fmt.verbosity >= 2 {
-        safeprintln!("running {:?}", mca);
+        safeprintln!("running {mca:?}");
     }
     let mca = mca.spawn();
     let mut mca = match mca {

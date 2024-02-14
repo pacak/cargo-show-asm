@@ -3,11 +3,11 @@ name = "cargo-show-asm"
 version = "0.2.30"
 edition = "2021"
 description = "A cargo subcommand that displays the generated assembly of Rust source code."
-categories = ["development-tools::cargo-plugins", "development-tools::debugging" ]
+categories = ["development-tools::cargo-plugins", "development-tools::debugging"]
 keywords = ["assembly", "plugins", "cargo"]
 repository = "https://github.com/pacak/cargo-show-asm"
 homepage = "https://github.com/pacak/cargo-show-asm"
-authors = [ "Michael Baykov <manpacket@gmail.com>" ]
+authors = ["Michael Baykov <manpacket@gmail.com>"]
 readme = "README.md"
 license = "MIT OR Apache-2.0"
 

@@ -3,12 +3,12 @@
 use owo_colors::OwoColorize;
 use regex::Regex;
 
+use crate::Dumpable;
 use crate::{
     cached_lines::CachedLines,
     color,
     demangle::{self, contents},
-    get_context_for, get_dump_range,
-    opts::{Format, ToDump},
+    opts::Format,
     safeprintln, Item,
 };
 use std::{
@@ -28,58 +28,73 @@ enum State {
     Define,
 }
 
-fn find_items(lines: &CachedLines) -> BTreeMap<Item, Range<usize>> {
-    struct ItemParseState {
-        item: Item,
-        start: usize,
-    }
-    let mut res = BTreeMap::new();
-    let mut current_item = None::<ItemParseState>;
-    let regex = Regex::new("@\"?(_?_[a-zA-Z0-9_$.]+)\"?\\(").expect("regexp should be valid");
+pub struct Llvm;
 
-    for (ix, line) in lines.iter().enumerate() {
-        if line.starts_with("; Module") {
-            #[allow(clippy::needless_continue)] // silly clippy, readability suffers otherwise
-            continue;
-        } else if let (true, Some(name)) = (current_item.is_none(), line.strip_prefix("; ")) {
-            current_item = Some(ItemParseState {
-                item: Item {
-                    mangled_name: name.to_owned(),
-                    name: name.to_owned(),
-                    hashed: String::new(),
-                    index: res.len(),
-                    len: 0,
-                    non_blank_len: 0,
-                },
-                start: ix,
-            });
-        } else if line.starts_with("define ") {
-            if let (Some(cur), Some((mangled_name, hashed))) = (
-                &mut current_item,
-                regex
-                    .captures(line)
-                    .and_then(|c| c.get(1))
-                    .map(|c| c.as_str())
-                    .and_then(|c| Some((c.to_owned(), demangle::demangled(c)?))),
-            ) {
-                cur.item.mangled_name = mangled_name;
-                cur.item.hashed = format!("{hashed:?}");
+impl Dumpable for Llvm {
+    fn find_items(lines: &CachedLines) -> BTreeMap<Item, Range<usize>> {
+        struct ItemParseState {
+            item: Item,
+            start: usize,
+        }
+        let mut res = BTreeMap::new();
+        let mut current_item = None::<ItemParseState>;
+        let regex = Regex::new("@\"?(_?_[a-zA-Z0-9_$.]+)\"?\\(").expect("regexp should be valid");
+
+        for (ix, line) in lines.iter().enumerate() {
+            if line.starts_with("; Module") {
+                #[allow(clippy::needless_continue)] // silly clippy, readability suffers otherwise
+                continue;
+            } else if let (true, Some(name)) = (current_item.is_none(), line.strip_prefix("; ")) {
+                current_item = Some(ItemParseState {
+                    item: Item {
+                        mangled_name: name.to_owned(),
+                        name: name.to_owned(),
+                        hashed: String::new(),
+                        index: res.len(),
+                        len: 0,
+                        non_blank_len: 0,
+                    },
+                    start: ix,
+                });
+            } else if line.starts_with("define ") {
+                if let (Some(cur), Some((mangled_name, hashed))) = (
+                    &mut current_item,
+                    regex
+                        .captures(line)
+                        .and_then(|c| c.get(1))
+                        .map(|c| c.as_str())
+                        .and_then(|c| Some((c.to_owned(), demangle::demangled(c)?))),
+                ) {
+                    cur.item.mangled_name = mangled_name;
+                    cur.item.hashed = format!("{hashed:?}");
+                }
+            } else if !line_is_blank(line) {
+                if let Some(cur) = &mut current_item {
+                    cur.item.non_blank_len += 1;
+                }
+            } else if line == "}" {
+                if let Some(mut cur) = current_item.take() {
+                    // go home clippy, you're drunk
+                    #[allow(clippy::range_plus_one)]
+                    let range = cur.start..ix + 1;
+                    cur.item.len = range.len();
+                    res.insert(cur.item, range);
+                }
             }
-        } else if !line_is_blank(line) {
-            if let Some(cur) = &mut current_item {
-                cur.item.non_blank_len += 1;
-            }
-        } else if line == "}" {
-            if let Some(mut cur) = current_item.take() {
-                // go home clippy, you're drunk
-                #[allow(clippy::range_plus_one)]
-                let range = cur.start..ix + 1;
-                cur.item.len = range.len();
-                res.insert(cur.item, range);
+        }
+        res
+    }
+
+    fn dump_range(fmt: &Format, strings: &[&str]) {
+        for line in strings {
+            if line.starts_with("; ") {
+                safeprintln!("{}", color!(line, OwoColorize::bright_cyan));
+            } else {
+                let line = contents(line, fmt.name_display);
+                safeprintln!("{line}");
             }
         }
     }
-    res
 }
 
 /// Returns true if the line should not be counted as meaningful for the function definition.
@@ -103,43 +118,6 @@ fn line_is_blank(line: &str) -> bool {
     // count that towards the function size.
     let is_multiline_instruction_extension = line.starts_with("   ");
     is_comment_or_label || is_multiline_instruction_extension
-}
-pub fn dump_function(goal: ToDump, path: &Path, fmt: &Format) -> anyhow::Result<()> {
-    // For some reason llvm/rustc can produce non utf8 files...
-    let payload = std::fs::read(path)?;
-    let contents = String::from_utf8_lossy(&payload).into_owned();
-
-    let lines = CachedLines::without_ending(contents);
-    let items = find_items(&lines);
-    let strs = lines.iter().collect::<Vec<_>>();
-    match get_dump_range(goal, fmt, &items) {
-        Some(range) => {
-            let context = get_context_for(fmt.context, &strs[..], range.clone(), &items);
-            dump_range(fmt, &strs[range]);
-            if !context.is_empty() {
-                safeprintln!(
-                    "\n\n======================= Additional context ========================="
-                );
-                for range in context {
-                    safeprintln!("\n");
-                    dump_range(fmt, &strs[range]);
-                }
-            }
-        }
-        None => dump_range(fmt, &strs),
-    };
-    Ok(())
-}
-
-fn dump_range(fmt: &Format, strings: &[&str]) {
-    for line in strings {
-        if line.starts_with("; ") {
-            safeprintln!("{}", color!(line, OwoColorize::bright_cyan));
-        } else {
-            let line = demangle::contents(line, fmt.name_display);
-            safeprintln!("{line}");
-        }
-    }
 }
 
 /// try to print `goal` from `path`, collect available items otherwise

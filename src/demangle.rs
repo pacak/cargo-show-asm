@@ -28,7 +28,7 @@ const GLOBAL_LABELS_REGEX: &str = r"\b_?(_[a-zA-Z0-9_$\.]+)";
 // 2. LBB[0-9_]+
 // Label kind 1. is a standard label format for GCC and Clang (LLVM)
 // Label kinds 2. was detected in the wild, and don't seem to be a normal label format
-// however it's important to detect them so they can be colored and possibly removed
+// however it's important to detect them, so they can be colored and possibly removed
 //
 // Note on `(?:[^\w\d\$\.]|^)`. This is to prevent the label from matching in the middle of some other word
 // since \b doesn't match before a `.` we can't use \b. So instead we're using a negation of any character
@@ -42,18 +42,18 @@ const LOCAL_LABELS_REGEX: &str = r"(?:[^\w\d\$\.]|^)(\.L[a-zA-Z0-9_\$\.]+|\bLBB[
 const TEMP_LABELS_REGEX: &str = r"\b(Ltmp[0-9]+)\b";
 
 static GLOBAL_LABELS: Lazy<Regex> =
-    Lazy::new(|| regex::Regex::new(GLOBAL_LABELS_REGEX).expect("regexp should be valid"));
+    Lazy::new(|| Regex::new(GLOBAL_LABELS_REGEX).expect("regexp should be valid"));
 
 static LOCAL_LABELS: Lazy<Regex> =
-    Lazy::new(|| regex::Regex::new(LOCAL_LABELS_REGEX).expect("regexp should be valid"));
+    Lazy::new(|| Regex::new(LOCAL_LABELS_REGEX).expect("regexp should be valid"));
 
 static LABEL_KINDS: Lazy<RegexSet> = Lazy::new(|| {
-    regex::RegexSet::new([LOCAL_LABELS_REGEX, GLOBAL_LABELS_REGEX, TEMP_LABELS_REGEX])
+    RegexSet::new([LOCAL_LABELS_REGEX, GLOBAL_LABELS_REGEX, TEMP_LABELS_REGEX])
         .expect("regexp should be valid")
 });
 
 static COMMENT_ARGS: Lazy<Regex> =
-    Lazy::new(|| regex::Regex::new(r"(?:\s|^)(#.+)").expect("regexp should be valid"));
+    Lazy::new(|| Regex::new(r"(?:\s|^)(#.+)").expect("regexp should be valid"));
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LabelKind {
@@ -105,7 +105,7 @@ struct Demangler {
     display: NameDisplay,
 }
 impl Replacer for Demangler {
-    fn replace_append(&mut self, cap: &regex::Captures<'_>, dst: &mut std::string::String) {
+    fn replace_append(&mut self, cap: &regex::Captures<'_>, dst: &mut String) {
         if let Ok(dem) = rustc_demangle::try_demangle(&cap[1]) {
             use std::fmt::Write;
             match self.display {
