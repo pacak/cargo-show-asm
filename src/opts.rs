@@ -87,10 +87,10 @@ pub struct Cargo {
     /// Produce a build plan instead of actually building
     #[bpaf(hide_usage)]
     pub dry: bool,
-    /// Requires `Cargo.lock` and cache to be up-to-date
+    /// Requires Cargo.lock and cache to be up-to-date
     #[bpaf(hide_usage)]
     pub frozen: bool,
-    /// Requires `Cargo.lock` to be up-to-date
+    /// Requires Cargo.lock to be up-to-date
     #[bpaf(hide_usage)]
     pub locked: bool,
     /// Run without accessing the network
