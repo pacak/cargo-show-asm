@@ -27,7 +27,7 @@ fn check_target_dir(path: PathBuf) -> anyhow::Result<PathBuf> {
 ///   3. Get the full results:
 ///      % cargo asm -p isin --lib isin::base36::from_alphanum
 pub struct Options {
-    // here is the the code located
+    // here is the code located
     #[bpaf(external)]
     pub select_fragment: SelectFragment,
 
@@ -87,10 +87,10 @@ pub struct Cargo {
     /// Produce a build plan instead of actually building
     #[bpaf(hide_usage)]
     pub dry: bool,
-    /// Requires Cargo.lock and cache are up to date
+    /// Requires `Cargo.lock` and cache to be up-to-date
     #[bpaf(hide_usage)]
     pub frozen: bool,
-    /// Requires Cargo.lock is up to date
+    /// Requires `Cargo.lock` to be up-to-date
     #[bpaf(hide_usage)]
     pub locked: bool,
     /// Run without accessing the network

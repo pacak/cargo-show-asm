@@ -1,6 +1,9 @@
 use anyhow::Context;
 use cargo_metadata::{Artifact, Message, MetadataCommand, Package};
-use cargo_show_asm::{asm, esafeprintln, llvm, mca, mir, opts};
+use cargo_show_asm::dump_function;
+use cargo_show_asm::llvm::Llvm;
+use cargo_show_asm::mir::Mir;
+use cargo_show_asm::{asm, esafeprintln, mca, opts};
 use once_cell::sync::Lazy;
 use std::{
     io::BufReader,
@@ -251,9 +254,9 @@ fn main() -> anyhow::Result<()> {
             &opts.target_cpu,
         ),
         Syntax::Llvm | Syntax::LlvmInput => {
-            llvm::dump_function(opts.to_dump, &asm_path, &opts.format)
+            dump_function::<Llvm>(opts.to_dump, &asm_path, &opts.format)
         }
-        Syntax::Mir => mir::dump_function(opts.to_dump, &asm_path, &opts.format),
+        Syntax::Mir => dump_function::<Mir>(opts.to_dump, &asm_path, &opts.format),
     }
 }
 
@@ -365,7 +368,7 @@ fn locate_asm_path_via_artifact(artifact: &Artifact, expect_ext: &str) -> anyhow
 
     // For bin or bin-type example artifacts, `filenames` provide hard-linked paths
     // without extra-filename.
-    // We scans all possible original artifacts by checking hard links,
+    // We scan all possible original artifacts by checking hard links,
     // in order to retrieve the correct extra-filename, and then locate asm files.
     //
     // `filenames`, also `executable`:

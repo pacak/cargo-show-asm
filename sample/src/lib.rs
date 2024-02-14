@@ -55,7 +55,7 @@ pub fn main() {
 
     // Will print in an arbitrary order.
     for x in set.iter() {
-        println!("{}", x);
+        println!("{x}");
     }
 
     println!("Total: {}", get_length(set));
@@ -79,6 +79,6 @@ pub fn okay() {
 
     // Will print in an arbitrary order.
     for x in set.iter() {
-        println!("{}", x);
+        println!("{x}");
     }
 }

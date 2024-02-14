@@ -5,7 +5,10 @@ use std::{
     ops::Range,
 };
 
+use crate::cached_lines::CachedLines;
 use opts::{Format, NameDisplay, ToDump};
+use std::path::Path;
+
 pub mod asm;
 pub mod cached_lines;
 pub mod demangle;
@@ -251,4 +254,39 @@ fn get_context_for<R: RawLines>(
     }
     out.sort_by_key(|r| r.start);
     out
+}
+
+pub trait Dumpable {
+    fn find_items(lines: &CachedLines) -> BTreeMap<Item, Range<usize>>;
+    fn dump_range(fmt: &Format, strings: &[&str]);
+}
+
+/// dump LLVM and MIR code
+///
+/// # Errors
+/// Reports file IO errors
+pub fn dump_function<T: Dumpable>(goal: ToDump, path: &Path, fmt: &Format) -> anyhow::Result<()> {
+    // For some reason llvm/rustc can produce non utf8 files...
+    let payload = std::fs::read(path)?;
+    let contents = String::from_utf8_lossy(&payload).into_owned();
+    let lines = CachedLines::without_ending(contents);
+    let items = T::find_items(&lines);
+    let strs = lines.iter().collect::<Vec<_>>();
+    match get_dump_range(goal, fmt, &items) {
+        Some(range) => {
+            let context = get_context_for(fmt.context, &strs[..], range.clone(), &items);
+            T::dump_range(fmt, &strs[range]);
+            if !context.is_empty() {
+                safeprintln!(
+                    "\n\n======================= Additional context ========================="
+                );
+                for range in context {
+                    safeprintln!("\n");
+                    T::dump_range(fmt, &strs[range]);
+                }
+            }
+        }
+        None => T::dump_range(fmt, &strs),
+    };
+    Ok(())
 }

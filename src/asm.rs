@@ -68,8 +68,8 @@ pub fn find_items(lines: &[Statement]) -> BTreeMap<Item, Range<usize>> {
                 // See https://github.com/pacak/cargo-show-asm/issues/110
             }
         } else if line.is_global() && sec_start + 3 < ix {
-            // on Linux and Windows every global function gets it's own section
-            // on Mac for some reason this is not the case so we have to look for
+            // on Linux and Windows every global function gets its own section
+            // on Mac for some reason this is not the case, so we have to look for
             // global variables. This little hack allows to include full section
             // on Windows/Linux but still capture full function body on Mac
             sec_start = ix;
@@ -147,7 +147,7 @@ fn handle_non_mangled_labels(
 
 /// Checks if the provided section `ss` starts with the provided `prefix`.
 /// If it does, it further checks if the section starts with the `label`.
-/// If both conditions are satisfied, it creates a new [`Item`], but sets item.index to 0.
+/// If both conditions are satisfied, it creates a new [`Item`], but sets `item.index` to 0.
 fn get_item_in_section(
     prefix: &str,
     ix: usize,
@@ -191,7 +191,7 @@ fn used_labels<'a>(stmts: &'_ [Statement<'a>]) -> BTreeSet<&'a str> {
             Statement::Instruction(i) => i.args,
             Statement::Dunno(s) => Some(s),
         })
-        .flat_map(crate::demangle::local_labels)
+        .flat_map(demangle::local_labels)
         .map(|m| m.as_str())
         .collect::<BTreeSet<_>>()
 }
@@ -317,7 +317,7 @@ impl Source {
     }
 }
 
-// DWARF information contains references to souce files
+// DWARF information contains references to source files
 // It can point to 3 different items:
 // 1. a real file, cargo-show-asm can just read it
 // 2. a file from rustlib, sources are under $sysroot/lib/rustlib/src/rust/$suffix
@@ -393,7 +393,7 @@ fn locate_sources(sysroot: &Path, workspace: &Path, path: &Path) -> Option<(Sour
         }
     }
 
-    // cargo registry, Linux and MacOS look for cargo/registry and .cargo/registry
+    // cargo registry, Linux and macOS look for cargo/registry and .cargo/registry
     if let Some(ix) = path
         .components()
         .position(|c| c.as_os_str() == "cargo" || c.as_os_str() == ".cargo")

@@ -12,7 +12,7 @@ $ cargo install cargo-show-asm
 
 - Platform support:
 
-  - OS: Linux and MacOS. Limited support for Windows
+  - OS: Linux and macOS. Limited support for Windows
   - Rust: nightly and stable.
   - Architectures: `x86`, `x86_64`, `aarch64`, etc.
   - Cross-compilation support.
@@ -78,9 +78,9 @@ Show the code rustc generates for any function
 - **`    --dry`** &mdash; 
   Produce a build plan instead of actually building
 - **`    --frozen`** &mdash; 
-  Requires Cargo.lock and cache are up to date
+  Requires `Cargo.lock` and cache to be up-to-date
 - **`    --locked`** &mdash; 
-  Requires Cargo.lock is up to date
+  Requires `Cargo.lock` to be up-to-date
 - **`    --offline`** &mdash; 
   Run without accessing the network
 - **`    --no-default-features`** &mdash; 
@@ -193,7 +193,7 @@ Show the code rustc generates for any function
 
 
 
-You can start by running `cargo asm` with no parameters - it will suggests how to narrow the
+You can start by running `cargo asm` with no parameters - it will suggest how to narrow the
 search scope - for workspace crates you need to specify a crate to work with, for crates
 defining several targets (lib, binaries, examples) you need to specify exactly which target to
 use. In a workspace `cargo asm` lists only workspace members as suggestions but any crate from
@@ -234,7 +234,7 @@ $ cargo asm --lib --full-name
 $ cargo asm --lib "once_cell::imp::OnceCell<T>::initialize::h9c5c7d5bd745000b"
 ```
 
-`cargo-show-asm` comes with a built in search function. Just pass partial name
+`cargo-show-asm` comes with a built-in search function. Just pass partial name
 instead of a full one and only matching functions will be listed
 
 ```console
@@ -245,7 +245,7 @@ $ cargo asm --lib Debug
 
 `rustc` will only generate the code for your function if it knows what type it is, including
 generic parameters and if it is exported (in case of a library) and not inlined (in case of a
-binary, example, test, etc). If your function takes a generic parameter - try making a monomorphic
+binary, example, test, etc.). If your function takes a generic parameter - try making a monomorphic
 wrapper around it and make it `pub` and `#[inline(never)]`.
 
 # Include related functions?
@@ -261,7 +261,7 @@ This is done recursively up to N steps. See https://github.com/pacak/cargo-show-
 
 * `cargo-asm` recompiles everything every time with 1 codegen unit, which is slow and also not necessarily what is in your release profile. `cargo-show-asm` avoids that.
 
-* Because of how `cargo-asm` handles demangling the output looks like asm but isn't actually asm. It contains a whole bunch of extra commas which makes reusing it more annoying.
+* Because of how `cargo-asm` handles demangling the output looks like asm but isn't actually asm. It contains a bunch of extra commas which makes reusing it more annoying.
 
 * `cargo-asm` always uses colors unless you pass a flag while `cargo-show-asm` changes its default behavior if output is not sent to a terminal.
 
