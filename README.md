@@ -78,9 +78,9 @@ Show the code rustc generates for any function
 - **`    --dry`** &mdash; 
   Produce a build plan instead of actually building
 - **`    --frozen`** &mdash; 
-  Requires `Cargo.lock` and cache to be up-to-date
+  Requires Cargo.lock and cache to be up-to-date
 - **`    --locked`** &mdash; 
-  Requires `Cargo.lock` to be up-to-date
+  Requires Cargo.lock to be up-to-date
 - **`    --offline`** &mdash; 
   Run without accessing the network
 - **`    --no-default-features`** &mdash; 
