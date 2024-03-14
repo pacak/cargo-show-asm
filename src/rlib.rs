@@ -1,4 +1,4 @@
-use crate::esafeprint;
+use crate::esafeprintln;
 use ar::Archive;
 use cargo_metadata::Artifact;
 use std::{
@@ -36,6 +36,7 @@ pub fn locate_byproducts(rlib: impl AsRef<Path>, ext: &str) -> anyhow::Result<Ve
     let basedir = rlib
         .parent()
         .ok_or_else(|| anyhow::anyhow!("Can't get a folder of {rlib:?}"))?;
+    let mut missing = Vec::new();
     while let Some(entry) = archive.next_entry() {
         let entry = entry?;
         let name = std::str::from_utf8(entry.header().identifier())?;
@@ -48,8 +49,23 @@ pub fn locate_byproducts(rlib: impl AsRef<Path>, ext: &str) -> anyhow::Result<Ve
         if x.exists() {
             res.push(x)
         } else {
-            esafeprint!("A byproduct is supposed to be located at {x:?}, but it's missing");
+            missing.push(x);
         }
+    }
+    if !res.is_empty() && missing.is_empty() {
+        for file in &missing {
+            esafeprintln!("A byproduct is supposed to be located at {file:?}, but it's missing");
+        }
+    }
+
+    if missing.len() == 1 && res.is_empty() {
+        assert_eq!(missing[0].extension().unwrap(), ext);
+        let f = missing[0]
+            .with_extension("")
+            .with_extension("")
+            .with_extension("")
+            .with_extension(ext);
+        return Ok(vec![f]);
     }
 
     Ok(res)
