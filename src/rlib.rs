@@ -80,12 +80,20 @@ pub fn locate_byproducts(
             esafeprintln!("Converting {:?} to a single byproduct", missing[0]);
         }
         assert_eq!(missing[0].extension().unwrap(), ext);
-        let f = missing[0]
+        let singleton = missing[0]
             .with_extension("")
             .with_extension("")
             .with_extension("")
             .with_extension(ext);
-        return Ok(vec![f]);
+        if singleton.exists() {
+            return Ok(vec![singleton]);
+        } else {
+            for f in basedir.read_dir()? {
+                let f = f.unwrap();
+                println!("- {:?}", f.file_name());
+            }
+            anyhow::bail!("Expected to find a single byproduct file at {singleton:?}, it doesn't exist there either");
+        }
     }
 
     Ok(res)
