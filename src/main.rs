@@ -1,9 +1,8 @@
 use anyhow::Context;
 use cargo_metadata::{Artifact, Message, MetadataCommand, Package};
-use cargo_show_asm::dump_function;
-use cargo_show_asm::llvm::Llvm;
-use cargo_show_asm::mir::Mir;
-use cargo_show_asm::{asm, esafeprintln, mca, opts};
+use cargo_show_asm::{
+    asm, dump_function, esafeprintln, llvm::Llvm, mca, mir::Mir, opts, rlib::artifact_byproducts,
+};
 use once_cell::sync::Lazy;
 use std::{
     io::BufReader,
@@ -231,22 +230,25 @@ fn main() -> anyhow::Result<()> {
         esafeprintln!("Artifact files: {:?}", artifact.filenames);
     }
 
-    let asm_path = locate_asm_path_via_artifact(&artifact, opts.syntax.ext())?;
+    let byproducts = artifact_byproducts(&artifact, opts.syntax.ext())?;
+
+    //    let asm_path = locate_asm_path_via_artifact(&artifact, opts.syntax.ext())?;
     if opts.format.verbosity > 0 {
-        esafeprintln!("Asm file: {}", asm_path.display());
+        //        esafeprintln!("Asm file: {}", asm_path.display());
     }
 
+    let contents = cargo_show_asm::rlib::read_files(&byproducts)?;
     match opts.syntax {
         Syntax::Intel | Syntax::Att | Syntax::Wasm => asm::dump_function(
             opts.to_dump,
-            &asm_path,
+            contents,
             metadata.workspace_root.as_std_path(),
             &sysroot,
             &opts.format,
         ),
         Syntax::McaAtt | Syntax::McaIntel => mca::dump_function(
             opts.to_dump,
-            &asm_path,
+            contents,
             &opts.format,
             &opts.mca_arg,
             opts.syntax == Syntax::McaIntel,
@@ -254,9 +256,9 @@ fn main() -> anyhow::Result<()> {
             &opts.target_cpu,
         ),
         Syntax::Llvm | Syntax::LlvmInput => {
-            dump_function::<Llvm>(opts.to_dump, &asm_path, &opts.format)
+            dump_function::<Llvm>(opts.to_dump, contents, &opts.format)
         }
-        Syntax::Mir => dump_function::<Mir>(opts.to_dump, &asm_path, &opts.format),
+        Syntax::Mir => dump_function::<Mir>(opts.to_dump, contents, &opts.format),
     }
 }
 

@@ -7,7 +7,6 @@ use std::{
 
 use crate::cached_lines::CachedLines;
 use opts::{Format, NameDisplay, ToDump};
-use std::path::Path;
 
 pub mod asm;
 pub mod cached_lines;
@@ -16,6 +15,7 @@ pub mod llvm;
 pub mod mca;
 pub mod mir;
 pub mod opts;
+pub mod rlib;
 
 #[macro_export]
 macro_rules! color {
@@ -265,10 +265,11 @@ pub trait Dumpable {
 ///
 /// # Errors
 /// Reports file IO errors
-pub fn dump_function<T: Dumpable>(goal: ToDump, path: &Path, fmt: &Format) -> anyhow::Result<()> {
-    // For some reason llvm/rustc can produce non utf8 files...
-    let payload = std::fs::read(path)?;
-    let contents = String::from_utf8_lossy(&payload).into_owned();
+pub fn dump_function<T: Dumpable>(
+    goal: ToDump,
+    contents: String,
+    fmt: &Format,
+) -> anyhow::Result<()> {
     let lines = CachedLines::without_ending(contents);
     let items = T::find_items(&lines);
     let strs = lines.iter().collect::<Vec<_>>();

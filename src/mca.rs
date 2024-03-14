@@ -1,6 +1,5 @@
 use std::{
     io::{BufRead, BufReader},
-    path::Path,
     process::{Command, Stdio},
 };
 
@@ -16,7 +15,7 @@ use crate::{
 /// Clippy, why do you care?
 pub fn dump_function(
     goal: ToDump,
-    path: &Path,
+    contents: String,
     fmt: &Format,
     mca_args: &[String],
     mca_intel: bool,
@@ -24,10 +23,6 @@ pub fn dump_function(
     target_cpu: &Option<String>,
 ) -> anyhow::Result<()> {
     use std::io::Write;
-
-    // For some reason llvm/rustc can produce non utf8 files...
-    let payload = std::fs::read(path)?;
-    let contents = String::from_utf8_lossy(&payload).into_owned();
 
     let statements = crate::asm::parse_file(&contents)?;
     let functions = crate::asm::find_items(&statements);
