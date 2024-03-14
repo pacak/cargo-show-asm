@@ -81,13 +81,3 @@ pub fn read_files(paths: &[PathBuf]) -> anyhow::Result<String> {
 
     Ok(res)
 }
-
-#[test]
-fn asdf() {
-    let x = locate_byproducts(
-        "sample/target/release/deps/libsample-7aab9f7e7ab26e00.rlib",
-        "ll",
-    );
-
-    todo!("{:?}", x);
-}
