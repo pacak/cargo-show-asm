@@ -230,7 +230,7 @@ fn main() -> anyhow::Result<()> {
         esafeprintln!("Artifact files: {:?}", artifact.filenames);
     }
 
-    let byproducts = artifact_byproducts(&artifact, opts.syntax.ext())?;
+    let byproducts = artifact_byproducts(&artifact, opts.syntax.ext(), opts.format.verbosity)?;
 
     //    let asm_path = locate_asm_path_via_artifact(&artifact, opts.syntax.ext())?;
     if opts.format.verbosity > 0 {

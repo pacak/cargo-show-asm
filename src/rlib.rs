@@ -6,12 +6,16 @@ use std::{
     path::{Path, PathBuf},
 };
 
-pub fn artifact_byproducts(artifact: &Artifact, ext: &str) -> anyhow::Result<Vec<PathBuf>> {
+pub fn artifact_byproducts(
+    artifact: &Artifact,
+    ext: &str,
+    verbosity: usize,
+) -> anyhow::Result<Vec<PathBuf>> {
     for file in artifact.filenames.iter() {
         if file.extension() == Some("rmeta") {
             let mut file = PathBuf::from(file);
             file.set_extension("rlib");
-            return locate_byproducts(&file, ext);
+            return locate_byproducts(&file, ext, verbosity);
         }
     }
     anyhow::bail!("no rmeta?");
@@ -28,7 +32,11 @@ pub fn artifact_byproducts(artifact: &Artifact, ext: &str) -> anyhow::Result<Vec
 /// This is needed so we can tell which files were generated
 ///
 /// - [1] https://rustc-dev-guide.rust-lang.org/backend/libs-and-metadata.html
-pub fn locate_byproducts(rlib: impl AsRef<Path>, ext: &str) -> anyhow::Result<Vec<PathBuf>> {
+pub fn locate_byproducts(
+    rlib: impl AsRef<Path>,
+    ext: &str,
+    verbosity: usize,
+) -> anyhow::Result<Vec<PathBuf>> {
     let mut res = Vec::new();
     let rlib = rlib.as_ref();
     let mut archive = Archive::new(File::open(rlib).unwrap());
@@ -36,6 +44,11 @@ pub fn locate_byproducts(rlib: impl AsRef<Path>, ext: &str) -> anyhow::Result<Ve
     let basedir = rlib
         .parent()
         .ok_or_else(|| anyhow::anyhow!("Can't get a folder of {rlib:?}"))?;
+
+    if verbosity > 2 {
+        esafeprintln!("Base dir with source files is {basedir:?}");
+    }
+
     let mut missing = Vec::new();
     while let Some(entry) = archive.next_entry() {
         let entry = entry?;
@@ -44,12 +57,16 @@ pub fn locate_byproducts(rlib: impl AsRef<Path>, ext: &str) -> anyhow::Result<Ve
             continue;
         }
 
-        let mut x = basedir.join(name);
-        x.set_extension(ext);
-        if x.exists() {
-            res.push(x)
+        let mut file = basedir.join(name);
+        file.set_extension(ext);
+        if file.exists() {
+            if verbosity > 2 {
+                esafeprintln!("Found a byproduct {file:?}");
+            }
+            res.push(file)
         } else {
-            missing.push(x);
+            esafeprintln!("Expected byproduct {file:?} doesn't exist");
+            missing.push(file);
         }
     }
     if !res.is_empty() && missing.is_empty() {
@@ -59,6 +76,9 @@ pub fn locate_byproducts(rlib: impl AsRef<Path>, ext: &str) -> anyhow::Result<Ve
     }
 
     if missing.len() == 1 && res.is_empty() {
+        if verbosity > 1 {
+            esafeprintln!("Converting {:?} to a single byproduct", missing[0]);
+        }
         assert_eq!(missing[0].extension().unwrap(), ext);
         let f = missing[0]
             .with_extension("")
