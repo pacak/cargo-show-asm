@@ -90,7 +90,7 @@ pub fn locate_byproducts(
         } else {
             for f in basedir.read_dir()? {
                 let f = f.unwrap();
-                println!("- {:?}", f.file_name());
+                crate::safeprintln!("- {:?}", f.file_name());
             }
             anyhow::bail!("Expected to find a single byproduct file at {singleton:?}, it doesn't exist there either");
         }
