@@ -80,11 +80,15 @@ pub fn locate_byproducts(
             esafeprintln!("Converting {:?} to a single byproduct", missing[0]);
         }
         assert_eq!(missing[0].extension().unwrap(), ext);
-        let singleton = missing[0]
-            .with_extension("")
-            .with_extension("")
-            .with_extension("")
-            .with_extension(ext);
+        let mut singleton = missing.remove(0);
+        if verbosity > 2 {
+            esafeprintln!("Going to strip extensions from {singleton:?}");
+        }
+        while singleton.extension().is_some() {
+            singleton = singleton.with_extension("");
+        }
+
+        let singleton = singleton.with_extension(ext);
         if singleton.exists() {
             return Ok(vec![singleton]);
         } else {
