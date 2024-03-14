@@ -13,9 +13,7 @@ pub fn artifact_byproducts(
 ) -> anyhow::Result<Vec<PathBuf>> {
     for file in artifact.filenames.iter() {
         if file.extension() == Some("rlib") {
-            let mut file = PathBuf::from(file);
-            file.set_extension("rlib");
-            return locate_byproducts(&file, ext, verbosity);
+            return locate_byproducts(file, ext, verbosity);
         }
     }
     anyhow::bail!("no rmeta?");
