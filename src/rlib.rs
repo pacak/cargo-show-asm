@@ -12,7 +12,7 @@ pub fn artifact_byproducts(
     verbosity: usize,
 ) -> anyhow::Result<Vec<PathBuf>> {
     for file in artifact.filenames.iter() {
-        if file.extension() == Some("rmeta") {
+        if file.extension() == Some("rlib") {
             let mut file = PathBuf::from(file);
             file.set_extension("rlib");
             return locate_byproducts(&file, ext, verbosity);
@@ -43,7 +43,8 @@ pub fn locate_byproducts(
 
     let basedir = rlib
         .parent()
-        .ok_or_else(|| anyhow::anyhow!("Can't get a folder of {rlib:?}"))?;
+        .ok_or_else(|| anyhow::anyhow!("Can't get a folder of {rlib:?}"))?
+        .join("deps");
 
     if verbosity > 2 {
         esafeprintln!("Base dir with source files is {basedir:?}");
