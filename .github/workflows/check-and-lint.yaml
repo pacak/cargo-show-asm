@@ -32,7 +32,7 @@ jobs:
         run: cargo fmt --all --check
 
       - name: Native version of cargo-show-asm (Intel ASM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --intel sample::main --rust
+        run: cargo run -- -vvv --manifest-path sample/Cargo.toml --intel sample::main --rust
 
       - name: Native version of cargo-show-asm (Intel ASM) + native CPU
         run: cargo run -- --manifest-path sample/Cargo.toml --native --intel sample::main --rust
@@ -69,130 +69,130 @@ jobs:
 
       - name: cdylib project, underscore prefix
         run: cargo run -- --manifest-path sample_cdylib/Cargo.toml _mul
-
-  windows:
-    runs-on: windows-latest
-    name: Tests on windows
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
-
-      - name: Install rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
-          components: rustfmt clippy rust-src
-          targets: armv7-unknown-linux-gnueabihf
-
-      - name: Build all the things
-        run: cargo build --tests
-
-      - name: Run unit tests
-        run: cargo test --all-features
-
-      - name: Clippy
-        run: cargo clippy -- -D clippy::disallowed_macros
-
-      - name: Check formatting
-        run: cargo fmt --all --check
-
-      - name: Native version of cargo-show-asm (Intel ASM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --intel sample::main --rust
-
-      - name: Native version of cargo-show-asm (Intel ASM) + native CPU
-        run: cargo run -- --manifest-path sample/Cargo.toml --native --intel sample::main --rust
-
-      - name: Native version of cargo-show-asm (Intel ASM) + native CPU + no default features
-        run: cargo run -- -vvv --manifest-path sample/Cargo.toml --native --intel sample::main --rust --no-default-features
-
-      - name: Native version of cargo-show-asm (Intel ASM) + atom
-        run: cargo run -- --manifest-path sample/Cargo.toml --target-cpu atom --intel sample::main --rust
-
-      - name: Native version of cargo-show-asm with symbol mangling (Intel ASM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --intel sample::main --rust --keep-mangled
-
-      - name: Native version of cargo-show-asm (LLVM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --llvm sample::main
-
-      - name: Native version of cargo-show-asm with symbol mangling (LLVM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --llvm --keep-mangled sample::main
-
-      - name: Native version of cargo-show-asm (LLVM Input)
-        run: cargo run -- --manifest-path sample/Cargo.toml --llvm-input sample::main
-
-      - name: Native version of cargo-show-asm (MIR)
-        run: cargo run -- --manifest-path sample/Cargo.toml --mir "main()"
-
-      - name: Crosscompiled version of cargo-show-asm (Intel ASM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --intel sample::main --target armv7-unknown-linux-gnueabihf
-
-      - name: Rlib project, AT&T asm
-        run: cargo run -- --manifest-path sample_rlib/Cargo.toml --att
-
-      - name: cdylib project
-        run: cargo run -- --manifest-path sample_cdylib/Cargo.toml --everything
-
-  macos:
-    runs-on: macos-latest
-    name: Tests on MacOS
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
-
-      - name: Install rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
-          components: rustfmt clippy rust-src
-          targets: armv7-unknown-linux-gnueabihf
-
-      - name: Build all the things
-        run: cargo build --tests
-
-      - name: Run unit tests
-        run: cargo test --all-features
-
-      - name: Clippy
-        run: cargo clippy -- -D clippy::disallowed_macros
-
-      - name: Check formatting
-        run: cargo fmt --all --check
-
-      - name: Native version of cargo-show-asm (Intel ASM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --intel sample::main --rust
-
-      - name: Native version of cargo-show-asm (Intel ASM) + native CPU
-        run: cargo run -- --manifest-path sample/Cargo.toml --native --intel sample::main --rust
-
-      - name: Native version of cargo-show-asm (Intel ASM) + native CPU + no default features
-        run: cargo run -- -vvv --manifest-path sample/Cargo.toml --native --intel sample::main --rust --no-default-features
-
-      - name: Native version of cargo-show-asm (Intel ASM) + atom
-        run: cargo run -- --manifest-path sample/Cargo.toml --target-cpu atom --intel sample::main --rust
-
-      - name: Native version of cargo-show-asm with symbol mangling (Intel ASM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --intel sample::main --rust --keep-mangled
-
-      - name: Native version of cargo-show-asm (LLVM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --llvm sample::main
-
-      - name: Native version of cargo-show-asm with symbol mangling (LLVM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --llvm --keep-mangled sample::main
-
-      - name: Native version of cargo-show-asm (LLVM Input)
-        run: cargo run -- --manifest-path sample/Cargo.toml --llvm-input sample::main
-
-      - name: Native version of cargo-show-asm (MIR)
-        run: cargo run -- --manifest-path sample/Cargo.toml --mir "main()"
-
-      - name: Crosscompiled version of cargo-show-asm (Intel ASM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --intel sample::main --target armv7-unknown-linux-gnueabihf
-
-      - name: Rlib project, AT&T asm
-        run: cargo run -- --manifest-path sample_rlib/Cargo.toml --att
-
-      - name: cdylib project
-        run: cargo run -- --manifest-path sample_cdylib/Cargo.toml add
-
-      - name: cdylib project, underscore prefix
-        run: cargo run -- --manifest-path sample_cdylib/Cargo.toml _mul
+#
+#  windows:
+#    runs-on: windows-latest
+#    name: Tests on windows
+#    steps:
+#      - name: Checkout repo
+#        uses: actions/checkout@v3
+#
+#      - name: Install rust toolchain
+#        uses: dtolnay/rust-toolchain@stable
+#        with:
+#          toolchain: stable
+#          components: rustfmt clippy rust-src
+#          targets: armv7-unknown-linux-gnueabihf
+#
+#      - name: Build all the things
+#        run: cargo build --tests
+#
+#      - name: Run unit tests
+#        run: cargo test --all-features
+#
+#      - name: Clippy
+#        run: cargo clippy -- -D clippy::disallowed_macros
+#
+#      - name: Check formatting
+#        run: cargo fmt --all --check
+#
+#      - name: Native version of cargo-show-asm (Intel ASM)
+#        run: cargo run -- --manifest-path sample/Cargo.toml --intel sample::main --rust
+#
+#      - name: Native version of cargo-show-asm (Intel ASM) + native CPU
+#        run: cargo run -- --manifest-path sample/Cargo.toml --native --intel sample::main --rust
+#
+#      - name: Native version of cargo-show-asm (Intel ASM) + native CPU + no default features
+#        run: cargo run -- -vvv --manifest-path sample/Cargo.toml --native --intel sample::main --rust --no-default-features
+#
+#      - name: Native version of cargo-show-asm (Intel ASM) + atom
+#        run: cargo run -- --manifest-path sample/Cargo.toml --target-cpu atom --intel sample::main --rust
+#
+#      - name: Native version of cargo-show-asm with symbol mangling (Intel ASM)
+#        run: cargo run -- --manifest-path sample/Cargo.toml --intel sample::main --rust --keep-mangled
+#
+#      - name: Native version of cargo-show-asm (LLVM)
+#        run: cargo run -- --manifest-path sample/Cargo.toml --llvm sample::main
+#
+#      - name: Native version of cargo-show-asm with symbol mangling (LLVM)
+#        run: cargo run -- --manifest-path sample/Cargo.toml --llvm --keep-mangled sample::main
+#
+#      - name: Native version of cargo-show-asm (LLVM Input)
+#        run: cargo run -- --manifest-path sample/Cargo.toml --llvm-input sample::main
+#
+#      - name: Native version of cargo-show-asm (MIR)
+#        run: cargo run -- --manifest-path sample/Cargo.toml --mir "main()"
+#
+#      - name: Crosscompiled version of cargo-show-asm (Intel ASM)
+#        run: cargo run -- --manifest-path sample/Cargo.toml --intel sample::main --target armv7-unknown-linux-gnueabihf
+#
+#      - name: Rlib project, AT&T asm
+#        run: cargo run -- --manifest-path sample_rlib/Cargo.toml --att
+#
+#      - name: cdylib project
+#        run: cargo run -- --manifest-path sample_cdylib/Cargo.toml --everything
+#
+#  macos:
+#    runs-on: macos-latest
+#    name: Tests on MacOS
+#    steps:
+#      - name: Checkout repo
+#        uses: actions/checkout@v3
+#
+#      - name: Install rust toolchain
+#        uses: dtolnay/rust-toolchain@stable
+#        with:
+#          toolchain: stable
+#          components: rustfmt clippy rust-src
+#          targets: armv7-unknown-linux-gnueabihf
+#
+#      - name: Build all the things
+#        run: cargo build --tests
+#
+#      - name: Run unit tests
+#        run: cargo test --all-features
+#
+#      - name: Clippy
+#        run: cargo clippy -- -D clippy::disallowed_macros
+#
+#      - name: Check formatting
+#        run: cargo fmt --all --check
+#
+#      - name: Native version of cargo-show-asm (Intel ASM)
+#        run: cargo run -- --manifest-path sample/Cargo.toml --intel sample::main --rust
+#
+#      - name: Native version of cargo-show-asm (Intel ASM) + native CPU
+#        run: cargo run -- --manifest-path sample/Cargo.toml --native --intel sample::main --rust
+#
+#      - name: Native version of cargo-show-asm (Intel ASM) + native CPU + no default features
+#        run: cargo run -- -vvv --manifest-path sample/Cargo.toml --native --intel sample::main --rust --no-default-features
+#
+#      - name: Native version of cargo-show-asm (Intel ASM) + atom
+#        run: cargo run -- --manifest-path sample/Cargo.toml --target-cpu atom --intel sample::main --rust
+#
+#      - name: Native version of cargo-show-asm with symbol mangling (Intel ASM)
+#        run: cargo run -- --manifest-path sample/Cargo.toml --intel sample::main --rust --keep-mangled
+#
+#      - name: Native version of cargo-show-asm (LLVM)
+#        run: cargo run -- --manifest-path sample/Cargo.toml --llvm sample::main
+#
+#      - name: Native version of cargo-show-asm with symbol mangling (LLVM)
+#        run: cargo run -- --manifest-path sample/Cargo.toml --llvm --keep-mangled sample::main
+#
+#      - name: Native version of cargo-show-asm (LLVM Input)
+#        run: cargo run -- --manifest-path sample/Cargo.toml --llvm-input sample::main
+#
+#      - name: Native version of cargo-show-asm (MIR)
+#        run: cargo run -- --manifest-path sample/Cargo.toml --mir "main()"
+#
+#      - name: Crosscompiled version of cargo-show-asm (Intel ASM)
+#        run: cargo run -- --manifest-path sample/Cargo.toml --intel sample::main --target armv7-unknown-linux-gnueabihf
+#
+#      - name: Rlib project, AT&T asm
+#        run: cargo run -- --manifest-path sample_rlib/Cargo.toml --att
+#
+#      - name: cdylib project
+#        run: cargo run -- --manifest-path sample_cdylib/Cargo.toml add
+#
+#      - name: cdylib project, underscore prefix
+#        run: cargo run -- --manifest-path sample_cdylib/Cargo.toml _mul

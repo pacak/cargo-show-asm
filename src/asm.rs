@@ -473,7 +473,7 @@ impl RawLines for Statement<'_> {
 /// try to print `goal` from `path`, collect available items otherwise
 pub fn dump_function(
     goal: ToDump,
-    path: &Path,
+    contents: String,
     workspace: &Path,
     sysroot: &Path,
     fmt: &Format,
@@ -483,8 +483,6 @@ pub fn dump_function(
     }
 
     // For some reason llvm/rustc can produce non utf8 files...
-    let payload = std::fs::read(path)?;
-    let contents = String::from_utf8_lossy(&payload).into_owned();
 
     let statements = parse_file(&contents)?;
     let functions = find_items(&statements);
