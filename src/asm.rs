@@ -307,26 +307,27 @@ fn dump_range(
         }
     }
 
-    // scan for referenced constants such as strings, scan needs to be done recursively
-    let mut pending = vec![print_range];
-    let mut seen: BTreeSet<URange> = BTreeSet::new();
+    if fmt.include_constants {
+        // scan for referenced constants such as strings, scan needs to be done recursively
+        let mut pending = vec![print_range];
+        let mut seen: BTreeSet<URange> = BTreeSet::new();
 
-    let sections = body
-        .iter()
-        .enumerate()
-        .filter_map(|(ix, stmt)| match stmt {
-            Statement::Directive(Directive::SectionStart(ss)) => Some((ix, *ss)),
-            _ => None,
-        })
-        .collect::<Vec<_>>();
-    while let Some(subset) = pending.pop() {
-        seen.insert(subset);
-        for s in &body[subset] {
-            match s {
-                Statement::Instruction(Instruction {
+        let sections = body
+            .iter()
+            .enumerate()
+            .filter_map(|(ix, stmt)| match stmt {
+                Statement::Directive(Directive::SectionStart(ss)) => Some((ix, *ss)),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        while let Some(subset) = pending.pop() {
+            seen.insert(subset);
+            for s in &body[subset] {
+                if let Statement::Instruction(Instruction {
                     args: Some(arg), ..
                 })
-                | Statement::Directive(Directive::Generic(GenericDirective(arg))) => {
+                | Statement::Directive(Directive::Generic(GenericDirective(arg))) = s
+                {
                     for label in crate::demangle::LOCAL_LABELS.find_iter(arg) {
                         let referenced_label = label.as_str().trim();
                         if let Some(constant_range) =
@@ -340,18 +341,17 @@ fn dump_range(
                         }
                     }
                 }
-                _ => (),
             }
         }
-    }
-    seen.remove(&print_range);
-    for range in &seen {
-        safeprintln!("");
-        for line in &body[*range] {
-            match fmt.name_display {
-                NameDisplay::Full => safeprintln!("{line:#}"),
-                NameDisplay::Short => safeprintln!("{line}"),
-                NameDisplay::Mangled => safeprintln!("{line:-}"),
+        seen.remove(&print_range);
+        for range in &seen {
+            safeprintln!("");
+            for line in &body[*range] {
+                match fmt.name_display {
+                    NameDisplay::Full => safeprintln!("{line:#}"),
+                    NameDisplay::Short => safeprintln!("{line}"),
+                    NameDisplay::Mangled => safeprintln!("{line:-}"),
+                }
             }
         }
     }
