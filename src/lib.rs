@@ -290,3 +290,29 @@ pub fn dump_function<T: Dumpable>(goal: ToDump, path: &Path, fmt: &Format) -> an
     };
     Ok(())
 }
+
+/// Mostly the same as Range, but Copy and Ord
+#[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq)]
+pub struct URange {
+    start: usize,
+    end: usize,
+}
+
+impl From<Range<usize>> for URange {
+    fn from(Range { start, end }: Range<usize>) -> Self {
+        Self { start, end }
+    }
+}
+
+impl<T> std::ops::Index<URange> for [T] {
+    type Output = [T];
+    fn index(&self, index: URange) -> &Self::Output {
+        &self[index.start..index.end]
+    }
+}
+
+impl URange {
+    pub fn fully_contains(&self, other: Self) -> bool {
+        self.start >= other.start && self.end <= other.end
+    }
+}
