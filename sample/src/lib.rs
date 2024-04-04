@@ -32,7 +32,12 @@ pub fn main() -> u32 {
     1 + 1
 }
 
-pub struct Bar(u32);
+#[inline(never)]
+pub fn panics() {
+    panic!("oh noes asdf wef wef wf wefwefwef wef! {}", "bob");
+}
+
+pub struct Bar(pub u32);
 impl Bar {
     #[no_mangle]
     pub fn make_bar(a: u32, b: u32) -> Self {
