@@ -1,12 +1,10 @@
 [workspace]
-# path of the git-cliff configuration
-changelog_config = "cliff.toml"
 
 # enable changelog updates
-changelog_update = true
+changelog_update = false
 
 # update dependencies with `cargo update`
-dependencies_update = true
+dependencies_update = false
 
 # create tags for the releases
 git_tag_enable = true
