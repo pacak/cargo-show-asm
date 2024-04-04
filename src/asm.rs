@@ -1,9 +1,10 @@
 #![allow(clippy::missing_errors_doc)]
-use crate::asm::statements::{GenericDirective, Label};
+use crate::asm::statements::{GenericDirective, Instruction, Label};
 use crate::cached_lines::CachedLines;
 use crate::demangle::LabelKind;
 use crate::{
     color, demangle, esafeprintln, get_context_for, get_dump_range, safeprintln, Item, RawLines,
+    URange,
 };
 // TODO, use https://sourceware.org/binutils/docs/as/index.html
 use crate::opts::{Format, NameDisplay, RedundantLabels, SourcesFrom, ToDump};
@@ -196,13 +197,28 @@ fn used_labels<'a>(stmts: &'_ [Statement<'a>]) -> BTreeSet<&'a str> {
         .collect::<BTreeSet<_>>()
 }
 
-pub fn dump_range(
+/// Scans for referenced constants
+fn scan_constant(name: &str, sections: &[(usize, &str)], body: &[Statement]) -> Option<URange> {
+    let start = sections
+        .iter()
+        .find_map(|(ix, ss)| ss.contains(name).then_some(*ix))?;
+    let end = body[start..]
+        .iter()
+        .position(|s| matches!(s, Statement::Nothing))
+        .map_or_else(|| body.len(), |e| start + e);
+    Some(URange { start, end })
+}
+
+fn dump_range(
     files: &BTreeMap<u64, SourceFile>,
     fmt: &Format,
-    stmts: &[Statement],
+    print_range: Range<usize>,
+    body: &[Statement], // full body
 ) -> anyhow::Result<()> {
+    let print_range = URange::from(print_range);
     let mut prev_loc = Loc::default();
 
+    let stmts = &body[print_range];
     let used = if fmt.redundant_labels == RedundantLabels::Keep {
         BTreeSet::new()
     } else {
@@ -290,6 +306,56 @@ pub fn dump_range(
             }
         }
     }
+
+    if fmt.include_constants {
+        // scan for referenced constants such as strings, scan needs to be done recursively
+        let mut pending = vec![print_range];
+        let mut seen: BTreeSet<URange> = BTreeSet::new();
+
+        let sections = body
+            .iter()
+            .enumerate()
+            .filter_map(|(ix, stmt)| match stmt {
+                Statement::Directive(Directive::SectionStart(ss)) => Some((ix, *ss)),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        while let Some(subset) = pending.pop() {
+            seen.insert(subset);
+            for s in &body[subset] {
+                if let Statement::Instruction(Instruction {
+                    args: Some(arg), ..
+                })
+                | Statement::Directive(Directive::Generic(GenericDirective(arg))) = s
+                {
+                    for label in crate::demangle::LOCAL_LABELS.find_iter(arg) {
+                        let referenced_label = label.as_str().trim();
+                        if let Some(constant_range) =
+                            scan_constant(referenced_label, &sections, body)
+                        {
+                            if !seen.contains(&constant_range)
+                                && !print_range.fully_contains(constant_range)
+                            {
+                                pending.push(constant_range);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        seen.remove(&print_range);
+        for range in &seen {
+            safeprintln!("");
+            for line in &body[*range] {
+                match fmt.name_display {
+                    NameDisplay::Full => safeprintln!("{line:#}"),
+                    NameDisplay::Short => safeprintln!("{line}"),
+                    NameDisplay::Mangled => safeprintln!("{line:-}"),
+                }
+            }
+        }
+    }
+
     Ok(())
 }
 
@@ -500,21 +566,21 @@ pub fn dump_function(
 
     if let Some(range) = get_dump_range(goal, fmt, &functions) {
         let context = get_context_for(fmt.context, &statements[..], range.clone(), &functions);
-        dump_range(&files, fmt, &statements[range])?;
+        dump_range(&files, fmt, range, &statements)?;
         if !context.is_empty() {
             safeprintln!(
                 "\n\n======================= Additional context ========================="
             );
             for range in context {
                 safeprintln!("\n");
-                dump_range(&files, fmt, &statements[range])?;
+                dump_range(&files, fmt, range, &statements)?;
             }
         }
     } else {
         if fmt.verbosity > 0 {
             safeprintln!("Going to print the whole file");
         }
-        dump_range(&files, fmt, &statements)?;
+        dump_range(&files, fmt, 0..statements.len(), &statements)?;
     }
     Ok(())
 }

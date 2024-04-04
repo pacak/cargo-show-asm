@@ -1,5 +1,10 @@
 # Change Log
 
+## [0.2.31] - 2024-04-04
+- include relevant constants in produced asm output
+  this can be disabled with `--no-constants`
+- bump deps
+
 ## [0.2.30] - 2024-02-11
 - Add an option `-c` / `--context` to recursively include functions called from target as
   additional context

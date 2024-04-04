@@ -232,6 +232,10 @@ pub struct Format {
     /// Try to strip some of the non-assembly instruction information
     pub simplify: bool,
 
+    /// Don't detect/include sections containing string literals and other constants
+    #[bpaf(long("no-constants"), flag(false, true))]
+    pub include_constants: bool,
+
     /// Keep blank lines
     #[bpaf(short('b'), long, hide_usage)]
     pub keep_blank: bool,

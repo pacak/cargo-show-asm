@@ -44,7 +44,7 @@ const TEMP_LABELS_REGEX: &str = r"\b(Ltmp[0-9]+)\b";
 static GLOBAL_LABELS: Lazy<Regex> =
     Lazy::new(|| Regex::new(GLOBAL_LABELS_REGEX).expect("regexp should be valid"));
 
-static LOCAL_LABELS: Lazy<Regex> =
+pub(crate) static LOCAL_LABELS: Lazy<Regex> =
     Lazy::new(|| Regex::new(LOCAL_LABELS_REGEX).expect("regexp should be valid"));
 
 static LABEL_KINDS: Lazy<RegexSet> = Lazy::new(|| {
