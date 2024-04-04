@@ -198,11 +198,10 @@ fn used_labels<'a>(stmts: &'_ [Statement<'a>]) -> BTreeSet<&'a str> {
 }
 
 /// Scans for referenced constants
-fn scan_constant(name: &str, body: &[Statement]) -> Option<URange> {
-    let start = body.iter().position(|s| match s {
-        Statement::Directive(Directive::SectionStart(ss)) => ss.contains(name),
-        _ => false,
-    })?;
+fn scan_constant(name: &str, sections: &[(usize, &str)], body: &[Statement]) -> Option<URange> {
+    let start = sections
+        .iter()
+        .find_map(|(ix, ss)| ss.contains(name).then_some(*ix))?;
     let end = body[start..]
         .iter()
         .position(|s| matches!(s, Statement::Nothing))
@@ -312,6 +311,14 @@ fn dump_range(
     let mut pending = vec![print_range];
     let mut seen: BTreeSet<URange> = BTreeSet::new();
 
+    let sections = body
+        .iter()
+        .enumerate()
+        .filter_map(|(ix, stmt)| match stmt {
+            Statement::Directive(Directive::SectionStart(ss)) => Some((ix, *ss)),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
     while let Some(subset) = pending.pop() {
         seen.insert(subset);
         for s in &body[subset] {
@@ -322,7 +329,9 @@ fn dump_range(
                 | Statement::Directive(Directive::Generic(GenericDirective(arg))) => {
                     for label in crate::demangle::LOCAL_LABELS.find_iter(arg) {
                         let referenced_label = label.as_str().trim();
-                        if let Some(constant_range) = scan_constant(referenced_label, body) {
+                        if let Some(constant_range) =
+                            scan_constant(referenced_label, &sections, body)
+                        {
                             if !seen.contains(&constant_range)
                                 && !print_range.fully_contains(constant_range)
                             {
