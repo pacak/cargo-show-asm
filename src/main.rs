@@ -5,6 +5,7 @@ use cargo_show_asm::llvm::Llvm;
 use cargo_show_asm::mir::Mir;
 use cargo_show_asm::{asm, esafeprintln, mca, opts};
 use once_cell::sync::Lazy;
+use std::process::Child;
 use std::{
     io::BufReader,
     path::{Path, PathBuf},
@@ -157,10 +158,10 @@ fn main() -> anyhow::Result<()> {
         .exec()?;
 
     let focus_package = match opts.select_fragment.package {
-        Some(name) => metadata
+        Some(ref name) => metadata
             .packages
             .iter()
-            .find(|p| p.name == name)
+            .find(|p| p.name == name.as_str())
             .with_context(|| format!("Package '{name}' is not found"))?,
         None if metadata.packages.len() == 1 => &metadata.packages[0],
         None => {
@@ -176,7 +177,7 @@ fn main() -> anyhow::Result<()> {
     };
 
     let focus_artifact = match opts.select_fragment.focus {
-        Some(focus) => focus,
+        Some(ref focus) => focus.clone(),
         None => match focus_package.targets.len() {
             0 => anyhow::bail!("No targets found"),
             1 => opts::Focus::try_from(&focus_package.targets[0])?,
@@ -195,7 +196,7 @@ fn main() -> anyhow::Result<()> {
         },
     };
 
-    let mut cargo_child = spawn_cargo(
+    let cargo_child = spawn_cargo(
         &opts.cargo,
         &opts.format,
         opts.syntax,
@@ -204,37 +205,7 @@ fn main() -> anyhow::Result<()> {
         &focus_artifact,
     )?;
 
-    let mut result_artifact = None;
-    let mut success = false;
-    for msg in Message::parse_stream(BufReader::new(cargo_child.stdout.take().unwrap())) {
-        match msg? {
-            Message::CompilerArtifact(artifact) if focus_artifact.matches_artifact(&artifact) => {
-                result_artifact = Some(artifact);
-            }
-            Message::BuildFinished(fin) => {
-                success = fin.success;
-                break;
-            }
-            _ => {}
-        }
-    }
-    // add some spacing between cargo's output and ours
-    esafeprintln!();
-    if !success {
-        let status = cargo_child.wait()?;
-        esafeprintln!("Cargo failed with {status}");
-        std::process::exit(101);
-    }
-    let artifact = result_artifact.context("No artifact found")?;
-
-    if opts.format.verbosity > 0 {
-        esafeprintln!("Artifact files: {:?}", artifact.filenames);
-    }
-
-    let asm_path = locate_asm_path_via_artifact(&artifact, opts.syntax.ext())?;
-    if opts.format.verbosity > 0 {
-        esafeprintln!("Asm file: {}", asm_path.display());
-    }
+    let asm_path = cargo_to_asm_path(cargo_child, &focus_artifact, &opts)?;
 
     match opts.syntax {
         Syntax::Intel | Syntax::Att | Syntax::Wasm => asm::dump_function(
@@ -258,6 +229,45 @@ fn main() -> anyhow::Result<()> {
         }
         Syntax::Mir => dump_function::<Mir>(opts.to_dump, &asm_path, &opts.format),
     }
+}
+
+fn cargo_to_asm_path(
+    mut cargo: Child,
+    focus_artifact: &opts::Focus,
+    opts: &crate::opts::Options,
+) -> anyhow::Result<PathBuf> {
+    let mut result_artifact = None;
+    let mut success = false;
+    for msg in Message::parse_stream(BufReader::new(cargo.stdout.take().unwrap())) {
+        match msg? {
+            Message::CompilerArtifact(artifact) if focus_artifact.matches_artifact(&artifact) => {
+                result_artifact = Some(artifact);
+            }
+            Message::BuildFinished(fin) => {
+                success = fin.success;
+                break;
+            }
+            _ => {}
+        }
+    }
+    // add some spacing between cargo's output and ours
+    esafeprintln!();
+    if !success {
+        let status = cargo.wait()?;
+        esafeprintln!("Cargo failed with {status}");
+        std::process::exit(101);
+    }
+    let artifact = result_artifact.context("No artifact found")?;
+
+    if opts.format.verbosity > 0 {
+        esafeprintln!("Artifact files: {:?}", artifact.filenames);
+    }
+
+    let asm_path = locate_asm_path_via_artifact(&artifact, opts.syntax.ext())?;
+    if opts.format.verbosity > 0 {
+        esafeprintln!("Asm file: {}", asm_path.display());
+    }
+    Ok(asm_path)
 }
 
 fn locate_asm_path_via_artifact(artifact: &Artifact, expect_ext: &str) -> anyhow::Result<PathBuf> {
