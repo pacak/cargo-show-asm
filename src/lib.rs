@@ -3,6 +3,7 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     ops::Range,
+    path::PathBuf,
 };
 
 use crate::cached_lines::CachedLines;
@@ -68,6 +69,22 @@ macro_rules! esafeprint {
             std::process::exit(0);
         }
     }};
+}
+
+/// read a set of source files to a set of strings
+///
+/// perform lossy conversion to utf8
+pub fn read_sources(names: &[PathBuf]) -> anyhow::Result<Vec<String>> {
+    names
+        .iter()
+        .map(|name| {
+            let bytes = std::fs::read(name)?;
+            // For some reason llvm/rustc can produce non utf8 files...
+            // Also there's no (without unsafe) way to reuse allocation
+            // from bytes in resulting String...
+            Ok(String::from_utf8_lossy(&bytes).into_owned())
+        })
+        .collect()
 }
 
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
