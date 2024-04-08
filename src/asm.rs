@@ -544,10 +544,6 @@ pub fn dump_function(
     sysroot: &Path,
     fmt: &Format,
 ) -> anyhow::Result<()> {
-    if fmt.verbosity > 2 {
-        safeprintln!("goal: {goal:?}");
-    }
-
     // For some reason llvm/rustc can produce non utf8 files...
     let payload = std::fs::read(path)?;
     let contents = String::from_utf8_lossy(&payload).into_owned();

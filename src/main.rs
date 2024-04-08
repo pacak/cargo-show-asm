@@ -1,9 +1,9 @@
 use anyhow::Context;
 use cargo_metadata::{Artifact, Message, MetadataCommand, Package};
-use cargo_show_asm::dump_function;
 use cargo_show_asm::llvm::Llvm;
 use cargo_show_asm::mir::Mir;
 use cargo_show_asm::{asm, esafeprintln, mca, opts};
+use cargo_show_asm::{dump_function, safeprintln};
 use once_cell::sync::Lazy;
 use std::process::Child;
 use std::{
@@ -213,6 +213,10 @@ fn main() -> anyhow::Result<()> {
     )?;
 
     let asm_path = cargo_to_asm_path(cargo_child, &focus_artifact, &opts)?;
+
+    if opts.format.verbosity > 2 {
+        safeprintln!("goal: {:?}", opts.to_dump);
+    }
 
     match opts.syntax {
         Syntax::Intel | Syntax::Att | Syntax::Wasm => asm::dump_function(
