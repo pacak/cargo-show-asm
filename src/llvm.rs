@@ -5,7 +5,6 @@ use regex::Regex;
 
 use crate::Dumpable;
 use crate::{
-    cached_lines::CachedLines,
     color,
     demangle::{self, contents},
     opts::Format,
@@ -31,7 +30,7 @@ enum State {
 pub struct Llvm;
 
 impl Dumpable for Llvm {
-    fn find_items(lines: &CachedLines) -> BTreeMap<Item, Range<usize>> {
+    fn find_items(lines: &[&str]) -> BTreeMap<Item, Range<usize>> {
         struct ItemParseState {
             item: Item,
             start: usize,
@@ -40,7 +39,7 @@ impl Dumpable for Llvm {
         let mut current_item = None::<ItemParseState>;
         let regex = Regex::new("@\"?(_?_[a-zA-Z0-9_$.]+)\"?\\(").expect("regexp should be valid");
 
-        for (ix, line) in lines.iter().enumerate() {
+        for (ix, &line) in lines.iter().enumerate() {
             if line.starts_with("; Module") {
                 #[allow(clippy::needless_continue)] // silly clippy, readability suffers otherwise
                 continue;
