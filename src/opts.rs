@@ -206,7 +206,7 @@ fn manifest_path() -> impl Parser<PathBuf> {
 }
 
 #[allow(clippy::struct_excessive_bools)]
-#[derive(Debug, Clone, Bpaf)]
+#[derive(Debug, Clone, Bpaf, Copy)]
 /// Postprocessing options:
 pub struct Format {
     /// Print interleaved Rust code
@@ -255,7 +255,7 @@ pub enum SourcesFrom {
     AllSources,
 }
 
-#[derive(Debug, Clone, Bpaf, Eq, PartialEq)]
+#[derive(Debug, Clone, Bpaf, Eq, PartialEq, Copy)]
 #[bpaf(fallback(RedundantLabels::Strip))]
 pub enum RedundantLabels {
     /// Keep all the original labels
