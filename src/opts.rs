@@ -459,6 +459,7 @@ fn write_updated(new_val: &str, path: impl AsRef<std::path::Path>) -> std::io::R
         .write(true)
         .read(true)
         .create(true)
+        .truncate(true)
         .open(path)?;
     let mut current_val = String::new();
     file.read_to_string(&mut current_val)?;
