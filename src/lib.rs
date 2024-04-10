@@ -233,6 +233,7 @@ impl RawLines for &str {
     }
 }
 
+/// Recursively scan for references to global objects
 fn get_context_for<R: RawLines>(
     depth: usize,
     all_stmts: &[R],
