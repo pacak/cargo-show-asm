@@ -1,4 +1,5 @@
 #![allow(clippy::missing_errors_doc)]
+use line_span::LineSpans;
 // https://llvm.org/docs/LangRef.html
 use owo_colors::OwoColorize;
 use regex::Regex;
@@ -30,6 +31,13 @@ enum State {
 pub struct Llvm;
 
 impl Dumpable for Llvm {
+    type Line<'a> = &'a str;
+    fn split_lines(contents: &str) -> Vec<Self::Line<'_>> {
+        contents
+            .line_spans()
+            .map(|s| s.as_str())
+            .collect::<Vec<_>>()
+    }
     fn find_items(lines: &[&str]) -> BTreeMap<Item, Range<usize>> {
         struct ItemParseState {
             item: Item,

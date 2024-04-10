@@ -1,11 +1,14 @@
 use crate::Dumpable;
 use crate::{color, opts::Format, safeprintln, Item};
+use line_span::LineSpans;
 use owo_colors::OwoColorize;
 use std::{collections::BTreeMap, ops::Range};
 
 pub struct Mir;
 
 impl Dumpable for Mir {
+    type Line<'a> = &'a str;
+
     fn find_items(lines: &[&str]) -> BTreeMap<Item, Range<usize>> {
         let mut res = BTreeMap::new();
         let mut current_item = None::<Item>;
@@ -58,5 +61,12 @@ impl Dumpable for Mir {
                 safeprintln!("{line}");
             }
         }
+    }
+
+    fn split_lines(contents: &str) -> Vec<&str> {
+        contents
+            .line_spans()
+            .map(|s| s.as_str())
+            .collect::<Vec<_>>()
     }
 }
