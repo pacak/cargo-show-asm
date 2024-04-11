@@ -92,7 +92,7 @@ impl Dumpable for Llvm {
         res
     }
 
-    fn dump_range(fmt: &Format, strings: &[&str]) {
+    fn dump_range(&self, fmt: &Format, strings: &[&str]) {
         for line in strings {
             if line.starts_with("; ") {
                 safeprintln!("{}", color!(line, OwoColorize::bright_cyan));

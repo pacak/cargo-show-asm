@@ -2,8 +2,8 @@ use anyhow::Context;
 use cargo_metadata::{Artifact, Message, MetadataCommand, Package};
 use cargo_show_asm::llvm::Llvm;
 use cargo_show_asm::mir::Mir;
-use cargo_show_asm::{asm, esafeprintln, mca, opts};
-use cargo_show_asm::{dump_function, safeprintln};
+use cargo_show_asm::safeprintln;
+use cargo_show_asm::{asm, dump_function, esafeprintln, mca, opts};
 use once_cell::sync::Lazy;
 use std::process::Child;
 use std::{
@@ -236,9 +236,9 @@ fn main() -> anyhow::Result<()> {
             &opts.target_cpu,
         ),
         Syntax::Llvm | Syntax::LlvmInput => {
-            dump_function::<Llvm>(opts.to_dump, &asm_path, &opts.format)
+            dump_function(&Llvm, opts.to_dump, &asm_path, &opts.format)
         }
-        Syntax::Mir => dump_function::<Mir>(opts.to_dump, &asm_path, &opts.format),
+        Syntax::Mir => dump_function(&Mir, opts.to_dump, &asm_path, &opts.format),
     }
 }
 
