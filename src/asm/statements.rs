@@ -53,6 +53,20 @@ impl<'a> Instruction<'a> {
 impl<'a> Statement<'a> {
     /// Should we skip it for --simplify output?
     pub fn boring(&self) -> bool {
+        if let Statement::Directive(Directive::Generic(GenericDirective(x))) = self {
+            // Some targets support special directives for encoding arbitrary binary sequences
+            // as instructions such as eg .insn or .inst.
+            if x.starts_with("inst\t") || x.starts_with("insn\t") {
+                return false;
+            }
+
+            // all of those can insert something as well... Not sure if it's a full list or not
+            // .long, .short .octa, .quad, .word,
+            // .single .double .float
+            // .ascii, .asciz, .string, .string8 .string16 .string32 .string64
+            // .2byte .4byte .8byte
+            // .dc
+        }
         matches!(self, Statement::Directive(_) | Statement::Dunno(_))
     }
 }
