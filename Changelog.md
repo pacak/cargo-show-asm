@@ -1,5 +1,9 @@
 # Change Log
 
+## [0.2.32] - Unreleased
+- include more instructions in `--simplify`
+
+
 ## [0.2.31] - 2024-04-04
 - include relevant constants in produced asm output
   this can be disabled with `--no-constants`
