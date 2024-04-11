@@ -50,6 +50,13 @@ impl<'a> Instruction<'a> {
     }
 }
 
+impl<'a> Statement<'a> {
+    /// Should we skip it for --simplify output?
+    pub fn boring(&self) -> bool {
+        matches!(self, Statement::Directive(_) | Statement::Dunno(_))
+    }
+}
+
 impl std::fmt::Display for Instruction<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let display = NameDisplay::from(&*f);

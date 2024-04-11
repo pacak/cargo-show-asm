@@ -294,7 +294,7 @@ fn dump_range(
                 RedundantLabels::Strip => {}
             }
         } else {
-            if fmt.simplify && matches!(line, Statement::Directive(_) | Statement::Dunno(_)) {
+            if fmt.simplify && line.boring() {
                 continue;
             }
 
