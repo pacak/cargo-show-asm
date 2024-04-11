@@ -1,5 +1,6 @@
 use anyhow::Context;
 use cargo_metadata::{Artifact, Message, MetadataCommand, Package};
+use cargo_show_asm::asm::Asm;
 use cargo_show_asm::llvm::Llvm;
 use cargo_show_asm::mir::Mir;
 use cargo_show_asm::safeprintln;
@@ -219,13 +220,10 @@ fn main() -> anyhow::Result<()> {
     }
 
     match opts.syntax {
-        Syntax::Intel | Syntax::Att | Syntax::Wasm => asm::dump_function(
-            opts.to_dump,
-            &asm_path,
-            metadata.workspace_root.as_std_path(),
-            &sysroot,
-            &opts.format,
-        ),
+        Syntax::Intel | Syntax::Att | Syntax::Wasm => {
+            let asm = Asm::new(metadata.workspace_root.as_std_path(), sysroot);
+            dump_function(asm, opts.to_dump, &asm_path, &opts.format)
+        }
         Syntax::McaAtt | Syntax::McaIntel => mca::dump_function(
             opts.to_dump,
             &asm_path,

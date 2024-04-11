@@ -3,8 +3,8 @@ use crate::asm::statements::{GenericDirective, Instruction, Label};
 use crate::cached_lines::CachedLines;
 use crate::demangle::LabelKind;
 use crate::{
-    color, demangle, esafeprintln, get_context_for, get_dump_range, safeprintln, Item, RawLines,
-    URange,
+    color, demangle, esafeprintln, get_context_for, get_dump_range, safeprintln, Dumpable, Item,
+    RawLines, URange,
 };
 // TODO, use https://sourceware.org/binutils/docs/as/index.html
 use crate::opts::{Format, NameDisplay, RedundantLabels, SourcesFrom, ToDump};
@@ -13,6 +13,7 @@ mod statements;
 
 use owo_colors::OwoColorize;
 use statements::{parse_statement, Directive, Loc, Statement};
+use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
@@ -535,6 +536,57 @@ impl RawLines for Statement<'_> {
     }
 }
 
+pub struct Asm<'a> {
+    workspace: &'a Path,
+    sysroot: &'a Path,
+    sources: RefCell<BTreeMap<u64, SourceFile>>,
+}
+
+impl<'a> Asm<'a> {
+    pub fn new(workspace: &'a Path, sysroot: &'a Path) -> Self {
+        Self {
+            workspace,
+            sysroot,
+            sources: Default::default(),
+        }
+    }
+}
+
+impl<'a> Dumpable for Asm<'a> {
+    type Line<'l> = Statement<'l>;
+
+    fn split_lines(contents: &str) -> anyhow::Result<Vec<Self::Line<'_>>> {
+        parse_file(contents)
+    }
+
+    fn find_items(lines: &[Self::Line<'_>]) -> BTreeMap<Item, Range<usize>> {
+        find_items(lines)
+    }
+
+    fn dump_range(&self, fmt: &Format, lines: &[Self::Line<'_>]) {
+        todo!()
+    }
+
+    fn extra_context(
+        &self,
+        fmt: &Format,
+        lines: &[Self::Line<'_>],
+        range: Range<usize>,
+        items: &BTreeMap<Item, Range<usize>>,
+    ) -> Vec<Range<usize>> {
+        if fmt.rust {
+            load_rust_sources(
+                self.sysroot,
+                self.workspace,
+                lines,
+                fmt,
+                &mut self.sources.borrow_mut(),
+            );
+        }
+        get_context_for(fmt.context, lines, range.clone(), items)
+    }
+}
+
 /// try to print `goal` from `path`, collect available items otherwise
 pub fn dump_function(
     goal: ToDump,
@@ -545,7 +597,7 @@ pub fn dump_function(
 ) -> anyhow::Result<()> {
     // For some reason llvm/rustc can produce non utf8 files...
     let payload = std::fs::read(path)?;
-    let contents = String::from_utf8_lossy(&payload).into_owned();
+    let contents = String::from_utf8_lossy(&payload);
 
     let statements = parse_file(&contents)?;
     let functions = find_items(&statements);
