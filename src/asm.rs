@@ -13,12 +13,11 @@ mod statements;
 
 use owo_colors::OwoColorize;
 use statements::{parse_statement, Directive, Loc, Statement};
-use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
-type SourceFile<'a> = (Cow<'a, Path>, Option<(Source, CachedLines)>);
+type SourceFile = (PathBuf, Option<(Source, CachedLines)>);
 
 pub fn parse_file(input: &str) -> anyhow::Result<Vec<Statement>> {
     // eat all statements until the eof, so we can report the proper errors on failed parse
@@ -486,17 +485,17 @@ fn locate_sources(sysroot: &Path, workspace: &Path, path: &Path) -> Option<(Sour
     None
 }
 
-fn load_rust_sources<'a>(
+fn load_rust_sources(
     sysroot: &Path,
     workspace: &Path,
-    statements: &'a [Statement],
+    statements: &[Statement],
     fmt: &Format,
-    files: &mut BTreeMap<u64, SourceFile<'a>>,
+    files: &mut BTreeMap<u64, SourceFile>,
 ) {
     for line in statements {
         if let Statement::Directive(Directive::File(f)) = line {
             files.entry(f.index).or_insert_with(|| {
-                let path = f.path.as_full_path();
+                let path = f.path.as_full_path().into_owned();
                 if fmt.verbosity > 1 {
                     safeprintln!("Reading file #{} {}", f.index, path.display());
                 }
