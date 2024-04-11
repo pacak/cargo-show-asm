@@ -53,7 +53,7 @@ impl Dumpable for Mir {
         res
     }
 
-    fn dump_range(_fmt: &Format, strings: &[&str]) {
+    fn dump_range(&self, _fmt: &Format, strings: &[&str]) {
         for line in strings {
             if let Some(ix) = line.rfind("//") {
                 safeprintln!("{}{}", &line[..ix], color!(&line[ix..], OwoColorize::cyan));
