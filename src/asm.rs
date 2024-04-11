@@ -3,16 +3,16 @@ use crate::asm::statements::{GenericDirective, Instruction, Label};
 use crate::cached_lines::CachedLines;
 use crate::demangle::LabelKind;
 use crate::{
-    color, demangle, esafeprintln, get_context_for, get_dump_range, safeprintln, Item, RawLines,
-    URange,
+    color, demangle, esafeprintln, get_context_for, safeprintln, Dumpable, Item, RawLines, URange,
 };
 // TODO, use https://sourceware.org/binutils/docs/as/index.html
-use crate::opts::{Format, NameDisplay, RedundantLabels, SourcesFrom, ToDump};
+use crate::opts::{Format, NameDisplay, RedundantLabels, SourcesFrom};
 
 mod statements;
 
 use owo_colors::OwoColorize;
 use statements::{parse_statement, Directive, Loc, Statement};
+use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
@@ -306,55 +306,6 @@ fn dump_range(
         }
     }
 
-    if fmt.include_constants {
-        // scan for referenced constants such as strings, scan needs to be done recursively
-        let mut pending = vec![print_range];
-        let mut seen: BTreeSet<URange> = BTreeSet::new();
-
-        let sections = body
-            .iter()
-            .enumerate()
-            .filter_map(|(ix, stmt)| match stmt {
-                Statement::Directive(Directive::SectionStart(ss)) => Some((ix, *ss)),
-                _ => None,
-            })
-            .collect::<Vec<_>>();
-        while let Some(subset) = pending.pop() {
-            seen.insert(subset);
-            for s in &body[subset] {
-                if let Statement::Instruction(Instruction {
-                    args: Some(arg), ..
-                })
-                | Statement::Directive(Directive::Generic(GenericDirective(arg))) = s
-                {
-                    for label in crate::demangle::LOCAL_LABELS.find_iter(arg) {
-                        let referenced_label = label.as_str().trim();
-                        if let Some(constant_range) =
-                            scan_constant(referenced_label, &sections, body)
-                        {
-                            if !seen.contains(&constant_range)
-                                && !print_range.fully_contains(constant_range)
-                            {
-                                pending.push(constant_range);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        seen.remove(&print_range);
-        for range in &seen {
-            safeprintln!("");
-            for line in &body[*range] {
-                match fmt.name_display {
-                    NameDisplay::Full => safeprintln!("{line:#}"),
-                    NameDisplay::Short => safeprintln!("{line}"),
-                    NameDisplay::Mangled => safeprintln!("{line:-}"),
-                }
-            }
-        }
-    }
-
     Ok(())
 }
 
@@ -535,47 +486,97 @@ impl RawLines for Statement<'_> {
     }
 }
 
-/// try to print `goal` from `path`, collect available items otherwise
-pub fn dump_function(
-    goal: ToDump,
-    path: &Path,
-    workspace: &Path,
-    sysroot: &Path,
-    fmt: &Format,
-) -> anyhow::Result<()> {
-    // For some reason llvm/rustc can produce non utf8 files...
-    let payload = std::fs::read(path)?;
-    let contents = String::from_utf8_lossy(&payload).into_owned();
+pub struct Asm<'a> {
+    workspace: &'a Path,
+    sysroot: &'a Path,
+    sources: RefCell<BTreeMap<u64, SourceFile>>,
+}
 
-    let statements = parse_file(&contents)?;
-    let functions = find_items(&statements);
+impl<'a> Asm<'a> {
+    pub fn new(workspace: &'a Path, sysroot: &'a Path) -> Self {
+        Self {
+            workspace,
+            sysroot,
+            sources: Default::default(),
+        }
+    }
+}
 
-    if fmt.verbosity > 2 {
-        safeprintln!("{functions:?}");
+impl<'a> Dumpable for Asm<'a> {
+    type Line<'l> = Statement<'l>;
+
+    fn split_lines(contents: &str) -> anyhow::Result<Vec<Self::Line<'_>>> {
+        parse_file(contents)
     }
 
-    let mut files = BTreeMap::new();
-    if fmt.rust {
-        load_rust_sources(sysroot, workspace, &statements, fmt, &mut files);
+    fn find_items(lines: &[Self::Line<'_>]) -> BTreeMap<Item, Range<usize>> {
+        find_items(lines)
     }
 
-    if let Some(range) = get_dump_range(goal, fmt, &functions) {
-        let context = get_context_for(fmt.context, &statements[..], range.clone(), &functions);
-        dump_range(&files, fmt, range, &statements)?;
-        if !context.is_empty() {
-            safeprintln!(
-                "\n\n======================= Additional context ========================="
+    fn dump_range(&self, fmt: &Format, lines: &[Self::Line<'_>]) {
+        dump_range(&self.sources.borrow(), fmt, 0..lines.len(), lines).unwrap()
+    }
+
+    fn extra_context(
+        &self,
+        fmt: &Format,
+        lines: &[Self::Line<'_>],
+        range: Range<usize>,
+        items: &BTreeMap<Item, Range<usize>>,
+    ) -> Vec<Range<usize>> {
+        let mut res = get_context_for(fmt.context, lines, range.clone(), items);
+        if fmt.rust {
+            load_rust_sources(
+                self.sysroot,
+                self.workspace,
+                lines,
+                fmt,
+                &mut self.sources.borrow_mut(),
             );
-            for range in context {
-                safeprintln!("\n");
-                dump_range(&files, fmt, range, &statements)?;
+        }
+
+        if fmt.include_constants {
+            let print_range = URange::from(range.clone());
+            // scan for referenced constants such as strings, scan needs to be done recursively
+            let mut pending = vec![print_range];
+            let mut seen: BTreeSet<URange> = BTreeSet::new();
+
+            let sections = lines
+                .iter()
+                .enumerate()
+                .filter_map(|(ix, stmt)| match stmt {
+                    Statement::Directive(Directive::SectionStart(ss)) => Some((ix, *ss)),
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
+            while let Some(subset) = pending.pop() {
+                seen.insert(subset);
+                for s in &lines[subset] {
+                    if let Statement::Instruction(Instruction {
+                        args: Some(arg), ..
+                    })
+                    | Statement::Directive(Directive::Generic(GenericDirective(arg))) = s
+                    {
+                        for label in crate::demangle::LOCAL_LABELS.find_iter(arg) {
+                            let referenced_label = label.as_str().trim();
+                            if let Some(constant_range) =
+                                scan_constant(referenced_label, &sections, lines)
+                            {
+                                if !seen.contains(&constant_range)
+                                    && !print_range.fully_contains(constant_range)
+                                {
+                                    pending.push(constant_range);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            seen.remove(&print_range);
+            for range in &seen {
+                res.push(range.start..range.end);
             }
         }
-    } else {
-        if fmt.verbosity > 0 {
-            safeprintln!("Going to print the whole file");
-        }
-        dump_range(&files, fmt, 0..statements.len(), &statements)?;
+        res
     }
-    Ok(())
 }

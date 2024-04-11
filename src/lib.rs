@@ -280,10 +280,11 @@ pub trait Dumpable {
     fn find_items(lines: &[Self::Line<'_>]) -> BTreeMap<Item, Range<usize>>;
 
     /// print all the lines from this range, aplying the required formatting
-    fn dump_range(&self, fmt: &Format, strings: &[Self::Line<'_>]);
+    fn dump_range(&self, fmt: &Format, lines: &[Self::Line<'_>]);
 
     /// starting at an initial range find more ranges to include
     fn extra_context(
+        &self,
         fmt: &Format,
         lines: &[Self::Line<'_>],
         range: Range<usize>,
