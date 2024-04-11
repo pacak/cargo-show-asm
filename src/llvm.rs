@@ -32,11 +32,11 @@ pub struct Llvm;
 
 impl Dumpable for Llvm {
     type Line<'a> = &'a str;
-    fn split_lines(contents: &str) -> Vec<Self::Line<'_>> {
-        contents
+    fn split_lines(contents: &str) -> anyhow::Result<Vec<Self::Line<'_>>> {
+        Ok(contents
             .line_spans()
             .map(|s| s.as_str())
-            .collect::<Vec<_>>()
+            .collect::<Vec<_>>())
     }
     fn find_items(lines: &[&str]) -> BTreeMap<Item, Range<usize>> {
         struct ItemParseState {

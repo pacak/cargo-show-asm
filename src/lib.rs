@@ -274,7 +274,7 @@ fn get_context_for<R: RawLines>(
 pub trait Dumpable {
     type Line<'a>;
     /// Split source code into multiple lines, code can do some parsing here
-    fn split_lines(contents: &str) -> Vec<Self::Line<'_>>;
+    fn split_lines(contents: &str) -> anyhow::Result<Vec<Self::Line<'_>>>;
 
     /// Given a set of lines find all the interesting items
     fn find_items(lines: &[Self::Line<'_>]) -> BTreeMap<Item, Range<usize>>;
@@ -306,7 +306,7 @@ pub fn dump_function<T: Dumpable>(
     let raw_bytes = std::fs::read(path)?;
     let contents = String::from_utf8_lossy(&raw_bytes[..]);
 
-    let lines = T::split_lines(&contents);
+    let lines = T::split_lines(&contents)?;
     let items = T::find_items(&lines);
 
     match get_dump_range(goal, fmt, &items) {
