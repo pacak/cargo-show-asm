@@ -63,10 +63,10 @@ impl Dumpable for Mir {
         }
     }
 
-    fn split_lines(contents: &str) -> Vec<&str> {
-        contents
+    fn split_lines(contents: &str) -> anyhow::Result<Vec<&str>> {
+        Ok(contents
             .line_spans()
             .map(|s| s.as_str())
-            .collect::<Vec<_>>()
+            .collect::<Vec<_>>())
     }
 }
