@@ -35,11 +35,10 @@ pub struct Options {
     #[bpaf(external)]
     pub cargo: Cargo,
 
+    // how to display
     /// Pass parameter to llvm-mca for mca targets
     #[bpaf(short('M'), long)]
     pub mca_arg: Vec<String>,
-
-    // how to display
     /// Generate code for a specific CPU
     #[bpaf(external)]
     pub target_cpu: Option<String>,

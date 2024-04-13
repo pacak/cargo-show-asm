@@ -2,7 +2,9 @@
 
 ## [0.2.32] - Unreleased
 - include more instructions in `--simplify`
-
+- handle combinations like `--mca --intel` in addition to `--mca-intel` which is now deprecated
+- cosmetic improvements in produced output
+- a bunch of internal improvements
 
 ## [0.2.31] - 2024-04-04
 - include relevant constants in produced asm output
