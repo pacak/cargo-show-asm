@@ -9,17 +9,24 @@ use cargo_show_asm::{
     opts::{self, OutputType},
     safeprintln,
 };
-use once_cell::sync::Lazy;
 use std::{
     io::BufReader,
     path::{Path, PathBuf},
     process::{Child, Stdio},
+    sync::OnceLock,
 };
 
-static CARGO_PATH: Lazy<PathBuf> =
-    Lazy::new(|| std::env::var_os("CARGO").map_or_else(|| "cargo".into(), PathBuf::from));
-static RUSTC_PATH: Lazy<PathBuf> =
-    Lazy::new(|| std::env::var_os("RUSTC").map_or_else(|| "rustc".into(), PathBuf::from));
+fn cargo_path() -> &'static Path {
+    static CARGO_PATH: OnceLock<PathBuf> = OnceLock::new();
+    CARGO_PATH
+        .get_or_init(|| std::env::var_os("CARGO").map_or_else(|| "cargo".into(), PathBuf::from))
+}
+
+fn rust_path() -> &'static Path {
+    static RUSTC_PATH: OnceLock<PathBuf> = OnceLock::new();
+    RUSTC_PATH
+        .get_or_init(|| std::env::var_os("RUSTC").map_or_else(|| "rustc".into(), PathBuf::from))
+}
 
 fn spawn_cargo(
     cargo: &opts::Cargo,
@@ -32,7 +39,7 @@ fn spawn_cargo(
 ) -> std::io::Result<std::process::Child> {
     use std::ffi::OsStr;
 
-    let mut cmd = std::process::Command::new(&*CARGO_PATH);
+    let mut cmd = std::process::Command::new(cargo_path());
 
     // Cargo flags.
     cmd.arg("rustc")
@@ -119,7 +126,7 @@ fn spawn_cargo(
 }
 
 fn sysroot() -> anyhow::Result<PathBuf> {
-    let output = std::process::Command::new(&*RUSTC_PATH)
+    let output = std::process::Command::new(rust_path())
         .arg("--print=sysroot")
         .stdin(Stdio::null())
         .stderr(Stdio::inherit())
@@ -127,7 +134,8 @@ fn sysroot() -> anyhow::Result<PathBuf> {
         .output()?;
     if !output.status.success() {
         anyhow::bail!(
-            "Failed to get sysroot. '{RUSTC_PATH:?} --print=sysroot' exited with {}",
+            "Failed to get sysroot. '{:?} --print=sysroot' exited with {}",
+            rust_path(),
             output.status,
         );
     }
@@ -155,7 +163,7 @@ fn main() -> anyhow::Result<()> {
         .collect::<Vec<_>>();
 
     let metadata = MetadataCommand::new()
-        .cargo_path(&*CARGO_PATH)
+        .cargo_path(cargo_path())
         .manifest_path(&opts.cargo.manifest_path)
         .other_options(unstable)
         .no_deps()

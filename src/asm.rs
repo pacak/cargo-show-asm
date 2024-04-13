@@ -558,7 +558,7 @@ impl<'a> Dumpable for Asm<'a> {
                     })
                     | Statement::Directive(Directive::Generic(GenericDirective(arg))) = s
                     {
-                        for label in crate::demangle::LOCAL_LABELS.find_iter(arg) {
+                        for label in crate::demangle::local_labels_reg().find_iter(arg) {
                             let referenced_label = label.as_str().trim();
                             if let Some(constant_range) =
                                 scan_constant(referenced_label, &sections, lines)

@@ -82,8 +82,7 @@ impl std::fmt::Display for Instruction<'_> {
         if let Some(args) = self.args {
             let args = demangle::contents(args, display);
             let w_label = demangle::color_local_labels(&args);
-            let w_comment = demangle::color_comment(&w_label);
-            write!(f, " {w_comment}")?;
+            write!(f, " {w_label}")?;
         }
         Ok(())
     }
@@ -110,7 +109,7 @@ impl std::fmt::Display for Statement<'_> {
                 }
             }
             Statement::Nothing => Ok(()),
-            Statement::Dunno(l) => write!(f, "{}", demangle::color_comment(l)),
+            Statement::Dunno(l) => write!(f, "{l}"),
         }
     }
 }
