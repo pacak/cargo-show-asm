@@ -231,6 +231,7 @@ fn dump_range(
             safeprintln!("{line:?}");
         }
         if let Statement::Directive(Directive::File(_)) = &line {
+            // do nothing, this directive was used previously to initialize rust sources
         } else if let Statement::Directive(Directive::Loc(loc)) = &line {
             if !fmt.rust {
                 continue;
