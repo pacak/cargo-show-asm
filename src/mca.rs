@@ -1,4 +1,9 @@
-use crate::{asm::Statement, demangle, esafeprintln, opts::Format, safeprintln, Dumpable};
+use crate::{
+    asm::{Directive, Statement},
+    demangle, esafeprintln,
+    opts::Format,
+    safeprintln, Dumpable,
+};
 use std::{
     io::{BufRead, BufReader},
     process::{Command, Stdio},
@@ -29,18 +34,16 @@ impl<'a> Mca<'a> {
 }
 
 impl Dumpable for Mca<'_> {
-    type Line<'a> = (&'a str, Statement<'a>);
+    type Line<'a> = Statement<'a>;
 
     fn split_lines(contents: &str) -> anyhow::Result<Vec<Self::Line<'_>>> {
-        let stmts = crate::asm::parse_file(contents)?;
-        Ok(std::iter::zip(contents.lines(), stmts).collect::<Vec<_>>())
+        crate::asm::parse_file(contents)
     }
 
     fn find_items(
         lines: &[Self::Line<'_>],
     ) -> std::collections::BTreeMap<crate::Item, std::ops::Range<usize>> {
-        let stmts = lines.iter().map(|l| l.1.clone()).collect::<Vec<_>>();
-        crate::asm::find_items(&stmts)
+        crate::asm::find_items(lines)
     }
 
     fn dump_range(&self, fmt: &Format, lines: &[Self::Line<'_>]) -> anyhow::Result<()> {
@@ -75,17 +78,24 @@ impl Dumpable for Mca<'_> {
             writeln!(i, ".intel_syntax")?;
         }
 
-        'outer: for (line, _) in lines.iter() {
-            let line = line.trim();
-            for skip in [".loc", ".file"] {
-                if line.starts_with(skip) {
-                    continue 'outer;
-                }
+        for line in lines.iter() {
+            match line {
+                Statement::Label(l) => writeln!(i, "{}:", l.id)?,
+                Statement::Directive(dir) => match dir {
+                    Directive::File(_) | Directive::Loc(_) | Directive::SubsectionsViaSym => {}
+                    Directive::SectionStart(ss) => writeln!(i, ".section {ss}")?,
+                    Directive::Generic(gen) => writeln!(i, ".{gen}")?,
+                    Directive::Set(set) => writeln!(i, ".set {set}")?,
+                },
+                Statement::Instruction(instr) => match instr.args {
+                    Some(args) => writeln!(i, "{} {}", instr.op, args)?,
+                    None => writeln!(i, "{}", instr.op)?,
+                },
+                Statement::Nothing => {}
+                // we couldn't parse it, maybe mca can?
+                Statement::Dunno(unk) => writeln!(i, "{unk}")?,
             }
-
-            writeln!(i, "{line}")?;
         }
-        writeln!(i, ".cfi_endproc")?;
         drop(i);
 
         for line in BufRead::lines(BufReader::new(o)) {

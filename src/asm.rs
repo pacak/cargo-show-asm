@@ -11,8 +11,8 @@ use crate::opts::{Format, NameDisplay, RedundantLabels, SourcesFrom};
 mod statements;
 
 use owo_colors::OwoColorize;
-pub use statements::Statement;
-use statements::{parse_statement, Directive, Loc};
+use statements::{parse_statement, Loc};
+pub use statements::{Directive, Statement};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Range;
