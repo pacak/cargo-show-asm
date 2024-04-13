@@ -1,7 +1,13 @@
 use anyhow::Context;
 use cargo_metadata::{Artifact, Message, MetadataCommand, Package};
 use cargo_show_asm::{
-    asm::Asm, dump_function, esafeprintln, llvm::Llvm, mca::Mca, mir::Mir, opts, safeprintln,
+    asm::Asm,
+    dump_function, esafeprintln,
+    llvm::Llvm,
+    mca::Mca,
+    mir::Mir,
+    opts::{self, OutputType},
+    safeprintln,
 };
 use once_cell::sync::Lazy;
 use std::{
@@ -50,7 +56,7 @@ fn spawn_cargo(
         .args(cargo.offline.then_some("--offline"))
         .args(cargo.target.iter().flat_map(|t| ["--target", t]))
         .args(cargo.unstable.iter().flat_map(|z| ["-Z", z]))
-        .args((syntax == opts::Syntax::Wasm).then_some("--target=wasm32-unknown-unknown"))
+        .args((syntax.output_type == OutputType::Wasm).then_some("--target=wasm32-unknown-unknown"))
         .args(
             cargo
                 .target_dir
@@ -94,11 +100,9 @@ fn spawn_cargo(
         .args(target_cpu.iter().map(|cpu| format!("-Ctarget-cpu={cpu}")));
 
     {
-        #[allow(clippy::enum_glob_use)]
-        use opts::Syntax::*;
-        // Debug info is needed to detect function boundaries in asm (Windows/Mac), and to map asm/wasm
-        // output to rust source.
-        if matches!(syntax, Intel | Att | Wasm | McaAtt | McaIntel) {
+        if syntax.emit() == "asm" {
+            // Debug info is needed to detect function boundaries in asm (Windows/Mac), and to map asm/wasm
+            // output to rust source.
             cmd.arg("-Cdebuginfo=2");
         }
     }
@@ -135,8 +139,6 @@ fn sysroot() -> anyhow::Result<PathBuf> {
 
 #[allow(clippy::too_many_lines)]
 fn main() -> anyhow::Result<()> {
-    use opts::Syntax;
-
     let opts = opts::options().run();
     owo_colors::set_override(opts.format.color);
 
@@ -216,24 +218,24 @@ fn main() -> anyhow::Result<()> {
         safeprintln!("goal: {:?}", opts.to_dump);
     }
 
-    match opts.syntax {
-        Syntax::Intel | Syntax::Att | Syntax::Wasm => {
+    match opts.syntax.output_type {
+        OutputType::Asm | OutputType::Wasm => {
             let asm = Asm::new(metadata.workspace_root.as_std_path(), &sysroot);
             dump_function(&asm, opts.to_dump, &asm_path, &opts.format)
         }
-        Syntax::McaAtt | Syntax::McaIntel => {
+        OutputType::Llvm | OutputType::LlvmInput => {
+            dump_function(&Llvm, opts.to_dump, &asm_path, &opts.format)
+        }
+        OutputType::Mir => dump_function(&Mir, opts.to_dump, &asm_path, &opts.format),
+        OutputType::Mca => {
             let mca = Mca::new(
                 &opts.mca_arg,
-                opts.syntax == Syntax::McaIntel,
+                opts.syntax.output_style,
                 opts.cargo.target.as_deref(),
                 opts.target_cpu.as_deref(),
             );
             dump_function(&mca, opts.to_dump, &asm_path, &opts.format)
         }
-        Syntax::Llvm | Syntax::LlvmInput => {
-            dump_function(&Llvm, opts.to_dump, &asm_path, &opts.format)
-        }
-        Syntax::Mir => dump_function(&Mir, opts.to_dump, &asm_path, &opts.format),
     }
 }
 

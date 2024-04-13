@@ -1,7 +1,7 @@
 use crate::{
-    asm::{Directive, Statement},
+    asm::Statement,
     demangle, esafeprintln,
-    opts::Format,
+    opts::{Format, OutputStyle},
     safeprintln, Dumpable,
 };
 use std::{
@@ -12,21 +12,20 @@ use std::{
 pub struct Mca<'a> {
     /// mca specific arguments
     args: &'a [String],
-    /// Use intel syntax?
-    use_intel_syntax: bool,
+    output_style: OutputStyle,
     target_triple: Option<&'a str>,
     target_cpu: Option<&'a str>,
 }
 impl<'a> Mca<'a> {
     pub fn new(
         mca_args: &'a [String],
-        use_intel_syntax: bool,
+        output_style: OutputStyle,
         target_triple: Option<&'a str>,
         target_cpu: Option<&'a str>,
     ) -> Self {
         Self {
             args: mca_args,
-            use_intel_syntax,
+            output_style,
             target_triple,
             target_cpu,
         }
@@ -74,9 +73,11 @@ impl Dumpable for Mca<'_> {
         let o = mca.stdout.take().expect("Stdout should be piped");
         let e = mca.stderr.take().expect("Stderr should be piped");
 
-        if self.use_intel_syntax {
-            writeln!(i, ".intel_syntax")?;
-        }
+        match self.output_style {
+            // without that llvm-mca gets confused for some instructions
+            OutputStyle::Intel => writeln!(i, ".intel_syntax")?,
+            OutputStyle::Att => {}
+        };
 
         for line in lines.iter() {
             match line {
