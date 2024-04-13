@@ -578,6 +578,15 @@ impl<'a> Dumpable for Asm<'a> {
                 res.push(range.start..range.end);
             }
         }
+
+        if fmt.simplify {
+            res.retain(|range| {
+                lines[range.start..range.end]
+                    .iter()
+                    .any(|s| !(s.boring() || matches!(s, Statement::Nothing | Statement::Label(_))))
+            });
+        }
+
         res
     }
 }
