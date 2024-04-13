@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::path::Path;
+use std::sync::OnceLock;
 
 use nom::branch::alt;
 use nom::bytes::complete::{escaped_transform, tag, take_while1, take_while_m_n};
@@ -10,6 +11,7 @@ use nom::multi::count;
 use nom::sequence::{delimited, pair, preceded, terminated, tuple};
 use nom::{AsChar, IResult};
 use owo_colors::OwoColorize;
+use regex::Regex;
 
 use crate::demangle::LabelKind;
 use crate::opts::NameDisplay;
@@ -54,18 +56,31 @@ impl<'a> Statement<'a> {
     /// Should we skip it for --simplify output?
     pub fn boring(&self) -> bool {
         if let Statement::Directive(Directive::Generic(GenericDirective(x))) = self {
-            // Some targets support special directives for encoding arbitrary binary sequences
-            // as instructions such as eg .insn or .inst.
-            if x.starts_with("inst\t") || x.starts_with("insn\t") {
-                return false;
-            }
-
+            static DATA_DEC: OnceLock<Regex> = OnceLock::new();
             // all of those can insert something as well... Not sure if it's a full list or not
             // .long, .short .octa, .quad, .word,
             // .single .double .float
             // .ascii, .asciz, .string, .string8 .string16 .string32 .string64
             // .2byte .4byte .8byte
             // .dc
+            // .inst .insn
+            let reg = DATA_DEC.get_or_init(|| {
+                Regex::new(
+                    "^(long|short|octa|quad|word|\
+            single|double|float|\
+            ascii|asciz|string|string8|string16|string32|string64|\
+            2byte|4byte|8byte|dc|\
+            inst|insn\
+            )[\\s\\t]",
+                )
+                .expect("regexp should be valid")
+            });
+            return !reg.is_match(x);
+        }
+        if let Statement::Directive(Directive::SectionStart(name)) = self {
+            if name.starts_with(".data") || name.starts_with(".rodata") {
+                return false;
+            }
         }
         matches!(self, Statement::Directive(_) | Statement::Dunno(_))
     }
