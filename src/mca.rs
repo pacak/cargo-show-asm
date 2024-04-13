@@ -81,12 +81,7 @@ impl Dumpable for Mca<'_> {
         for line in lines.iter() {
             match line {
                 Statement::Label(l) => writeln!(i, "{}:", l.id)?,
-                Statement::Directive(dir) => match dir {
-                    Directive::File(_) | Directive::Loc(_) | Directive::SubsectionsViaSym => {}
-                    Directive::SectionStart(ss) => writeln!(i, ".section {ss}")?,
-                    Directive::Generic(gen) => writeln!(i, ".{gen}")?,
-                    Directive::Set(set) => writeln!(i, ".set {set}")?,
-                },
+                Statement::Directive(_) => {}
                 Statement::Instruction(instr) => match instr.args {
                     Some(args) => writeln!(i, "{} {}", instr.op, args)?,
                     None => writeln!(i, "{}", instr.op)?,
