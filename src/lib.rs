@@ -317,10 +317,10 @@ pub fn dump_function<T: Dumpable>(
 
             if !context.is_empty() {
                 safeprintln!(
-                    "\n\n======================= Additional context ========================="
+                    "\n======================= Additional context ========================="
                 );
                 for range in context {
-                    safeprintln!("\n");
+                    safeprintln!("");
                     dumpable.dump_range(fmt, &lines[range])?;
                 }
             }
