@@ -35,17 +35,16 @@ pub struct Options {
     #[bpaf(external)]
     pub cargo: Cargo,
 
+    // how to display
     /// Pass parameter to llvm-mca for mca targets
     #[bpaf(short('M'), long)]
     pub mca_arg: Vec<String>,
-
-    // how to display
     /// Generate code for a specific CPU
     #[bpaf(external)]
     pub target_cpu: Option<String>,
     #[bpaf(external)]
     pub format: Format,
-    #[bpaf(external)]
+    #[bpaf(external(syntax_compat))]
     pub syntax: Syntax,
 
     // what to display
@@ -206,7 +205,7 @@ fn manifest_path() -> impl Parser<PathBuf> {
 }
 
 #[allow(clippy::struct_excessive_bools)]
-#[derive(Debug, Clone, Bpaf)]
+#[derive(Debug, Clone, Bpaf, Copy)]
 /// Postprocessing options:
 pub struct Format {
     /// Print interleaved Rust code
@@ -255,7 +254,7 @@ pub enum SourcesFrom {
     AllSources,
 }
 
-#[derive(Debug, Clone, Bpaf, Eq, PartialEq)]
+#[derive(Debug, Clone, Bpaf, Eq, PartialEq, Copy)]
 #[bpaf(fallback(RedundantLabels::Strip))]
 pub enum RedundantLabels {
     /// Keep all the original labels
@@ -286,14 +285,10 @@ pub enum NameDisplay {
 }
 
 #[derive(Debug, Clone, Bpaf, Eq, PartialEq, Copy)]
-#[bpaf(custom_usage(&[("OUTPUT-FORMAT", Style::Metavar)]), fallback(Syntax::Intel))]
-/// Pick output format:
-pub enum Syntax {
-    /// Show assembly using Intel style
-    #[bpaf(long("intel"), long("asm"))]
-    Intel,
-    /// Show assembly using AT&T style
-    Att,
+#[bpaf(fallback(OutputType::Asm))]
+pub enum OutputType {
+    /// Show assembly
+    Asm,
     /// Show llvm-ir
     Llvm,
     /// Show llvm-ir before any LLVM passes
@@ -302,39 +297,73 @@ pub enum Syntax {
     Mir,
     /// Show WASM, needs wasm32-unknown-unknown target installed
     Wasm,
-    /// Show llvm-mca analysis, Intel style asm
-    #[bpaf(long("mca-intel"), long("mca"))]
-    McaIntel,
-    /// Show llvm-mca analysis, AT&T style asm
-    McaAtt,
+    /// Show llvm-mca anasysis
+    Mca,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Bpaf)]
+#[bpaf(fallback(OutputStyle::Intel))]
+pub enum OutputStyle {
+    /// Use Intel style for assembly
+    Intel,
+    /// Use AT&T style for assembly
+    Att,
+}
+
+#[derive(Debug, Clone, Copy, Bpaf)]
+#[bpaf(custom_usage(&[("OUTPUT-FORMAT", Style::Metavar)]))]
+/// Pick output type:
+pub struct Syntax {
+    #[bpaf(external)]
+    pub output_type: OutputType,
+    #[bpaf(external)]
+    pub output_style: OutputStyle,
+}
+
+fn syntax_compat() -> impl Parser<Syntax> {
+    let mca_att = long("mca-att")
+        .req_flag(Syntax {
+            output_type: OutputType::Mca,
+            output_style: OutputStyle::Att,
+        })
+        .hide();
+    let mca_intel = long("mca-intel")
+        .req_flag(Syntax {
+            output_type: OutputType::Mca,
+            output_style: OutputStyle::Intel,
+        })
+        .hide();
+    construct!([syntax(), mca_att, mca_intel])
 }
 
 impl Syntax {
     #[must_use]
     pub fn format(&self) -> Option<&str> {
-        match self {
-            Self::Intel | Self::McaIntel => Some("llvm-args=-x86-asm-syntax=intel"),
-            Self::Att | Self::McaAtt => Some("llvm-args=-x86-asm-syntax=att"),
-            Self::LlvmInput => Some("no-prepopulate-passes"),
-            Self::Wasm | Self::Mir | Self::Llvm => None,
+        match self.output_type {
+            OutputType::Asm | OutputType::Mca => match self.output_style {
+                OutputStyle::Intel => Some("llvm-args=-x86-asm-syntax=intel"),
+                OutputStyle::Att => Some("llvm-args=-x86-asm-syntax=att"),
+            },
+            OutputType::LlvmInput => Some("no-prepopulate-passes"),
+            OutputType::Llvm | OutputType::Mir | OutputType::Wasm => None,
         }
     }
 
     #[must_use]
     pub fn emit(&self) -> &str {
-        match self {
-            Self::Intel | Self::Att | Self::Wasm | Self::McaIntel | Self::McaAtt => "asm",
-            Self::Llvm | Self::LlvmInput => "llvm-ir",
-            Self::Mir => "mir",
+        match self.output_type {
+            OutputType::Asm | OutputType::Wasm | OutputType::Mca => "asm",
+            OutputType::Llvm | OutputType::LlvmInput => "llvm-ir",
+            OutputType::Mir => "mir",
         }
     }
 
     #[must_use]
     pub fn ext(&self) -> &str {
-        match self {
-            Self::Intel | Self::McaAtt | Self::McaIntel | Self::Att | Self::Wasm => "s",
-            Self::Llvm | Self::LlvmInput => "ll",
-            Self::Mir => "mir",
+        match self.output_type {
+            OutputType::Asm | OutputType::Wasm | OutputType::Mca => "s",
+            OutputType::Llvm | OutputType::LlvmInput => "ll",
+            OutputType::Mir => "mir",
         }
     }
 }

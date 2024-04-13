@@ -30,7 +30,7 @@ $ cargo install cargo-show-asm
 
 Show the code rustc generates for any function
 
-**Usage**: **`cargo asm`** \[**`-p`**=_`SPEC`_\] \[_`ARTIFACT`_\] \[**`-M`**=_`ARG`_\]... \[_`TARGET-CPU`_\] \[**`--rust`**\] \[**`-c`**=_`COUNT`_\] \[**`--simplify`**\] \[**`--no-constants`**\] \[**`--this-workspace`** | **`--all-crates`** | **`--all-sources`**\] \[_`OUTPUT-FORMAT`_\] \[**`--everything`** | _`FUNCTION`_ \[_`INDEX`_\]\]
+**Usage**: **`cargo asm`** \[**`-p`**=_`SPEC`_\] \[_`ARTIFACT`_\] \[**`-M`**=_`ARG`_\]... \[_`TARGET-CPU`_\] \[**`--rust`**\] \[**`-c`**=_`COUNT`_\] \[**`--simplify`**\] \[**`--no-constants`**\] \[**`--this-workspace`** | **`--all-crates`** | **`--all-sources`**\] _`OUTPUT-FORMAT`_ \[**`--everything`** | _`FUNCTION`_ \[_`INDEX`_\]\]
 
  Usage:
  1. Focus on a single assembly producing target:
@@ -146,11 +146,9 @@ Show the code rustc generates for any function
 
 
 
-**Pick output format:**
-- **`    --intel`** &mdash; 
-  Show assembly using Intel style
-- **`    --att`** &mdash; 
-  Show assembly using AT&T style
+**Pick output type:**
+- **`    --asm`** &mdash; 
+  Show assembly
 - **`    --llvm`** &mdash; 
   Show llvm-ir
 - **`    --llvm-input`** &mdash; 
@@ -159,10 +157,12 @@ Show the code rustc generates for any function
   Show MIR
 - **`    --wasm`** &mdash; 
   Show WASM, needs wasm32-unknown-unknown target installed
-- **`    --mca-intel`** &mdash; 
-  Show llvm-mca analysis, Intel style asm
-- **`    --mca-att`** &mdash; 
-  Show llvm-mca analysis, AT&T style asm
+- **`    --mca`** &mdash; 
+  Show llvm-mca anasysis
+- **`    --intel`** &mdash; 
+  Use Intel style for assembly
+- **`    --att`** &mdash; 
+  Use AT&T style for assembly
 
 
 

@@ -1,11 +1,11 @@
 #![allow(clippy::missing_errors_doc)]
+use line_span::LineSpans;
 // https://llvm.org/docs/LangRef.html
 use owo_colors::OwoColorize;
 use regex::Regex;
 
 use crate::Dumpable;
 use crate::{
-    cached_lines::CachedLines,
     color,
     demangle::{self, contents},
     opts::Format,
@@ -31,7 +31,14 @@ enum State {
 pub struct Llvm;
 
 impl Dumpable for Llvm {
-    fn find_items(lines: &CachedLines) -> BTreeMap<Item, Range<usize>> {
+    type Line<'a> = &'a str;
+    fn split_lines(contents: &str) -> anyhow::Result<Vec<Self::Line<'_>>> {
+        Ok(contents
+            .line_spans()
+            .map(|s| s.as_str())
+            .collect::<Vec<_>>())
+    }
+    fn find_items(lines: &[&str]) -> BTreeMap<Item, Range<usize>> {
         struct ItemParseState {
             item: Item,
             start: usize,
@@ -40,7 +47,7 @@ impl Dumpable for Llvm {
         let mut current_item = None::<ItemParseState>;
         let regex = Regex::new("@\"?(_?_[a-zA-Z0-9_$.]+)\"?\\(").expect("regexp should be valid");
 
-        for (ix, line) in lines.iter().enumerate() {
+        for (ix, &line) in lines.iter().enumerate() {
             if line.starts_with("; Module") {
                 #[allow(clippy::needless_continue)] // silly clippy, readability suffers otherwise
                 continue;
@@ -85,7 +92,7 @@ impl Dumpable for Llvm {
         res
     }
 
-    fn dump_range(fmt: &Format, strings: &[&str]) {
+    fn dump_range(&self, fmt: &Format, strings: &[&str]) -> anyhow::Result<()> {
         for line in strings {
             if line.starts_with("; ") {
                 safeprintln!("{}", color!(line, OwoColorize::bright_cyan));
@@ -94,6 +101,7 @@ impl Dumpable for Llvm {
                 safeprintln!("{line}");
             }
         }
+        Ok(())
     }
 }
 

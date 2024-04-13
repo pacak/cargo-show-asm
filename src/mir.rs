@@ -1,17 +1,20 @@
 use crate::Dumpable;
-use crate::{cached_lines::CachedLines, color, opts::Format, safeprintln, Item};
+use crate::{color, opts::Format, safeprintln, Item};
+use line_span::LineSpans;
 use owo_colors::OwoColorize;
 use std::{collections::BTreeMap, ops::Range};
 
 pub struct Mir;
 
 impl Dumpable for Mir {
-    fn find_items(lines: &CachedLines) -> BTreeMap<Item, Range<usize>> {
+    type Line<'a> = &'a str;
+
+    fn find_items(lines: &[&str]) -> BTreeMap<Item, Range<usize>> {
         let mut res = BTreeMap::new();
         let mut current_item = None::<Item>;
         let mut block_start = None;
 
-        for (ix, line) in lines.iter().enumerate() {
+        for (ix, &line) in lines.iter().enumerate() {
             if line.starts_with("//") {
                 if block_start.is_none() {
                     block_start = Some(ix);
@@ -50,7 +53,7 @@ impl Dumpable for Mir {
         res
     }
 
-    fn dump_range(_fmt: &Format, strings: &[&str]) {
+    fn dump_range(&self, _fmt: &Format, strings: &[&str]) -> anyhow::Result<()> {
         for line in strings {
             if let Some(ix) = line.rfind("//") {
                 safeprintln!("{}{}", &line[..ix], color!(&line[ix..], OwoColorize::cyan));
@@ -58,5 +61,13 @@ impl Dumpable for Mir {
                 safeprintln!("{line}");
             }
         }
+        Ok(())
+    }
+
+    fn split_lines(contents: &str) -> anyhow::Result<Vec<&str>> {
+        Ok(contents
+            .line_spans()
+            .map(|s| s.as_str())
+            .collect::<Vec<_>>())
     }
 }

@@ -1,6 +1,6 @@
 [package]
 name = "cargo-show-asm"
-version = "0.2.31"
+version = "0.2.32"
 edition = "2021"
 description = "A cargo subcommand that displays the generated assembly of Rust source code."
 categories = ["development-tools::cargo-plugins", "development-tools::debugging"]
@@ -17,7 +17,6 @@ bpaf = { version = "0.9.11", features = ["bpaf_derive", "autocomplete"] }
 cargo_metadata = "0.18.1"
 line-span = "0.1"
 nom = "7"
-once_cell = "1"
 owo-colors = { version = "4", features = ["supports-colors"] }
 regex = "1"
 rustc-demangle = "0.1"

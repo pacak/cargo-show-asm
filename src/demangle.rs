@@ -1,9 +1,8 @@
 use crate::{color, opts::NameDisplay};
-use once_cell::sync::Lazy;
 use owo_colors::OwoColorize;
 use regex::{Regex, RegexSet, Replacer};
 use rustc_demangle::Demangle;
-use std::borrow::Cow;
+use std::{borrow::Cow, sync::OnceLock};
 
 #[must_use]
 pub fn name(input: &str) -> Option<String> {
@@ -41,19 +40,23 @@ const LOCAL_LABELS_REGEX: &str = r"(?:[^\w\d\$\.]|^)(\.L[a-zA-Z0-9_\$\.]+|\bLBB[
 // temporary labels
 const TEMP_LABELS_REGEX: &str = r"\b(Ltmp[0-9]+)\b";
 
-static GLOBAL_LABELS: Lazy<Regex> =
-    Lazy::new(|| Regex::new(GLOBAL_LABELS_REGEX).expect("regexp should be valid"));
+fn global_labels_reg() -> &'static Regex {
+    static GLOBAL_LABELS: OnceLock<Regex> = OnceLock::new();
+    GLOBAL_LABELS.get_or_init(|| Regex::new(GLOBAL_LABELS_REGEX).expect("regexp should be valid"))
+}
 
-pub(crate) static LOCAL_LABELS: Lazy<Regex> =
-    Lazy::new(|| Regex::new(LOCAL_LABELS_REGEX).expect("regexp should be valid"));
+pub(crate) fn local_labels_reg() -> &'static Regex {
+    static LOCAL_LABELS: OnceLock<Regex> = OnceLock::new();
+    LOCAL_LABELS.get_or_init(|| Regex::new(LOCAL_LABELS_REGEX).expect("regexp should be valid"))
+}
 
-static LABEL_KINDS: Lazy<RegexSet> = Lazy::new(|| {
-    RegexSet::new([LOCAL_LABELS_REGEX, GLOBAL_LABELS_REGEX, TEMP_LABELS_REGEX])
-        .expect("regexp should be valid")
-});
-
-static COMMENT_ARGS: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"(?:\s|^)(#.+)").expect("regexp should be valid"));
+fn label_kinds_reg() -> &'static RegexSet {
+    static LABEL_KINDS: OnceLock<RegexSet> = OnceLock::new();
+    LABEL_KINDS.get_or_init(|| {
+        RegexSet::new([LOCAL_LABELS_REGEX, GLOBAL_LABELS_REGEX, TEMP_LABELS_REGEX])
+            .expect("regexp should be valid")
+    })
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LabelKind {
@@ -64,12 +67,12 @@ pub enum LabelKind {
 }
 
 pub fn local_labels(input: &str) -> regex::Matches {
-    LOCAL_LABELS.find_iter(input)
+    local_labels_reg().find_iter(input)
 }
 
 #[must_use]
 pub fn label_kind(input: &str) -> LabelKind {
-    match LABEL_KINDS.matches(input).into_iter().next() {
+    match label_kinds_reg().matches(input).into_iter().next() {
         Some(1) => LabelKind::Global,
         Some(0) => LabelKind::Local,
         Some(2) => LabelKind::Temp,
@@ -86,19 +89,7 @@ impl Replacer for LabelColorizer {
 }
 
 pub fn color_local_labels(input: &str) -> Cow<'_, str> {
-    LOCAL_LABELS.replace_all(input, LabelColorizer)
-}
-
-struct CommentColorizer;
-impl Replacer for CommentColorizer {
-    fn replace_append(&mut self, caps: &regex::Captures<'_>, dst: &mut String) {
-        use std::fmt::Write;
-        write!(dst, "{}", color!(&caps[0], OwoColorize::blue)).unwrap();
-    }
-}
-
-pub fn color_comment(input: &str) -> Cow<'_, str> {
-    COMMENT_ARGS.replace_all(input, CommentColorizer)
+    local_labels_reg().replace_all(input, LabelColorizer)
 }
 
 struct Demangler {
@@ -127,12 +118,12 @@ impl Replacer for Demangler {
 
 #[must_use]
 pub fn contents(input: &str, display: NameDisplay) -> Cow<'_, str> {
-    GLOBAL_LABELS.replace_all(input, Demangler { display })
+    global_labels_reg().replace_all(input, Demangler { display })
 }
 
 #[must_use]
 pub fn global_reference(input: &str) -> Option<&str> {
-    GLOBAL_LABELS.find(input).map(|m| m.as_str())
+    global_labels_reg().find(input).map(|m| m.as_str())
 }
 
 #[cfg(test)]
