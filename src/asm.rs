@@ -11,7 +11,8 @@ use crate::opts::{Format, NameDisplay, RedundantLabels, SourcesFrom};
 mod statements;
 
 use owo_colors::OwoColorize;
-use statements::{parse_statement, Directive, Loc, Statement};
+pub use statements::Statement;
+use statements::{parse_statement, Directive, Loc};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Range;
@@ -513,8 +514,8 @@ impl<'a> Dumpable for Asm<'a> {
         find_items(lines)
     }
 
-    fn dump_range(&self, fmt: &Format, lines: &[Self::Line<'_>]) {
-        dump_range(&self.sources.borrow(), fmt, 0..lines.len(), lines).unwrap()
+    fn dump_range(&self, fmt: &Format, lines: &[Self::Line<'_>]) -> anyhow::Result<()> {
+        dump_range(&self.sources.borrow(), fmt, 0..lines.len(), lines)
     }
 
     fn extra_context(

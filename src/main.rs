@@ -1,16 +1,13 @@
 use anyhow::Context;
 use cargo_metadata::{Artifact, Message, MetadataCommand, Package};
-use cargo_show_asm::asm::Asm;
-use cargo_show_asm::llvm::Llvm;
-use cargo_show_asm::mir::Mir;
-use cargo_show_asm::safeprintln;
-use cargo_show_asm::{dump_function, esafeprintln, mca, opts};
+use cargo_show_asm::{
+    asm::Asm, dump_function, esafeprintln, llvm::Llvm, mca::Mca, mir::Mir, opts, safeprintln,
+};
 use once_cell::sync::Lazy;
-use std::process::Child;
 use std::{
     io::BufReader,
     path::{Path, PathBuf},
-    process::Stdio,
+    process::{Child, Stdio},
 };
 
 static CARGO_PATH: Lazy<PathBuf> =
@@ -224,15 +221,15 @@ fn main() -> anyhow::Result<()> {
             let asm = Asm::new(metadata.workspace_root.as_std_path(), &sysroot);
             dump_function(&asm, opts.to_dump, &asm_path, &opts.format)
         }
-        Syntax::McaAtt | Syntax::McaIntel => mca::dump_function(
-            opts.to_dump,
-            &asm_path,
-            &opts.format,
-            &opts.mca_arg,
-            opts.syntax == Syntax::McaIntel,
-            &opts.cargo.target,
-            &opts.target_cpu,
-        ),
+        Syntax::McaAtt | Syntax::McaIntel => {
+            let mca = Mca::new(
+                &opts.mca_arg,
+                opts.syntax == Syntax::McaIntel,
+                opts.cargo.target.as_deref(),
+                opts.target_cpu.as_deref(),
+            );
+            dump_function(&mca, opts.to_dump, &asm_path, &opts.format)
+        }
         Syntax::Llvm | Syntax::LlvmInput => {
             dump_function(&Llvm, opts.to_dump, &asm_path, &opts.format)
         }

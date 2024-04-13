@@ -53,7 +53,7 @@ impl Dumpable for Mir {
         res
     }
 
-    fn dump_range(&self, _fmt: &Format, strings: &[&str]) {
+    fn dump_range(&self, _fmt: &Format, strings: &[&str]) -> anyhow::Result<()> {
         for line in strings {
             if let Some(ix) = line.rfind("//") {
                 safeprintln!("{}{}", &line[..ix], color!(&line[ix..], OwoColorize::cyan));
@@ -61,6 +61,7 @@ impl Dumpable for Mir {
                 safeprintln!("{line}");
             }
         }
+        Ok(())
     }
 
     fn split_lines(contents: &str) -> anyhow::Result<Vec<&str>> {
