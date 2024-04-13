@@ -1,6 +1,6 @@
 # Change Log
 
-## [0.2.32] - Unreleased
+## [0.2.32] - 2024-04-13
 - include more instructions in `--simplify`
 - handle combinations like `--mca --intel` in addition to `--mca-intel` which is now deprecated
 - cosmetic improvements in produced output
