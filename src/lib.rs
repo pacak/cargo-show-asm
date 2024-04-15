@@ -10,6 +10,8 @@ use std::{
 pub mod asm;
 pub mod cached_lines;
 pub mod demangle;
+#[cfg(feature = "disasm")]
+pub mod disasm;
 pub mod llvm;
 pub mod mca;
 pub mod mir;

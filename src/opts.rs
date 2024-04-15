@@ -289,6 +289,9 @@ pub enum NameDisplay {
 pub enum OutputType {
     /// Show assembly
     Asm,
+    /// Disassembly binaries
+    #[cfg(feature = "disasm")]
+    Disasm,
     /// Show llvm-ir
     Llvm,
     /// Show llvm-ir before any LLVM passes
@@ -346,24 +349,33 @@ impl Syntax {
             },
             OutputType::LlvmInput => Some("no-prepopulate-passes"),
             OutputType::Llvm | OutputType::Mir | OutputType::Wasm => None,
+
+            #[cfg(feature = "disasm")]
+            OutputType::Disasm => None,
         }
     }
 
     #[must_use]
-    pub fn emit(&self) -> &str {
+    pub fn emit(&self) -> Option<&str> {
         match self.output_type {
-            OutputType::Asm | OutputType::Wasm | OutputType::Mca => "asm",
-            OutputType::Llvm | OutputType::LlvmInput => "llvm-ir",
-            OutputType::Mir => "mir",
+            OutputType::Asm | OutputType::Wasm | OutputType::Mca => Some("asm"),
+            OutputType::Llvm | OutputType::LlvmInput => Some("llvm-ir"),
+            OutputType::Mir => Some("mir"),
+
+            #[cfg(feature = "disasm")]
+            OutputType::Disasm => None,
         }
     }
 
     #[must_use]
-    pub fn ext(&self) -> &str {
+    pub fn ext(&self) -> Option<&str> {
         match self.output_type {
-            OutputType::Asm | OutputType::Wasm | OutputType::Mca => "s",
-            OutputType::Llvm | OutputType::LlvmInput => "ll",
-            OutputType::Mir => "mir",
+            OutputType::Asm | OutputType::Wasm | OutputType::Mca => Some("s"),
+            OutputType::Llvm | OutputType::LlvmInput => Some("ll"),
+            OutputType::Mir => Some("mir"),
+
+            #[cfg(feature = "disasm")]
+            OutputType::Disasm => None,
         }
     }
 }
@@ -504,6 +516,7 @@ fn write_updated(new_val: &str, path: impl AsRef<std::path::Path>) -> std::io::R
 
 #[cfg(unix)]
 #[test]
+#[cfg(feature = "disasm")]
 fn docs_are_up_to_date() {
     let usage = options().render_markdown("cargo asm");
     let readme = std::fs::read_to_string("README.tpl").unwrap();

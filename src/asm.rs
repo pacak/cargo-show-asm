@@ -1,5 +1,5 @@
 #![allow(clippy::missing_errors_doc)]
-use crate::asm::statements::{GenericDirective, Instruction, Label};
+use crate::asm::statements::{GenericDirective, Label};
 use crate::cached_lines::CachedLines;
 use crate::demangle::LabelKind;
 use crate::{
@@ -12,7 +12,7 @@ mod statements;
 
 use owo_colors::OwoColorize;
 use statements::{parse_statement, Loc};
-pub use statements::{Directive, Statement};
+pub use statements::{Directive, Instruction, Statement};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Range;

@@ -1,5 +1,9 @@
 # Change Log
 
+## [0.2.33] - unreleased
+- actually disassemble binaries/object files with `--disasm`, needs to be compiled with
+  "disasm" feature
+
 ## [0.2.32] - 2024-04-13
 - include more instructions in `--simplify`
 - handle combinations like `--mca --intel` in addition to `--mca-intel` which is now deprecated
