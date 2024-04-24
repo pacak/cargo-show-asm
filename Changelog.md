@@ -1,8 +1,26 @@
 # Change Log
 
-## [0.2.33] - unreleased
-- actually disassemble binaries/object files with `--disasm`, needs to be compiled with
-  "disasm" feature
+## [0.2.33] - 2024-04-24
+- Experimental support for disassembly, `cargo-show-asm` needs to be compiled with "disasm"
+  feature.
+
+  With that you can pass `--disasm` flag to disassemble binary artifacts (`.rlib` files or
+  executables) created by cargo.
+
+  To work with PGO, BOLT or other optimizations that require non standard build process you
+  can pass path to binary directly with `--file`.
+
+  For `cargo-show-asm` to detect symbols in your code you need to disable stripping by adding
+  something like this to `Cargo.toml`
+
+  ```
+  [profile.release]
+  strip = false
+  ```
+
+  At the moment interleaving rust source (`--rust`) is not supported
+- bump deps
+
 
 ## [0.2.32] - 2024-04-13
 - include more instructions in `--simplify`
