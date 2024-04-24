@@ -33,7 +33,7 @@ pub struct Options {
 
     // how to compile
     #[bpaf(external)]
-    pub cargo: Cargo,
+    pub code_source: CodeSource,
 
     // how to display
     /// Pass parameter to llvm-mca for mca targets
@@ -50,6 +50,23 @@ pub struct Options {
     // what to display
     #[bpaf(external)]
     pub to_dump: ToDump,
+}
+
+#[derive(Debug, Clone, Bpaf)]
+pub enum CodeSource {
+    FromCargo {
+        #[bpaf(external(cargo))]
+        cargo: Cargo,
+    },
+    #[cfg(feature = "disasm")]
+    File {
+        /// Disassemble this file instead of calling cargo,
+        ///  requires cargo-show-asm to be compiled with disasm feature
+        ///
+        /// You can specify executable, rlib or an object file
+        #[bpaf(argument("PATH"), hide_usage)]
+        file: PathBuf,
+    },
 }
 
 #[derive(Clone, Debug, Bpaf)]

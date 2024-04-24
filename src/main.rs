@@ -9,7 +9,7 @@ use cargo_show_asm::{
     llvm::Llvm,
     mca::Mca,
     mir::Mir,
-    opts::{self, OutputType},
+    opts::{self, CodeSource, OutputType},
     safeprintln,
 };
 use std::{
@@ -155,13 +155,23 @@ fn main() -> anyhow::Result<()> {
     let opts = opts::options().run();
     owo_colors::set_override(opts.format.color);
 
+    let cargo = match opts.code_source {
+        CodeSource::FromCargo { ref cargo } => cargo,
+        #[cfg(feature = "disasm")]
+        CodeSource::File { ref file } => {
+            if opts.format.verbosity > 0 {
+                esafeprintln!("Processing a given single file");
+            }
+            return dump_disasm(opts.to_dump, file, &opts.format, opts.syntax.output_style);
+        }
+    };
+
     let sysroot = sysroot()?;
     if opts.format.verbosity > 0 {
         esafeprintln!("Found sysroot: {}", sysroot.display());
     }
 
-    let unstable = opts
-        .cargo
+    let unstable = cargo
         .unstable
         .iter()
         .flat_map(|x| ["-Z".to_owned(), x.clone()])
@@ -169,7 +179,7 @@ fn main() -> anyhow::Result<()> {
 
     let metadata = MetadataCommand::new()
         .cargo_path(cargo_path())
-        .manifest_path(&opts.cargo.manifest_path)
+        .manifest_path(&cargo.manifest_path)
         .other_options(unstable)
         .no_deps()
         .exec()?;
@@ -184,7 +194,7 @@ fn main() -> anyhow::Result<()> {
         None => {
             esafeprintln!(
                 "{:?} refers to multiple packages, you need to specify which one to use",
-                opts.cargo.manifest_path
+                cargo.manifest_path
             );
             for package in &metadata.packages {
                 esafeprintln!("\t-p {}", package.name);
@@ -222,7 +232,7 @@ fn main() -> anyhow::Result<()> {
     let force_single_cgu = true;
 
     let cargo_child = spawn_cargo(
-        &opts.cargo,
+        cargo,
         &opts.format,
         opts.syntax,
         opts.target_cpu.as_deref(),
@@ -250,7 +260,7 @@ fn main() -> anyhow::Result<()> {
             let mca = Mca::new(
                 &opts.mca_arg,
                 opts.syntax.output_style,
-                opts.cargo.target.as_deref(),
+                cargo.target.as_deref(),
                 opts.target_cpu.as_deref(),
             );
             dump_function(&mca, opts.to_dump, &asm_path, &opts.format)
