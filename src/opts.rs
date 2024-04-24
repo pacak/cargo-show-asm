@@ -33,7 +33,7 @@ pub struct Options {
 
     // how to compile
     #[bpaf(external)]
-    pub cargo: Cargo,
+    pub code_source: CodeSource,
 
     // how to display
     /// Pass parameter to llvm-mca for mca targets
@@ -50,6 +50,23 @@ pub struct Options {
     // what to display
     #[bpaf(external)]
     pub to_dump: ToDump,
+}
+
+#[derive(Debug, Clone, Bpaf)]
+pub enum CodeSource {
+    FromCargo {
+        #[bpaf(external(cargo))]
+        cargo: Cargo,
+    },
+    #[cfg(feature = "disasm")]
+    File {
+        /// Disassemble this file instead of calling cargo,
+        ///  requires cargo-show-asm to be compiled with disasm feature
+        ///
+        /// You can specify executable, rlib or an object file
+        #[bpaf(argument("PATH"), hide_usage)]
+        file: PathBuf,
+    },
 }
 
 #[derive(Clone, Debug, Bpaf)]
@@ -289,6 +306,9 @@ pub enum NameDisplay {
 pub enum OutputType {
     /// Show assembly
     Asm,
+    /// Disassembly binaries
+    #[cfg(feature = "disasm")]
+    Disasm,
     /// Show llvm-ir
     Llvm,
     /// Show llvm-ir before any LLVM passes
@@ -346,24 +366,33 @@ impl Syntax {
             },
             OutputType::LlvmInput => Some("no-prepopulate-passes"),
             OutputType::Llvm | OutputType::Mir | OutputType::Wasm => None,
+
+            #[cfg(feature = "disasm")]
+            OutputType::Disasm => None,
         }
     }
 
     #[must_use]
-    pub fn emit(&self) -> &str {
+    pub fn emit(&self) -> Option<&str> {
         match self.output_type {
-            OutputType::Asm | OutputType::Wasm | OutputType::Mca => "asm",
-            OutputType::Llvm | OutputType::LlvmInput => "llvm-ir",
-            OutputType::Mir => "mir",
+            OutputType::Asm | OutputType::Wasm | OutputType::Mca => Some("asm"),
+            OutputType::Llvm | OutputType::LlvmInput => Some("llvm-ir"),
+            OutputType::Mir => Some("mir"),
+
+            #[cfg(feature = "disasm")]
+            OutputType::Disasm => None,
         }
     }
 
     #[must_use]
-    pub fn ext(&self) -> &str {
+    pub fn ext(&self) -> Option<&str> {
         match self.output_type {
-            OutputType::Asm | OutputType::Wasm | OutputType::Mca => "s",
-            OutputType::Llvm | OutputType::LlvmInput => "ll",
-            OutputType::Mir => "mir",
+            OutputType::Asm | OutputType::Wasm | OutputType::Mca => Some("s"),
+            OutputType::Llvm | OutputType::LlvmInput => Some("ll"),
+            OutputType::Mir => Some("mir"),
+
+            #[cfg(feature = "disasm")]
+            OutputType::Disasm => None,
         }
     }
 }
@@ -488,6 +517,7 @@ fn write_updated(new_val: &str, path: impl AsRef<std::path::Path>) -> std::io::R
         .write(true)
         .read(true)
         .create(true)
+        .truncate(false)
         .open(path)?;
     let mut current_val = String::new();
     file.read_to_string(&mut current_val)?;
@@ -503,6 +533,7 @@ fn write_updated(new_val: &str, path: impl AsRef<std::path::Path>) -> std::io::R
 
 #[cfg(unix)]
 #[test]
+#[cfg(feature = "disasm")]
 fn docs_are_up_to_date() {
     let usage = options().render_markdown("cargo asm");
     let readme = std::fs::read_to_string("README.tpl").unwrap();

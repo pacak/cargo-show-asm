@@ -10,6 +10,8 @@ use std::{
 pub mod asm;
 pub mod cached_lines;
 pub mod demangle;
+#[cfg(feature = "disasm")]
+pub mod disasm;
 pub mod llvm;
 pub mod mca;
 pub mod mir;
@@ -152,11 +154,11 @@ pub fn suggest_name<'a>(
 ///
 /// Prints suggestions and exits if goal can't be reached or more info is needed
 #[must_use]
-pub fn get_dump_range(
+pub fn pick_dump_item<K: Clone>(
     goal: ToDump,
     fmt: &Format,
-    items: &BTreeMap<Item, Range<usize>>,
-) -> Option<Range<usize>> {
+    items: &BTreeMap<Item, K>,
+) -> Option<K> {
     if items.len() == 1 {
         return Some(
             items
@@ -310,7 +312,7 @@ pub fn dump_function<T: Dumpable>(
     let lines = T::split_lines(&contents)?;
     let items = T::find_items(&lines);
 
-    match get_dump_range(goal, fmt, &items) {
+    match pick_dump_item(goal, fmt, &items) {
         Some(range) => {
             let context = T::extra_context(dumpable, fmt, &lines, range.clone(), &items);
             dumpable.dump_range(fmt, &lines[range])?;

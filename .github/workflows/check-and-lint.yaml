@@ -31,35 +31,44 @@ jobs:
       - name: Check formatting
         run: cargo fmt --all --check
 
+      - name: run disassembler on a binary
+        run: cargo run --features disasm -- --manifest-path sample/Cargo.toml --bin sample sample::main 0 --disasm
+
+      - name: run disassembler on a library
+        run: cargo run --features disasm -- --manifest-path sample/Cargo.toml --lib sample::main 0 --disasm
+
+      - name: run disassembler directly on a file
+        run: cargo run --features disasm -- --file sample/target/release/sample sample::main 0
+
       - name: Native version of cargo-show-asm (Intel ASM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --intel sample::main --rust
+        run: cargo run -- --manifest-path sample/Cargo.toml --lib --intel sample::main --rust
 
       - name: Native version of cargo-show-asm (Intel ASM) + native CPU
-        run: cargo run -- --manifest-path sample/Cargo.toml --native --intel sample::main --rust
+        run: cargo run -- --manifest-path sample/Cargo.toml --lib --native --intel sample::main --rust
 
       - name: Native version of cargo-show-asm (Intel ASM) + native CPU + no default features
-        run: cargo run -- -vvv --manifest-path sample/Cargo.toml --native --intel sample::main --rust --no-default-features
+        run: cargo run -- -vvv --manifest-path sample/Cargo.toml --lib --native --intel sample::main --rust --no-default-features
 
       - name: Native version of cargo-show-asm (Intel ASM) + atom
-        run: cargo run -- --manifest-path sample/Cargo.toml --target-cpu atom --intel sample::main --rust
+        run: cargo run -- --manifest-path sample/Cargo.toml --lib --target-cpu atom --intel sample::main --rust
 
       - name: Native version of cargo-show-asm with symbol mangling (Intel ASM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --intel sample::main --rust --keep-mangled
+        run: cargo run -- --manifest-path sample/Cargo.toml --lib --intel sample::main --rust --keep-mangled
 
       - name: Native version of cargo-show-asm (LLVM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --llvm sample::main
+        run: cargo run -- --manifest-path sample/Cargo.toml --lib --llvm sample::main
 
       - name: Native version of cargo-show-asm with symbol mangling (LLVM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --llvm --keep-mangled sample::main
+        run: cargo run -- --manifest-path sample/Cargo.toml --lib --llvm --keep-mangled sample::main
 
       - name: Native version of cargo-show-asm (LLVM Input)
-        run: cargo run -- --manifest-path sample/Cargo.toml --llvm-input sample::main
+        run: cargo run -- --manifest-path sample/Cargo.toml --lib --llvm-input sample::main
 
       - name: Native version of cargo-show-asm (MIR)
-        run: cargo run -- --manifest-path sample/Cargo.toml --mir "main()"
+        run: cargo run -- --manifest-path sample/Cargo.toml --lib --mir "main()"
 
       - name: Crosscompiled version of cargo-show-asm (Intel ASM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --intel sample::main --target armv7-unknown-linux-gnueabihf
+        run: cargo run -- --manifest-path sample/Cargo.toml --lib --intel sample::main --target armv7-unknown-linux-gnueabihf
 
       - name: Rlib project, AT&T asm
         run: cargo run -- --manifest-path sample_rlib/Cargo.toml --att
@@ -97,34 +106,34 @@ jobs:
         run: cargo fmt --all --check
 
       - name: Native version of cargo-show-asm (Intel ASM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --intel sample::main --rust
+        run: cargo run -- --manifest-path sample/Cargo.toml --lib --intel sample::main --rust
 
       - name: Native version of cargo-show-asm (Intel ASM) + native CPU
-        run: cargo run -- --manifest-path sample/Cargo.toml --native --intel sample::main --rust
+        run: cargo run -- --manifest-path sample/Cargo.toml --lib --native --intel sample::main --rust
 
       - name: Native version of cargo-show-asm (Intel ASM) + native CPU + no default features
-        run: cargo run -- -vvv --manifest-path sample/Cargo.toml --native --intel sample::main --rust --no-default-features
+        run: cargo run -- -vvv --manifest-path sample/Cargo.toml --lib --native --intel sample::main --rust --no-default-features
 
       - name: Native version of cargo-show-asm (Intel ASM) + atom
-        run: cargo run -- --manifest-path sample/Cargo.toml --target-cpu atom --intel sample::main --rust
+        run: cargo run -- --manifest-path sample/Cargo.toml --lib --target-cpu atom --intel sample::main --rust
 
       - name: Native version of cargo-show-asm with symbol mangling (Intel ASM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --intel sample::main --rust --keep-mangled
+        run: cargo run -- --manifest-path sample/Cargo.toml --lib --intel sample::main --rust --keep-mangled
 
       - name: Native version of cargo-show-asm (LLVM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --llvm sample::main
+        run: cargo run -- --manifest-path sample/Cargo.toml --lib --llvm sample::main
 
       - name: Native version of cargo-show-asm with symbol mangling (LLVM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --llvm --keep-mangled sample::main
+        run: cargo run -- --manifest-path sample/Cargo.toml --lib --llvm --keep-mangled sample::main
 
       - name: Native version of cargo-show-asm (LLVM Input)
-        run: cargo run -- --manifest-path sample/Cargo.toml --llvm-input sample::main
+        run: cargo run -- --manifest-path sample/Cargo.toml --lib --llvm-input sample::main
 
       - name: Native version of cargo-show-asm (MIR)
-        run: cargo run -- --manifest-path sample/Cargo.toml --mir "main()"
+        run: cargo run -- --manifest-path sample/Cargo.toml --lib --mir "main()"
 
       - name: Crosscompiled version of cargo-show-asm (Intel ASM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --intel sample::main --target armv7-unknown-linux-gnueabihf
+        run: cargo run -- --manifest-path sample/Cargo.toml --lib --intel sample::main --target armv7-unknown-linux-gnueabihf
 
       - name: Rlib project, AT&T asm
         run: cargo run -- --manifest-path sample_rlib/Cargo.toml --att
@@ -159,34 +168,34 @@ jobs:
         run: cargo fmt --all --check
 
       - name: Native version of cargo-show-asm (Intel ASM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --intel sample::main --rust
+        run: cargo run -- --manifest-path sample/Cargo.toml --lib --intel sample::main --rust
 
       - name: Native version of cargo-show-asm (Intel ASM) + native CPU
-        run: cargo run -- --manifest-path sample/Cargo.toml --native --intel sample::main --rust
+        run: cargo run -- --manifest-path sample/Cargo.toml --lib --native --intel sample::main --rust
 
       - name: Native version of cargo-show-asm (Intel ASM) + native CPU + no default features
-        run: cargo run -- -vvv --manifest-path sample/Cargo.toml --native --intel sample::main --rust --no-default-features
+        run: cargo run -- -vvv --manifest-path sample/Cargo.toml --lib --native --intel sample::main --rust --no-default-features
 
       - name: Native version of cargo-show-asm (Intel ASM) + atom
-        run: cargo run -- --manifest-path sample/Cargo.toml --target-cpu atom --intel sample::main --rust
+        run: cargo run -- --manifest-path sample/Cargo.toml --lib --target-cpu atom --intel sample::main --rust
 
       - name: Native version of cargo-show-asm with symbol mangling (Intel ASM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --intel sample::main --rust --keep-mangled
+        run: cargo run -- --manifest-path sample/Cargo.toml --lib --intel sample::main --rust --keep-mangled
 
       - name: Native version of cargo-show-asm (LLVM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --llvm sample::main
+        run: cargo run -- --manifest-path sample/Cargo.toml --lib --llvm sample::main
 
       - name: Native version of cargo-show-asm with symbol mangling (LLVM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --llvm --keep-mangled sample::main
+        run: cargo run -- --manifest-path sample/Cargo.toml --lib --llvm --keep-mangled sample::main
 
       - name: Native version of cargo-show-asm (LLVM Input)
-        run: cargo run -- --manifest-path sample/Cargo.toml --llvm-input sample::main
+        run: cargo run -- --manifest-path sample/Cargo.toml --lib --llvm-input sample::main
 
       - name: Native version of cargo-show-asm (MIR)
-        run: cargo run -- --manifest-path sample/Cargo.toml --mir "main()"
+        run: cargo run -- --manifest-path sample/Cargo.toml --lib --mir "main()"
 
       - name: Crosscompiled version of cargo-show-asm (Intel ASM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --intel sample::main --target armv7-unknown-linux-gnueabihf
+        run: cargo run -- --manifest-path sample/Cargo.toml --lib --intel sample::main --target armv7-unknown-linux-gnueabihf
 
       - name: Rlib project, AT&T asm
         run: cargo run -- --manifest-path sample_rlib/Cargo.toml --att

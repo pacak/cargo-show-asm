@@ -149,6 +149,8 @@ Show the code rustc generates for any function
 **Pick output type:**
 - **`    --asm`** &mdash; 
   Show assembly
+- **`    --disasm`** &mdash; 
+  Disassembly binaries
 - **`    --llvm`** &mdash; 
   Show llvm-ir
 - **`    --llvm-input`** &mdash; 
@@ -181,6 +183,11 @@ Show the code rustc generates for any function
   Package to use, defaults to a current one,
 
   required for workspace projects, can also point to a dependency
+- **`    --file`**=_`PATH`_ &mdash; 
+  Disassemble this file instead of calling cargo,
+requires cargo-show-asm to be compiled with disasm feature
+
+  You can specify executable, rlib or an object file
 - **`-M`**, **`--mca-arg`**=_`ARG`_ &mdash; 
   Pass parameter to llvm-mca for mca targets
 - **`    --native`** &mdash; 

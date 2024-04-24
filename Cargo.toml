@@ -1,6 +1,6 @@
 [package]
 name = "cargo-show-asm"
-version = "0.2.32"
+version = "0.2.33"
 edition = "2021"
 description = "A cargo subcommand that displays the generated assembly of Rust source code."
 categories = ["development-tools::cargo-plugins", "development-tools::debugging"]
@@ -13,23 +13,28 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 anyhow = "1"
+ar = { version = "0.9", optional = true }
 bpaf = { version = "0.9.11", features = ["bpaf_derive", "autocomplete"] }
+capstone = { version = "0.12", optional = true }
 cargo_metadata = "0.18.1"
 line-span = "0.1"
 nom = "7"
+object = { version = "0.35", optional = true }
 owo-colors = { version = "4", features = ["supports-colors"] }
 regex = "1"
 rustc-demangle = "0.1"
 same-file = "1.0.6"
-supports-color = "3.0"
 serde = "=1.0.195"
+supports-color = "3.0"
 
 [dev-dependencies]
 bpaf = { version = "0.9.11", features = ["bpaf_derive", "autocomplete", "docgen"] }
 
+
 [features]
 bright-color = ["bpaf/bright-color"]
 default = ["dull-color"]
+disasm = ["ar", "capstone", "object"]
 dull-color = ["bpaf/dull-color"]
 
 [[bin]]
