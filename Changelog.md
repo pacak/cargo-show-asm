@@ -1,5 +1,8 @@
 # Change Log
 
+## [0.2.34] - 2024-04-25
+- don't force debuginfo in llvm, fixes #269
+
 ## [0.2.33] - 2024-04-24
 - Experimental support for disassembly, `cargo-show-asm` needs to be compiled with "disasm"
   feature.
