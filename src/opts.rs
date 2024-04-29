@@ -248,8 +248,7 @@ pub struct Format {
     /// Try to strip some of the non-assembly instruction information
     pub simplify: bool,
 
-    /// Don't detect/include sections containing string literals and other constants
-    #[bpaf(long("no-constants"), flag(false, true))]
+    /// Include sections containing string literals and other constants
     pub include_constants: bool,
 
     /// Keep blank lines

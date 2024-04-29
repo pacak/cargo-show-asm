@@ -1,5 +1,8 @@
 # Change Log
 
+## [0.2.35] - unreleased
+- don't include constants by default
+
 ## [0.2.34] - 2024-04-25
 - don't force debuginfo in llvm, fixes #269
 
