@@ -22,6 +22,26 @@ impl std::fmt::Display for Reloc<'_> {
     }
 }
 
+struct HexDump<'a> {
+    max_width: usize,
+    bytes: &'a [u8],
+}
+
+impl std::fmt::Display for HexDump<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.bytes.is_empty() {
+            return Ok(());
+        }
+        for byte in self.bytes.iter() {
+            write!(f, "{:02x} ", byte)?;
+        }
+        for _ in 0..(1 + self.max_width - self.bytes.len()) {
+            f.write_str("   ")?;
+        }
+        Ok(())
+    }
+}
+
 /// disassemble rlib or exe, one file at a time
 pub fn dump_disasm(
     goal: ToDump,
@@ -168,7 +188,16 @@ fn dump_slices(
         }
     }
 
-    for insn in cs.disasm_all(code, addr as u64)?.iter() {
+    let insns = cs.disasm_all(code, addr as u64)?;
+
+    let max_width = insns.iter().map(|i| i.len()).max().unwrap_or(1);
+
+    for insn in insns.iter() {
+        let hex = HexDump {
+            max_width,
+            bytes: if fmt.simplify { &[] } else { insn.bytes() },
+        };
+
         let interesting_addr = if !reloc_map.is_empty() {
             // binary contains a relocation map - use that
             false
@@ -192,15 +221,15 @@ fn dump_slices(
                 args: insn.op_str(),
             };
             if let Some(reloc) = reloc_info(file, &reloc_map, insn, fmt) {
-                safeprintln!("{:8x}:    {i} # {reloc}", insn.address());
+                safeprintln!("{:8x}:    {hex}{i} # {reloc}", insn.address());
             } else if let Some(reloc) = interesting_addr
                 .then(|| get_reference(&cs, insn))
                 .flatten()
                 .and_then(|addr| symbol_names.get(&addr))
             {
-                safeprintln!("{:8x}:    {i} # {reloc}", insn.address());
+                safeprintln!("{:8x}:    {hex}{i} # {reloc}", insn.address());
             } else {
-                safeprintln!("{:8x}:    {i}", insn.address())
+                safeprintln!("{:8x}:    {hex}{i}", insn.address())
             }
         }
     }
