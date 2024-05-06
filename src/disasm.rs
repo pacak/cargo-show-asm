@@ -1,4 +1,5 @@
 use crate::{
+    color,
     demangle::{self, demangled},
     opts::{Format, NameDisplay, OutputStyle, ToDump},
     pick_dump_item, safeprintln, Item,
@@ -9,16 +10,42 @@ use object::{
     Architecture, Object, ObjectSection, ObjectSymbol, Relocation, RelocationTarget, SectionIndex,
     SymbolKind,
 };
-use std::{collections::BTreeMap, path::Path};
+use owo_colors::OwoColorize;
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    path::Path,
+};
 
-struct Reloc<'a> {
+/// Reference to some other symbol
+#[derive(Copy, Clone)]
+struct Reference<'a> {
     name: &'a str,
     name_display: NameDisplay,
 }
 
-impl std::fmt::Display for Reloc<'_> {
+impl std::fmt::Display for Reference<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", demangle::contents(self.name, self.name_display))
+    }
+}
+
+struct HexDump<'a> {
+    max_width: usize,
+    bytes: &'a [u8],
+}
+
+impl std::fmt::Display for HexDump<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.bytes.is_empty() {
+            return Ok(());
+        }
+        for byte in self.bytes.iter() {
+            write!(f, "{:02x} ", byte)?;
+        }
+        for _ in 0..(1 + self.max_width - self.bytes.len()) {
+            f.write_str("   ")?;
+        }
+        Ok(())
     }
 }
 
@@ -103,7 +130,7 @@ fn reloc_info<'a>(
     reloc_map: &'a BTreeMap<u64, Relocation>,
     insn: &Insn,
     fmt: &Format,
-) -> Option<Reloc<'a>> {
+) -> Option<Reference<'a>> {
     let addr = insn.address();
     let range = addr..addr + insn.len() as u64;
     let (_range, relocation) = reloc_map.range(range).next()?;
@@ -113,7 +140,7 @@ fn reloc_info<'a>(
         RelocationTarget::Absolute => None,
         _ => None,
     }?;
-    Some(Reloc {
+    Some(Reference {
         name,
         name_display: fmt.name_display,
     })
@@ -145,7 +172,7 @@ fn dump_slices(
             .map(|s| {
                 let name = s.name().unwrap();
                 let name = name.split_once('$').map_or(name, |(p, _)| p);
-                let reloc = Reloc {
+                let reloc = Reference {
                     name,
                     name_display: fmt.name_display,
                 };
@@ -168,40 +195,94 @@ fn dump_slices(
         }
     }
 
-    for insn in cs.disasm_all(code, addr as u64)?.iter() {
-        let interesting_addr = if !reloc_map.is_empty() {
-            // binary contains a relocation map - use that
-            false
-        } else {
-            // otherwise check if instruction is dealing with control flow
-            //
-            // group ids/names are not stable so look for their string representation.
-            // this allocates but at most once per instruction
-            *opcode_cache.entry(insn.op_str()).or_insert_with(|| {
+    let insns = cs.disasm_all(code, addr as u64)?;
+    if insns.is_empty() {
+        safeprintln!("No instructions - empty code block?");
+    }
+
+    let max_width = insns.iter().map(|i| i.len()).max().unwrap_or(1);
+
+    // flow control related addresses referred by each instruction
+    let addrs = insns
+        .iter()
+        .map(|insn| {
+            if *opcode_cache.entry(insn.op_str()).or_insert_with(|| {
                 cs.insn_detail(insn)
                     .expect("Can't get instruction info")
                     .groups()
                     .iter()
                     .any(|g| matches!(cs.group_name(*g).as_deref(), Some("call" | "jump")))
-            })
+            }) {
+                let r = get_reference(&cs, insn)?;
+                (r != insn.address() + insn.len() as u64).then_some(r)
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+
+    let local_range = insns[0].address()..insns.last().unwrap().address();
+
+    let local_labels = addrs
+        .iter()
+        .copied()
+        .flatten()
+        .filter(|addr| local_range.contains(addr))
+        .collect::<BTreeSet<_>>();
+    let local_labels = local_labels
+        .into_iter()
+        .enumerate()
+        .map(|n| (n.1, n.0))
+        .collect::<BTreeMap<_, _>>();
+
+    let mut buf = String::new();
+    for (insn, &maddr) in insns.iter().zip(addrs.iter()) {
+        let hex = HexDump {
+            max_width,
+            bytes: if fmt.simplify { &[] } else { insn.bytes() },
         };
 
-        if let Some(op) = insn.mnemonic() {
-            let i = crate::asm::Instruction {
-                op,
-                args: insn.op_str(),
-            };
-            if let Some(reloc) = reloc_info(file, &reloc_map, insn, fmt) {
-                safeprintln!("{:8x}:    {i} # {reloc}", insn.address());
-            } else if let Some(reloc) = interesting_addr
-                .then(|| get_reference(&cs, insn))
-                .flatten()
-                .and_then(|addr| symbol_names.get(&addr))
-            {
-                safeprintln!("{:8x}:    {i} # {reloc}", insn.address());
-            } else {
-                safeprintln!("{:8x}:    {i}", insn.address())
-            }
+        let addr = insn.address();
+
+        // binary code will have pending relocations if we are dealing with disassembling a library
+        // code or with relocations already applied if we are working with a binary
+        let mut refn = reloc_info(file, &reloc_map, insn, fmt)
+            .or_else(|| maddr.and_then(|addr| symbol_names.get(&addr).copied()));
+
+        if let Some(id) = local_labels.get(&addr) {
+            use owo_colors::OwoColorize;
+            safeprintln!(
+                "{}{}:",
+                crate::color!("label_", OwoColorize::bright_yellow),
+                crate::color!(id, OwoColorize::bright_yellow),
+            );
+        }
+
+        let i = crate::asm::Instruction {
+            op: insn.mnemonic().unwrap_or("???"),
+            args: insn.op_str(),
+        };
+
+        if let Some(id) = maddr.and_then(|a| local_labels.get(&a)) {
+            buf.clear();
+            use std::fmt::Write;
+            write!(
+                buf,
+                "{}{}",
+                color!("label_", OwoColorize::bright_yellow),
+                color!(id, OwoColorize::bright_yellow)
+            )
+            .unwrap();
+            refn = Some(Reference {
+                name: buf.as_str(),
+                name_display: fmt.name_display,
+            });
+        }
+
+        if let Some(reloc) = refn {
+            safeprintln!("{addr:8x}:    {hex}{i} # {reloc}");
+        } else {
+            safeprintln!("{addr:8x}:    {hex}{i}");
         }
     }
 
@@ -218,7 +299,11 @@ fn get_reference(cs: &Capstone, insn: &Insn) -> Option<u64> {
             X86OperandType::Imm(rel) => Some(rel.try_into().unwrap()),
             X86OperandType::Mem(mem) => {
                 assert_eq!(mem.scale(), 1);
-                (insn.address() + insn.len() as u64).checked_add_signed(mem.disp())
+                if mem.disp() == 0 {
+                    (insn.address() + insn.len() as u64).checked_add_signed(mem.disp())
+                } else {
+                    None
+                }
             }
             _ => None, // ¯\_ (ツ)_/¯
         },
@@ -227,7 +312,11 @@ fn get_reference(cs: &Capstone, insn: &Insn) -> Option<u64> {
         ArchDetail::Arm64Detail(arm) => match arm.operands().next()?.op_type {
             Arm64OperandType::Imm(rel) => Some(rel.try_into().unwrap()),
             Arm64OperandType::Mem(mem) => {
-                (insn.address() + insn.len() as u64).checked_add_signed(mem.disp() as i64)
+                if mem.disp() == 0 {
+                    (insn.address() + insn.len() as u64).checked_add_signed(mem.disp() as i64)
+                } else {
+                    None
+                }
             }
             _ => None, // ¯\_ (ツ)_/¯
         },

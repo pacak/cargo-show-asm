@@ -109,6 +109,7 @@ dependencies = [
  "ar",
  "bpaf",
  "capstone",
+ "cargo-show-asm",
  "cargo_metadata",
  "line-span",
  "nom",
