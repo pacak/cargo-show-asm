@@ -1,8 +1,11 @@
 # Change Log
 
-## [0.2.35] - unreleased
+## [0.2.35] - 2024-05-05
 - don't include constants by default
 - include local jump labels in disassembly
+- include instructions in hex in disassembly
+- avoid memory addresses with displacement in disassembly
+- bump bpaf
 
 ## [0.2.34] - 2024-04-25
 - don't force debuginfo in llvm, fixes #269
