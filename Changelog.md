@@ -1,6 +1,6 @@
 # Change Log
 
-## [0.2.35] - 2024-05-05
+## [0.2.35] - 2024-05-06
 - don't include constants by default
 - include local jump labels in disassembly
 - include instructions in hex in disassembly

@@ -253,7 +253,7 @@ fn dump_slices(
             use owo_colors::OwoColorize;
             safeprintln!(
                 "{}{}:",
-                crate::color!("label_", OwoColorize::bright_yellow),
+                crate::color!(".L", OwoColorize::bright_yellow),
                 crate::color!(id, OwoColorize::bright_yellow),
             );
         }
@@ -269,7 +269,7 @@ fn dump_slices(
             write!(
                 buf,
                 "{}{}",
-                color!("label_", OwoColorize::bright_yellow),
+                color!(".L", OwoColorize::bright_yellow),
                 color!(id, OwoColorize::bright_yellow)
             )
             .unwrap();
