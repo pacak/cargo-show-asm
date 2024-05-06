@@ -31,6 +31,15 @@ fn rust_path() -> &'static Path {
         .get_or_init(|| std::env::var_os("RUSTC").map_or_else(|| "rustc".into(), PathBuf::from))
 }
 
+#[cfg(not(feature = "disasm"))]
+macro_rules! no_disasm {
+    () => {{
+        // Sigh, never type...
+        esafeprintln!("This option requires cargo-show-asm to be compiled with \"disasm\" feature");
+        std::process::exit(101)
+    }};
+}
+
 fn spawn_cargo(
     cargo: &opts::Cargo,
     format: &opts::Format,
@@ -157,6 +166,8 @@ fn main() -> anyhow::Result<()> {
 
     let cargo = match opts.code_source {
         CodeSource::FromCargo { ref cargo } => cargo,
+        #[cfg(not(feature = "disasm"))]
+        CodeSource::File { .. } => no_disasm!(),
         #[cfg(feature = "disasm")]
         CodeSource::File { ref file } => {
             if opts.format.verbosity > 0 {
@@ -265,6 +276,9 @@ fn main() -> anyhow::Result<()> {
             );
             dump_function(&mca, opts.to_dump, &asm_path, &opts.format)
         }
+        #[cfg(not(feature = "disasm"))]
+        OutputType::Disasm => no_disasm!(),
+
         #[cfg(feature = "disasm")]
         OutputType::Disasm => dump_disasm(
             opts.to_dump,

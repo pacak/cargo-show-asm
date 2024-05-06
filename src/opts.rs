@@ -58,7 +58,6 @@ pub enum CodeSource {
         #[bpaf(external(cargo))]
         cargo: Cargo,
     },
-    #[cfg(feature = "disasm")]
     File {
         /// Disassemble this file instead of calling cargo,
         ///  requires cargo-show-asm to be compiled with disasm feature
@@ -305,8 +304,7 @@ pub enum NameDisplay {
 pub enum OutputType {
     /// Show assembly
     Asm,
-    /// Disassembly binaries
-    #[cfg(feature = "disasm")]
+    /// Disassembly binaries or object files
     Disasm,
     /// Show llvm-ir
     Llvm,
@@ -366,7 +364,6 @@ impl Syntax {
             OutputType::LlvmInput => Some("no-prepopulate-passes"),
             OutputType::Llvm | OutputType::Mir | OutputType::Wasm => None,
 
-            #[cfg(feature = "disasm")]
             OutputType::Disasm => None,
         }
     }
@@ -378,7 +375,6 @@ impl Syntax {
             OutputType::Llvm | OutputType::LlvmInput => Some("llvm-ir"),
             OutputType::Mir => Some("mir"),
 
-            #[cfg(feature = "disasm")]
             OutputType::Disasm => None,
         }
     }
@@ -390,7 +386,6 @@ impl Syntax {
             OutputType::Llvm | OutputType::LlvmInput => Some("ll"),
             OutputType::Mir => Some("mir"),
 
-            #[cfg(feature = "disasm")]
             OutputType::Disasm => None,
         }
     }
@@ -532,7 +527,6 @@ fn write_updated(new_val: &str, path: impl AsRef<std::path::Path>) -> std::io::R
 
 #[cfg(unix)]
 #[test]
-#[cfg(feature = "disasm")]
 fn docs_are_up_to_date() {
     let usage = options().render_markdown("cargo asm");
     let readme = std::fs::read_to_string("README.tpl").unwrap();

@@ -150,7 +150,7 @@ Show the code rustc generates for any function
 - **`    --asm`** &mdash; 
   Show assembly
 - **`    --disasm`** &mdash; 
-  Disassembly binaries
+  Disassembly binaries or object files
 - **`    --llvm`** &mdash; 
   Show llvm-ir
 - **`    --llvm-input`** &mdash; 
