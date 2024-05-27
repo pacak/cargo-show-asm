@@ -19,7 +19,7 @@ capstone = { version = "0.12", optional = true }
 cargo_metadata = "0.18.1"
 line-span = "0.1"
 nom = "7"
-object = { version = "0.35", optional = true }
+object = { version = "0.36", optional = true }
 owo-colors = { version = "4", features = ["supports-colors"] }
 regex = "1"
 rustc-demangle = "0.1"
