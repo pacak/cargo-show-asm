@@ -138,8 +138,14 @@ jobs:
       - name: Rlib project, AT&T asm
         run: cargo run -- --manifest-path sample_rlib/Cargo.toml --att
 
-      - name: cdylib project
+      - name: cdylib project, everything
         run: cargo run -- --manifest-path sample_cdylib/Cargo.toml --everything
+
+      - name: cdylib project
+        run: cargo run -- --manifest-path sample_cdylib/Cargo.toml add
+
+      - name: cdylib project, underscore prefix
+        run: cargo run -- --manifest-path sample_cdylib/Cargo.toml _mul
 
   macos:
     runs-on: macos-latest
