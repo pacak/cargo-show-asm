@@ -129,11 +129,17 @@ fn handle_non_mangled_labels(
             const MACOS_TEXT_SECTION: &str = "__TEXT,__text,regular,pure_instructions";
             // Windows symbols each have their own section with this prefix.
             const WINDOWS_TEXT_SECTION_PREFIX: &str = ".text,\"xr\",one_only,";
-            if *ss == MACOS_TEXT_SECTION || ss.starts_with(WINDOWS_TEXT_SECTION_PREFIX) {
+            let is_mac = *ss == MACOS_TEXT_SECTION;
+            let is_windows = ss.starts_with(WINDOWS_TEXT_SECTION_PREFIX);
+            if is_windows || is_mac {
                 // Search for .globl between sec_start and ix
                 for line in &lines[sec_start..ix] {
                     if let Statement::Directive(Directive::Generic(GenericDirective(g))) = line {
-                        if let Some(item) = get_item_in_section("globl\t", ix, label, g, true) {
+                        // last bool is responsible for stripping leading underscore.
+                        // Stripping is not needed on Linux and 64-bit Windows.
+                        // Currently we want to strip underscore on MacOS
+                        // TODO: on 32-bit Windows we ought to remove underscores
+                        if let Some(item) = get_item_in_section("globl\t", ix, label, g, is_mac) {
                             return Some(item);
                         }
                     }
