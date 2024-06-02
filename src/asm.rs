@@ -69,10 +69,12 @@ pub fn find_items(lines: &[Statement]) -> BTreeMap<Item, Range<usize>> {
                 // See https://github.com/pacak/cargo-show-asm/issues/110
             }
         } else if line.is_global() && sec_start + 3 < ix {
-            // on Linux and Windows every global function gets its own section
-            // on Mac for some reason this is not the case, so we have to look for
-            // global variables. This little hack allows to include full section
-            // on Windows/Linux but still capture full function body on Mac
+            // On Linux and Windows every global function gets its own section.
+            // On Mac for some reason this is not the case, so we have to look for
+            // symbols marked globl within the section.  So if we encounter a globl
+            // deep enough within the current section treat it as a new section start.
+            // This little hack allows to include full section on Windows/Linux but
+            // still capture full function body on Mac.
             sec_start = ix;
         } else if line.is_end_of_fn() {
             let sec_end = ix;
@@ -121,11 +123,13 @@ fn handle_non_mangled_labels(
 ) -> Option<Item> {
     match lines.get(sec_start) {
         Some(Statement::Directive(Directive::SectionStart(ss))) => {
-            if *ss == "__TEXT,__text,regular,pure_instructions" {
-                // macOS first symbol, symbols after this are resolved using
-                // globl Generic Directive below because of the globl hack in
-                // `find_items`.
-
+            // The first macOS symbol is found in this section.
+            // Symbols after this are resolved by matching globl Generic Directive below
+            // because of the sec_start hack in `find_items`.
+            const MACOS_TEXT_SECTION: &str = "__TEXT,__text,regular,pure_instructions";
+            // Windows symbols each have their own section with this prefix.
+            const WINDOWS_TEXT_SECTION_PREFIX: &str = ".text,\"xr\",one_only,";
+            if *ss == MACOS_TEXT_SECTION || ss.starts_with(WINDOWS_TEXT_SECTION_PREFIX) {
                 // Search for .globl between sec_start and ix
                 for line in &lines[sec_start..ix] {
                     if let Statement::Directive(Directive::Generic(GenericDirective(g))) = line {
@@ -136,10 +140,12 @@ fn handle_non_mangled_labels(
                 }
                 None
             } else {
+                // Linux symbols each have their own section, named with this prefix.
                 get_item_in_section(".text.", ix, label, ss, false)
             }
         }
         Some(Statement::Directive(Directive::Generic(GenericDirective(g)))) => {
+            // macOS symbols after the first are matched here.
             get_item_in_section("globl\t", ix, label, g, true)
         }
         _ => None,
