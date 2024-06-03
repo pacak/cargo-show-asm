@@ -1,5 +1,10 @@
 # Change Log
 
+## [0.2.36] - 2024-06-02
+- even better support for no_mangle names on windows
+  thanks to @evmar
+- bump deps
+
 ## [0.2.35] - 2024-05-06
 - don't include constants by default
 - include local jump labels in disassembly
