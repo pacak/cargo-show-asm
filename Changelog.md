@@ -1,5 +1,9 @@
 # Change Log
 
+## [0.2.37] - 2024-06-27
+- support combination of --everything and --rust
+- bump deps
+
 ## [0.2.36] - 2024-06-02
 - even better support for no_mangle names on windows
   thanks to @evmar
