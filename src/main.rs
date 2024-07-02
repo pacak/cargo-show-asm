@@ -387,12 +387,11 @@ fn locate_asm_path_via_artifact(artifact: &Artifact, expect_ext: &str) -> anyhow
     // [..]/target/debug/libfoo-01234567.rlib     <+
     // [..]/target/debug/foo-01234567.s
 
-    if artifact.target.kind.iter().any(|k| k == "rlib") {
-        let rlib_path = artifact
-            .filenames
-            .iter()
-            .find(|f| f.extension().map_or(false, |e| e == "rlib"))
-            .expect("No rlib?");
+    if let Some(rlib_path) = artifact
+        .filenames
+        .iter()
+        .find(|f| f.extension().map_or(false, |e| e == "rlib"))
+    {
         let deps_dir = rlib_path.with_file_name("deps");
 
         for entry in deps_dir.read_dir()? {
@@ -421,15 +420,11 @@ fn locate_asm_path_via_artifact(artifact: &Artifact, expect_ext: &str) -> anyhow
     // [..]/target/debug/libxx.so      <+ <- artifact
     //
     // on windows it's xx.dll / xx.s, on MacOS it's libxx.dylib / xx.s...
-    if artifact.target.kind.iter().any(|k| k == "cdylib") {
-        let cdylib_path = artifact
-            .filenames
-            .iter()
-            .find(|f| {
-                f.extension()
-                    .map_or(false, |e| ["so", "dylib", "dll"].contains(&e))
-            })
-            .expect("No cdylib?");
+    //    if artifact.target.kind.iter().any(|k| k == "cdylib") {
+    if let Some(cdylib_path) = artifact.filenames.iter().find(|f| {
+        f.extension()
+            .map_or(false, |e| ["so", "dylib", "dll"].contains(&e))
+    }) {
         let deps_dir = cdylib_path.with_file_name("deps");
         for entry in deps_dir.read_dir()? {
             let entry = entry?;

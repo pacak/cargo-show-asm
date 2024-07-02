@@ -1,5 +1,9 @@
 # Change Log
 
+## [0.2.38] - 2024-07-02
+- slightly smarter artifact detection, shouldn't panic with wasm crates
+- bump deps
+
 ## [0.2.37] - 2024-06-27
 - support combination of --everything and --rust
 - bump deps
