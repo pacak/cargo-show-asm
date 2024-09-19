@@ -70,6 +70,7 @@ fn spawn_cargo(
         .args(["--package", &focus_package.name])
         .args(focus_artifact.as_cargo_args())
         // Compile options.
+        .args(cargo.config.iter().flat_map(|c| ["--config", c]))
         .args(cargo.dry.then_some("--dry"))
         .args(cargo.frozen.then_some("--frozen"))
         .args(cargo.locked.then_some("--locked"))
