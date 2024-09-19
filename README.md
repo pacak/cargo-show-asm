@@ -71,6 +71,8 @@ Show the code rustc generates for any function
 **Cargo options**
 - **`    --manifest-path`**=_`PATH`_ &mdash; 
   Path to Cargo.toml, defaults to one in current folder
+- **`    --config`**=_`<KEY=VALUE>`_ &mdash; 
+  Override a cargo configuration value
 - **`    --target-dir`**=_`DIR`_ &mdash; 
   Use custom target directory for generated artifacts, create if missing
    

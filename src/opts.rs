@@ -90,6 +90,10 @@ pub struct Cargo {
     #[bpaf(external, hide_usage)]
     pub manifest_path: PathBuf,
 
+    /// Override a cargo configuration value
+    #[bpaf(argument("KEY=VALUE"))]
+    pub config: Vec<String>,
+
     /// Use custom target directory for generated artifacts, create if missing
     #[bpaf(
         env("CARGO_TARGET_DIR"),
