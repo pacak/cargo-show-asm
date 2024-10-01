@@ -160,12 +160,6 @@ pub fn pick_dump_item<K: Clone>(
     fmt: &Format,
     items: &BTreeMap<Item, K>,
 ) -> Option<K> {
-    let mut items_values = items.values();
-    if let [Some(item), None] = array::from_fn(|_| items_values.next()) {
-        // Automatically pick an item if only one is found
-        return Some(item.clone());
-    }
-
     match goal {
         // to dump everything just return an empty range
         ToDump::Everything => None,
@@ -211,10 +205,16 @@ pub fn pick_dump_item<K: Clone>(
             Some(range)
         }
 
-        // Unspecified, so print suggestions and exit
         ToDump::Unspecified => {
-            let items = items.keys();
-            suggest_name("", &fmt.name_display, items);
+            let mut items_values = items.values();
+            if let [Some(item), None] = array::from_fn(|_| items_values.next()) {
+                // Automatically pick an item if only one is found
+                Some(item.clone())
+            } else {
+                // Otherwise, print suggestions and exit
+                let items = items.keys();
+                suggest_name("", &fmt.name_display, items);
+            }
         }
     }
 }
