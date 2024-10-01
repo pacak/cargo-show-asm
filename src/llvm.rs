@@ -45,10 +45,10 @@ impl Dumpable for Llvm {
         }
         let mut res = BTreeMap::new();
         let mut current_item = None::<ItemParseState>;
-        let regex = Regex::new("@\"?(_?_[a-zA-Z0-9_$.]+)\"?\\(").expect("regexp should be valid");
+        let regex = Regex::new("@\"?(_?[a-zA-Z0-9_$.]+)\"?\\(").expect("regexp should be valid");
 
         for (ix, &line) in lines.iter().enumerate() {
-            if line.starts_with("; Module") {
+            if line.starts_with("; Module") || line.starts_with("; Function Attrs: ") {
                 #[allow(clippy::needless_continue)] // silly clippy, readability suffers otherwise
                 continue;
             } else if let (true, Some(name)) = (current_item.is_none(), line.strip_prefix("; ")) {
@@ -64,16 +64,22 @@ impl Dumpable for Llvm {
                     start: ix,
                 });
             } else if line.starts_with("define ") {
-                if let (Some(cur), Some((mangled_name, hashed))) = (
-                    &mut current_item,
-                    regex
-                        .captures(line)
-                        .and_then(|c| c.get(1))
-                        .map(|c| c.as_str())
-                        .and_then(|c| Some((c.to_owned(), demangle::demangled(c)?))),
-                ) {
-                    cur.item.mangled_name = mangled_name;
-                    cur.item.hashed = format!("{hashed:?}");
+                if let Some(name) = regex.captures(line).and_then(|c| c.get(1)) {
+                    let name = name.as_str();
+                    let cur = current_item.get_or_insert_with(|| ItemParseState {
+                        item: Item {
+                            mangled_name: String::new(),
+                            name: name.to_owned(),
+                            hashed: String::new(),
+                            index: res.len(),
+                            len: 0,
+                            non_blank_len: 0,
+                        },
+                        start: ix,
+                    });
+                    cur.item.mangled_name = name.to_owned();
+                    cur.item.hashed = demangle::demangled(name)
+                        .map_or_else(|| name.to_owned(), |hashed| format!("{hashed:?}"));
                 }
             } else if !line_is_blank(line) {
                 if let Some(cur) = &mut current_item {
