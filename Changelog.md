@@ -1,5 +1,12 @@
 # Change Log
 
+## [0.2.40] - 2024-10-01
+- more consistend behavior when only one item is detected (#312)
+  thanks @zheland
+- fixed llvm output for no_mangle functions (#313)
+  thanks @zheland
+- bump deps
+
 ## [0.2.39] - 2024-09-19
 - support --config KEY=VAL option that is passed directly to cargo
 - bump deps
