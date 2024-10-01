@@ -2,6 +2,7 @@
 
 use opts::{Format, NameDisplay, ToDump};
 use std::{
+    array,
     collections::{BTreeMap, BTreeSet},
     ops::Range,
     path::{Path, PathBuf},
@@ -108,7 +109,7 @@ pub fn suggest_name<'a>(
     search: &str,
     name_display: &NameDisplay,
     items: impl IntoIterator<Item = &'a Item>,
-) {
+) -> ! {
     let mut count = 0usize;
     let names: BTreeMap<&String, Vec<usize>> =
         items.into_iter().fold(BTreeMap::new(), |mut m, item| {
@@ -159,15 +160,6 @@ pub fn pick_dump_item<K: Clone>(
     fmt: &Format,
     items: &BTreeMap<Item, K>,
 ) -> Option<K> {
-    if items.len() == 1 {
-        return Some(
-            items
-                .values()
-                .next()
-                .cloned()
-                .expect("We just checked there's one item present"),
-        );
-    }
     match goal {
         // to dump everything just return an empty range
         ToDump::Everything => None,
@@ -213,11 +205,16 @@ pub fn pick_dump_item<K: Clone>(
             Some(range)
         }
 
-        // Unspecified, so print suggestions and exit
         ToDump::Unspecified => {
-            let items = items.keys();
-            suggest_name("", &fmt.name_display, items);
-            unreachable!("suggest_name exits");
+            let mut items_values = items.values();
+            if let [Some(item), None] = array::from_fn(|_| items_values.next()) {
+                // Automatically pick an item if only one is found
+                Some(item.clone())
+            } else {
+                // Otherwise, print suggestions and exit
+                let items = items.keys();
+                suggest_name("", &fmt.name_display, items);
+            }
         }
     }
 }
