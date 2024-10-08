@@ -141,15 +141,13 @@ impl std::fmt::Display for Directive<'_> {
             }
             Directive::SectionStart(s) => {
                 let dem = demangle::contents(s, display);
-                f.write_str(&format!(
-                    "{} {dem}",
-                    color!(".section", OwoColorize::bright_red),
-                ))
+                write!(f, "{} {dem}", color!(".section", OwoColorize::bright_red))
             }
-            Directive::SubsectionsViaSym => f.write_str(&format!(
+            Directive::SubsectionsViaSym => write!(
+                f,
                 ".{}",
                 color!("subsections_via_symbols", OwoColorize::bright_red)
-            )),
+            ),
         }
     }
 }
