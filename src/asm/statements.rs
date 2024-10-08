@@ -724,13 +724,7 @@ pub fn parse_statement(input: &str) -> IResult<&str, Statement> {
 
     // use terminated on the subparsers so that if the subparser doesn't consume the whole line, it's discarded
     // we assume that each label/instruction/directive will only take one line
-    alt((
-        terminated(label, newline),
-        terminated(dir, newline),
-        terminated(instr, newline),
-        terminated(nothing, newline),
-        terminated(dunno, newline),
-    ))(input)
+    terminated(alt((label, dir, instr, nothing, dunno)), newline)(input)
 }
 
 fn good_for_label(c: char) -> bool {
