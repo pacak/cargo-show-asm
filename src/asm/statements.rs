@@ -4,8 +4,7 @@ use std::sync::OnceLock;
 
 use nom::branch::alt;
 use nom::bytes::complete::{escaped_transform, tag, take_while1, take_while_m_n};
-use nom::character::complete;
-use nom::character::complete::{newline, none_of, not_line_ending, one_of, space1};
+use nom::character::complete::{self, newline, none_of, not_line_ending, one_of, space0, space1};
 use nom::combinator::{map, opt, recognize, value, verify};
 use nom::multi::count;
 use nom::sequence::{delimited, pair, preceded, terminated, tuple};
@@ -17,7 +16,7 @@ use crate::demangle::LabelKind;
 use crate::opts::NameDisplay;
 use crate::{color, demangle};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Statement<'a> {
     Label(Label<'a>),
     Directive(Directive<'a>),
@@ -26,7 +25,7 @@ pub enum Statement<'a> {
     Dunno(&'a str),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Instruction<'a> {
     pub op: &'a str,
     pub args: Option<&'a str>,
@@ -76,6 +75,10 @@ impl<'a> Statement<'a> {
                 .expect("regexp should be valid")
             });
             return !reg.is_match(x);
+        }
+
+        if let Statement::Directive(Directive::SetValue(_, _)) = self {
+            return false;
         }
         if let Statement::Directive(Directive::SectionStart(name)) = self {
             if name.starts_with(".data") || name.starts_with(".rodata") {
@@ -136,8 +139,16 @@ impl std::fmt::Display for Directive<'_> {
             Directive::File(ff) => ff.fmt(f),
             Directive::Loc(l) => l.fmt(f),
             Directive::Generic(g) => g.fmt(f),
-            Directive::Set(g) => {
-                f.write_str(&format!(".set {}", color!(g, OwoColorize::bright_cyan)))
+            Directive::SetValue(key, val) => {
+                let key = demangle::contents(key, display);
+                let val = demangle::contents(val, display);
+                write!(
+                    f,
+                    ".{} {}, {}",
+                    color!("set", OwoColorize::bright_magenta),
+                    color!(key, OwoColorize::bright_cyan),
+                    color!(val, OwoColorize::bright_cyan)
+                )
             }
             Directive::SectionStart(s) => {
                 let dem = demangle::contents(s, display);
@@ -148,6 +159,14 @@ impl std::fmt::Display for Directive<'_> {
                 ".{}",
                 color!("subsections_via_symbols", OwoColorize::bright_red)
             ),
+            Directive::SymIsFun(s) => {
+                let dem = demangle::contents(s, display);
+                write!(
+                    f,
+                    ".{} {dem},@function",
+                    color!("type", OwoColorize::bright_magenta)
+                )
+            }
         }
     }
 }
@@ -674,17 +693,31 @@ fn test_parse_file() {
     );
 }
 
-#[derive(Clone, Debug)]
+#[test]
+fn parse_function_alias() {
+    assert_eq!(
+        parse_statement("\t.type\ttwo,@function\n").unwrap().1,
+        Statement::Directive(Directive::SymIsFun("two"))
+    );
+
+    assert_eq!(
+        parse_statement(".set\ttwo,\tone_plus_one\n").unwrap().1,
+        Statement::Directive(Directive::SetValue("two", "one_plus_one"))
+    )
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Directive<'a> {
     File(File<'a>),
     Loc(Loc<'a>),
     Generic(GenericDirective<'a>),
-    Set(&'a str),
+    SymIsFun(&'a str),
+    SetValue(&'a str, &'a str),
     SubsectionsViaSym,
     SectionStart(&'a str),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GenericDirective<'a>(pub &'a str);
 
 pub fn parse_statement(input: &str) -> IResult<&str, Statement> {
@@ -702,8 +735,15 @@ pub fn parse_statement(input: &str) -> IResult<&str, Statement> {
         Directive::Generic(GenericDirective(s))
     });
     let set = map(
-        preceded(tag(".set"), take_while1(|c| c != '\n')),
-        Directive::Set,
+        tuple((
+            tag(".set"),
+            space1,
+            take_while1(good_for_label),
+            tag(","),
+            space0,
+            take_while1(|c| c != '\n'),
+        )),
+        |(_, _, name, _, _, val)| Directive::SetValue(name, val),
     );
     let ssvs = map(tag(".subsections_via_symbols"), |_| {
         Directive::SubsectionsViaSym
@@ -717,8 +757,18 @@ pub fn parse_statement(input: &str) -> IResult<&str, Statement> {
         Statement::Nothing
     });
 
+    let typ = map(
+        tuple((
+            tag("\t.type"),
+            space1,
+            take_while1(good_for_label),
+            tag(",@function"),
+        )),
+        |(_, _, id, _)| Directive::SymIsFun(id),
+    );
+
     let dir = map(
-        alt((file, loc, set, ssvs, section, generic)),
+        alt((file, loc, set, ssvs, section, typ, generic)),
         Statement::Directive,
     );
 
