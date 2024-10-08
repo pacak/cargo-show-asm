@@ -44,3 +44,8 @@ path = "src/main.rs"
 
 [workspace.metadata.cauwugo]
 bpaf = true
+
+[profile.release-lto]
+lto = true
+codegen-units = 1
+inherits = "release"
