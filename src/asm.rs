@@ -51,7 +51,6 @@ pub fn find_items(lines: &[Statement]) -> BTreeMap<Item, Range<usize>> {
     let mut names = BTreeMap::new();
 
     for (ix, line) in lines.iter().enumerate() {
-        #[allow(clippy::if_same_then_else)]
         if line.is_section_start() {
             if item.is_none() {
                 sec_start = ix;
