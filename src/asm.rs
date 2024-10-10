@@ -51,7 +51,6 @@ pub fn find_items(lines: &[Statement]) -> BTreeMap<Item, Range<usize>> {
     let mut names = BTreeMap::new();
 
     for (ix, line) in lines.iter().enumerate() {
-        #[allow(clippy::if_same_then_else)]
         if line.is_section_start() {
             if item.is_none() {
                 sec_start = ix;
@@ -106,9 +105,67 @@ pub fn find_items(lines: &[Statement]) -> BTreeMap<Item, Range<usize>> {
                     *name_entry += 1;
                 }
             }
+        } else if let Some((name, range)) = merged_function(lines, ix) {
+            assert_eq!(item, None);
+
+            let sym = name;
+            if let Some(dem) = demangle::demangled(sym) {
+                let hashed = format!("{dem:?}");
+                let name = format!("{dem:#?}");
+                let name_entry = names.entry(name.clone()).or_insert(0);
+                res.insert(
+                    Item {
+                        mangled_name: sym.to_string(),
+                        name,
+                        hashed,
+                        index: *name_entry,
+                        len: range.len(),
+                        non_blank_len: range.len(),
+                    },
+                    range,
+                );
+                *name_entry += 1;
+            }
         }
     }
     res
+}
+
+/// CHeck if ix is a merged function.
+///
+/// merged function are defined (at least on Linux) as a sequence of 3
+/// commands:
+/// .globl  _ZN13sample_merged3two17h0afab563317f9d7bE
+/// .type   _ZN13sample_merged3two17h0afab563317f9d7bE,@function
+/// .set _ZN13sample_merged3two17h0afab563317f9d7bE, _ZN13sample_merged12one_plus_one17h408b56cb936d6f10E
+///
+/// check above looks for `.type..@function` followed by `.set ...`
+///
+/// except if we are on mac, where .type is absent:
+/// .globl  _ZN13sample_merged3two17h0afab563317f9d7bE
+/// .set _ZN13sample_merged3two17h0afab563317f9d7bE, _ZN13sample_merged12one_plus_one17h408b56cb936d6f10E
+///
+/// So... We have to check both
+fn merged_function<'a>(lines: &'a [Statement<'a>], ix: usize) -> Option<(&'a str, Range<usize>)> {
+    let Statement::Directive(Directive::SetValue(name, _val)) = lines.get(ix)? else {
+        return None;
+    };
+
+    if let Some(Statement::Directive(Directive::SymIsFun(sym))) = lines.get(ix.checked_sub(1)?) {
+        assert_eq!(sym, name);
+        Some((name, ix - 2..ix + 1))
+    } else if lines
+        .get(ix.checked_sub(1)?)
+        .map_or(false, |l| l.is_global())
+    {
+        Some((name, ix - 1..ix + 1))
+    } else {
+        None
+    }
+
+    //if let            Some(Statement::Directive(Directive::SymIsFun(sym))),
+    //            Statement::Directive(Directive::SetValue(name, _val)),
+    //        ) = (ix.checked_sub(1).and_then(|prev| lines.get(prev)), line)
 }
 
 /// Handles the non-mangled labels found in the given lines of ASM statements.
@@ -197,7 +254,8 @@ fn used_labels<'a>(stmts: &'_ [Statement<'a>]) -> BTreeSet<&'a str> {
                 Directive::File(_)
                 | Directive::Loc(_)
                 | Directive::SubsectionsViaSym
-                | Directive::Set(_) => None,
+                | Directive::SymIsFun(_) => None,
+                Directive::SetValue(_, val) => Some(*val),
                 Directive::Generic(g) => Some(g.0),
                 Directive::SectionStart(ss) => Some(*ss),
             },
