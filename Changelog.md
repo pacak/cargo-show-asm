@@ -4,6 +4,7 @@
 - add release-lto profile for slightly smaller/faster version
   thanks @zamazan4ik for the suggestion
 - detect and render merged functions (#310)
+- update docs (#320)
 
 ## [0.2.40] - 2024-10-01
 - more consistend behavior when only one item is detected (#312)
