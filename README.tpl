@@ -83,6 +83,10 @@ generic parameters and if it is exported (in case of a library) and not inlined 
 binary, example, test, etc.). If your function takes a generic parameter - try making a monomorphic
 wrapper around it and make it `pub` and `#[inline(never)]`.
 
+Alternatively if your function is too small - `rustc` might decide to inline it automatically
+with the same result. Marking it with `#[inline(never)]` fixes this problem.
+See https://github.com/rust-lang/rust/pull/116505 for more details
+
 # Include related functions?
 
 So suppose you have a function `foo` that calls some other function - `bar`. With `--context N`
