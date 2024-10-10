@@ -263,7 +263,6 @@ fn used_labels<'a>(stmts: &'_ [Statement<'a>]) -> BTreeSet<&'a str> {
             Statement::Dunno(s) => Some(s),
         })
         .flat_map(demangle::local_labels)
-        .map(|m| m.as_str())
         .collect::<BTreeSet<_>>()
 }
 
@@ -629,11 +628,8 @@ impl<'a> Dumpable for Asm<'a> {
                     })
                     | Statement::Directive(Directive::Generic(GenericDirective(arg))) = s
                     {
-                        for label in crate::demangle::local_labels_reg().find_iter(arg) {
-                            let referenced_label = label.as_str().trim();
-                            if let Some(constant_range) =
-                                scan_constant(referenced_label, &sections, lines)
-                            {
+                        for label in crate::demangle::local_labels(arg) {
+                            if let Some(constant_range) = scan_constant(label, &sections, lines) {
                                 if !seen.contains(&constant_range)
                                     && !print_range.fully_contains(constant_range)
                                 {

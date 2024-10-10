@@ -1,3 +1,6 @@
+#![allow(clippy::needless_pub_self)] // default is wrong, I want to mark some items as explicitly private
+                                     // otherwise pub(self) makes no sense
+
 use crate::{color, opts::NameDisplay};
 use owo_colors::OwoColorize;
 use regex::{Regex, RegexSet, Replacer};
@@ -20,7 +23,7 @@ pub fn demangled(input: &str) -> Option<Demangle> {
     Some(name)
 }
 
-const GLOBAL_LABELS_REGEX: &str = r"\b_?(_[a-zA-Z0-9_$\.]+)";
+pub(self) const GLOBAL_LABELS_REGEX: &str = r"\b_?(_[a-zA-Z0-9_$\.]+)";
 
 // This regex is two parts
 // 1. \.L[a-zA-Z0-9_$\.]+
@@ -35,22 +38,22 @@ const GLOBAL_LABELS_REGEX: &str = r"\b_?(_[a-zA-Z0-9_$\.]+)";
 // there  as long as it doesn't look like a label.
 //
 // Note: this rejects "labels" like `H.Lfoo` but accepts `.Lexception` and `[some + .Label]`
-const LOCAL_LABELS_REGEX: &str = r"(?:[^\w\d\$\.]|^)(\.L[a-zA-Z0-9_\$\.]+|\bLBB[0-9_]+)";
+pub(self) const LOCAL_LABELS_REGEX: &str = r"(?:[^\w\d\$\.]|^)(\.L[a-zA-Z0-9_\$\.]+|\bLBB[0-9_]+)";
 
 // temporary labels
-const TEMP_LABELS_REGEX: &str = r"\b(Ltmp[0-9]+)\b";
+pub(self) const TEMP_LABELS_REGEX: &str = r"\b(Ltmp[0-9]+)\b";
 
-fn global_labels_reg() -> &'static Regex {
+pub(self) fn global_labels_reg() -> &'static Regex {
     static GLOBAL_LABELS: OnceLock<Regex> = OnceLock::new();
     GLOBAL_LABELS.get_or_init(|| Regex::new(GLOBAL_LABELS_REGEX).expect("regexp should be valid"))
 }
 
-pub(crate) fn local_labels_reg() -> &'static Regex {
+pub(self) fn local_labels_reg() -> &'static Regex {
     static LOCAL_LABELS: OnceLock<Regex> = OnceLock::new();
     LOCAL_LABELS.get_or_init(|| Regex::new(LOCAL_LABELS_REGEX).expect("regexp should be valid"))
 }
 
-fn label_kinds_reg() -> &'static RegexSet {
+pub(self) fn label_kinds_reg() -> &'static RegexSet {
     static LABEL_KINDS: OnceLock<RegexSet> = OnceLock::new();
     LABEL_KINDS.get_or_init(|| {
         RegexSet::new([LOCAL_LABELS_REGEX, GLOBAL_LABELS_REGEX, TEMP_LABELS_REGEX])
@@ -66,8 +69,22 @@ pub enum LabelKind {
     Unknown,
 }
 
-pub fn local_labels(input: &str) -> regex::Matches {
-    local_labels_reg().find_iter(input)
+#[test]
+fn local_labels_works() {
+    let s0 = "vmovaps xmm0, xmmword ptr [rip + .LCPI0_0]";
+    assert_eq!(local_labels(s0).collect::<Vec<_>>(), [".LCPI0_0"]);
+
+    let s1 = "vmovaps xmm0, xmmword ptr [rip + B.LCPI0_0]";
+    assert_eq!(local_labels(s1).collect::<Vec<_>>(), [] as [&str; 0]);
+
+    let s2 = ".Lexception";
+    assert_eq!(local_labels(s2).collect::<Vec<_>>(), [".Lexception"]);
+}
+
+pub(crate) fn local_labels(input: &str) -> impl Iterator<Item = &str> {
+    local_labels_reg()
+        .captures_iter(input)
+        .filter_map(|c| Some(c.get(1)?.as_str()))
 }
 
 #[must_use]
