@@ -7,6 +7,7 @@
 - detect and render merged functions (#310)
 - update docs (#320)
 - smarter approach for detecting constants (#315)
+- bump deps
 
 ## [0.2.40] - 2024-10-01
 - more consistend behavior when only one item is detected (#312)
