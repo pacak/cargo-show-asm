@@ -255,7 +255,7 @@ fn used_labels<'a>(stmts: &'_ [Statement<'a>]) -> BTreeSet<&'a str> {
                 | Directive::Loc(_)
                 | Directive::SubsectionsViaSym
                 | Directive::SymIsFun(_) => None,
-                Directive::SetValue(_, val) => Some(*val),
+                Directive::Data(_, val) | Directive::SetValue(_, val) => Some(*val),
                 Directive::Generic(g) => Some(g.0),
                 Directive::SectionStart(ss) => Some(*ss),
             },
@@ -267,14 +267,17 @@ fn used_labels<'a>(stmts: &'_ [Statement<'a>]) -> BTreeSet<&'a str> {
 }
 
 /// Scans for referenced constants
-fn scan_constant(name: &str, sections: &[(usize, &str)], body: &[Statement]) -> Option<URange> {
-    let start = sections
-        .iter()
-        .find_map(|(ix, ss)| ss.contains(name).then_some(*ix))?;
-    let end = body[start..]
-        .iter()
-        .position(|s| matches!(s, Statement::Nothing))
-        .map_or_else(|| body.len(), |e| start + e);
+fn scan_constant(
+    name: &str,
+    sections: &BTreeMap<&str, usize>,
+    body: &[Statement],
+) -> Option<URange> {
+    let start = *sections.get(name)?;
+    let end = start
+        + body[start + 1..]
+            .iter()
+            .take_while(|s| matches!(s, Statement::Directive(Directive::Data(_, _))))
+            .count();
     Some(URange { start, end })
 }
 
@@ -295,7 +298,7 @@ fn dump_range(
     };
 
     let mut empty_line = false;
-    for line in stmts {
+    for (ix, line) in stmts.iter().enumerate() {
         if fmt.verbosity > 2 {
             safeprintln!("{line:?}");
         }
@@ -349,7 +352,9 @@ fn dump_range(
         }) = line
         {
             match fmt.redundant_labels {
-                _ if used.contains(id) => {
+                // We always include used labels and labels at the very
+                // beginning of the fragment - those are used for data declarations
+                _ if ix == 0 || used.contains(id) => {
                     safeprintln!("{line}");
                 }
                 RedundantLabels::Keep => {
@@ -612,14 +617,21 @@ impl<'a> Dumpable for Asm<'a> {
             let mut pending = vec![print_range];
             let mut seen: BTreeSet<URange> = BTreeSet::new();
 
-            let sections = lines
+            // Let's define a constant as a label followed by one or more data declarations
+            let constants = lines
                 .iter()
                 .enumerate()
-                .filter_map(|(ix, stmt)| match stmt {
-                    Statement::Directive(Directive::SectionStart(ss)) => Some((ix, *ss)),
-                    _ => None,
+                .filter_map(|(ix, stmt)| {
+                    let Statement::Label(Label { id, .. }) = stmt else {
+                        return None;
+                    };
+                    matches!(
+                        lines.get(ix + 1),
+                        Some(Statement::Directive(Directive::Data(_, _)))
+                    )
+                    .then_some((*id, ix))
                 })
-                .collect::<Vec<_>>();
+                .collect::<BTreeMap<_, _>>();
             while let Some(subset) = pending.pop() {
                 seen.insert(subset);
                 for s in &lines[subset] {
@@ -629,7 +641,7 @@ impl<'a> Dumpable for Asm<'a> {
                     | Statement::Directive(Directive::Generic(GenericDirective(arg))) = s
                     {
                         for label in crate::demangle::local_labels(arg) {
-                            if let Some(constant_range) = scan_constant(label, &sections, lines) {
+                            if let Some(constant_range) = scan_constant(label, &constants, lines) {
                                 if !seen.contains(&constant_range)
                                     && !print_range.fully_contains(constant_range)
                                 {

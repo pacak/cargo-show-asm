@@ -51,32 +51,43 @@ impl<'a> Instruction<'a> {
     }
 }
 
+fn parse_data_dec(input: &str) -> IResult<&str, Directive> {
+    static DATA_DEC: OnceLock<Regex> = OnceLock::new();
+    // all of those can insert something as well... Not sure if it's a full list or not
+    // .long, .short .octa, .quad, .word,
+    // .single .double .float
+    // .ascii, .asciz, .string, .string8 .string16 .string32 .string64
+    // .2byte .4byte .8byte
+    // .dc
+    // .inst .insn
+    let reg = DATA_DEC.get_or_init(|| {
+        Regex::new(
+            "^[\\s\\t]*\\.(long|short|octa|quad|word|\
+            single|double|float|\
+            ascii|asciz|string|string8|string16|string32|string64|\
+            byte|2byte|4byte|8byte|dc|\
+            inst|insn\
+            )[\\s\\t]+([^\\n]+)",
+        )
+        .expect("regexp should be valid")
+    });
+
+    let Some(cap) = reg.captures(input) else {
+        use nom::error::*;
+        return Err(nom::Err::Error(Error::new(input, ErrorKind::Eof)));
+    };
+    let (Some(instr), Some(data)) = (cap.get(1), cap.get(2)) else {
+        panic!("regexp should be valid and capture found something");
+    };
+    Ok((
+        &input[data.range().end..],
+        Directive::Data(instr.as_str(), data.as_str()),
+    ))
+}
+
 impl<'a> Statement<'a> {
     /// Should we skip it for --simplify output?
     pub fn boring(&self) -> bool {
-        if let Statement::Directive(Directive::Generic(GenericDirective(x))) = self {
-            static DATA_DEC: OnceLock<Regex> = OnceLock::new();
-            // all of those can insert something as well... Not sure if it's a full list or not
-            // .long, .short .octa, .quad, .word,
-            // .single .double .float
-            // .ascii, .asciz, .string, .string8 .string16 .string32 .string64
-            // .2byte .4byte .8byte
-            // .dc
-            // .inst .insn
-            let reg = DATA_DEC.get_or_init(|| {
-                Regex::new(
-                    "^(long|short|octa|quad|word|\
-            single|double|float|\
-            ascii|asciz|string|string8|string16|string32|string64|\
-            2byte|4byte|8byte|dc|\
-            inst|insn\
-            )[\\s\\t]",
-                )
-                .expect("regexp should be valid")
-            });
-            return !reg.is_match(x);
-        }
-
         if let Statement::Directive(Directive::SetValue(_, _)) = self {
             return false;
         }
@@ -165,6 +176,14 @@ impl std::fmt::Display for Directive<'_> {
                     f,
                     ".{} {dem},@function",
                     color!("type", OwoColorize::bright_magenta)
+                )
+            }
+            Directive::Data(ty, data) => {
+                write!(
+                    f,
+                    "\t.{} {}",
+                    color!(ty, OwoColorize::bright_magenta),
+                    color!(data, OwoColorize::bright_cyan)
                 )
             }
         }
@@ -706,6 +725,22 @@ fn parse_function_alias() {
     )
 }
 
+#[test]
+fn parse_data_decl() {
+    assert_eq!(
+        parse_statement("  .asciz  \"sample_merged\"\n").unwrap().1,
+        Statement::Directive(Directive::Data("asciz", "\"sample_merged\""))
+    );
+    assert_eq!(
+        parse_statement("          .byte   0\n").unwrap().1,
+        Statement::Directive(Directive::Data("byte", "0"))
+    );
+    assert_eq!(
+        parse_statement("\t.long   .Linfo_st\n").unwrap().1,
+        Statement::Directive(Directive::Data("long", ".Linfo_st"))
+    );
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Directive<'a> {
     File(File<'a>),
@@ -715,6 +750,7 @@ pub enum Directive<'a> {
     SetValue(&'a str, &'a str),
     SubsectionsViaSym,
     SectionStart(&'a str),
+    Data(&'a str, &'a str),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -768,7 +804,7 @@ pub fn parse_statement(input: &str) -> IResult<&str, Statement> {
     );
 
     let dir = map(
-        alt((file, loc, set, ssvs, section, typ, generic)),
+        alt((file, loc, set, ssvs, section, typ, parse_data_dec, generic)),
         Statement::Directive,
     );
 
