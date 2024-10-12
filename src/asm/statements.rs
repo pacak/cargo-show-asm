@@ -188,6 +188,16 @@ impl std::fmt::Display for Directive<'_> {
                     color!(w_label, OwoColorize::bright_cyan)
                 )
             }
+            Directive::Global(data) => {
+                let data = demangle::contents(data, display);
+                let w_label = demangle::color_local_labels(&data);
+                write!(
+                    f,
+                    "\t.{}\t{}",
+                    color!("globl", OwoColorize::bright_magenta),
+                    color!(w_label, OwoColorize::bright_cyan)
+                )
+            }
         }
     }
 }
@@ -747,6 +757,7 @@ fn parse_data_decl() {
 pub enum Directive<'a> {
     File(File<'a>),
     Loc(Loc<'a>),
+    Global(&'a str),
     Generic(GenericDirective<'a>),
     SymIsFun(&'a str),
     SetValue(&'a str, &'a str),
@@ -805,8 +816,27 @@ pub fn parse_statement(input: &str) -> IResult<&str, Statement> {
         |(_, _, id, _)| Directive::SymIsFun(id),
     );
 
+    let global = map(
+        tuple((
+            space0,
+            alt((tag(".globl"), tag(".global"))),
+            space1,
+            take_while1(|c| good_for_label(c) || c == '@'),
+        )),
+        |(_, _, _, name)| Directive::Global(name),
+    );
     let dir = map(
-        alt((file, loc, set, ssvs, section, typ, parse_data_dec, generic)),
+        alt((
+            file,
+            global,
+            loc,
+            set,
+            ssvs,
+            section,
+            typ,
+            parse_data_dec,
+            generic,
+        )),
         Statement::Directive,
     );
 
@@ -829,11 +859,6 @@ impl Statement<'_> {
     }
 
     pub(crate) fn is_global(&self) -> bool {
-        match self {
-            Statement::Directive(Directive::Generic(GenericDirective(dir))) => {
-                dir.starts_with("globl\t") || dir.starts_with("global\t")
-            }
-            _ => false,
-        }
+        matches!(self, Statement::Directive(Directive::Global(_)))
     }
 }
