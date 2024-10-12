@@ -17,21 +17,21 @@ pub fn merged_1() {
 }
 
 #[inline(never)]
-pub fn two_num() -> u32 {
+pub extern "C" fn extern_c_0() -> u32 {
     2
 }
 
 #[inline(never)]
-pub fn one_num() -> u32 {
-    1
-}
-
-#[inline(never)]
-pub fn one_plus_one() -> u32 {
+pub extern "C" fn extern_c_1() -> u32 {
     1 + 1
 }
 
 #[inline(never)]
-pub fn two_minus_one() -> u32 {
+pub fn plain_0() -> u32 {
+    1
+}
+
+#[inline(never)]
+pub fn plain_1() -> u32 {
     2 - 1
 }

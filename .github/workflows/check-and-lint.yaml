@@ -3,14 +3,26 @@ on:
   push:
     branches:
       - master
-
 jobs:
-  linux:
-    name: Tests on Linux
-    runs-on: ubuntu-latest
+  build:
+    strategy:
+      matrix:
+        os: ["ubuntu-latest", "windows-latest", "macos-latest"]
+    name: Tests on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      - name: Configure cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ matrix.os }}-cargo-${{ hashFiles('./Cargo.lock') }}
 
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -19,220 +31,210 @@ jobs:
           components: rustfmt clippy rust-src
           targets: armv7-unknown-linux-gnueabihf
 
-      - name: Build all the things
-        run: cargo build --tests
-
-      - name: Run unit tests
-        run: cargo test --all-features
+      - name: Check formatting
+        run: cargo fmt --all --check
 
       - name: Clippy
         run: cargo clippy -- -D clippy::disallowed_macros
 
-      - name: Check formatting
-        run: cargo fmt --all --check
+      - name: Build all the things
+        run: cargo build --all-features --all-targets
 
-      - name: run disassembler on a binary
-        run: cargo run --features disasm -- --manifest-path sample/Cargo.toml --bin sample sample::main 0 --disasm
+      - name: Run unit tests
+        run: cargo test --all-features
 
-      - name: run disassembler on a library
-        run: cargo run --features disasm -- --manifest-path sample/Cargo.toml --lib sample::main 0 --disasm
+      - name: copy branch executable (non-windows)
+        shell: bash
+        if: ${{ matrix.os  != 'windows-latest' }}
+        run: mv ./target/debug/cargo-asm ./branch-asm
+
+      - name: copy branch executable (windows)
+        shell: bash
+        if: ${{ matrix.os == 'windows-latest' }}
+        run: mv ./target/debug/cargo-asm.exe ./branch-asm.exe
+
+      - name: Checkout master
+        uses: actions/checkout@v4
+        if: ${{ github.ref != 'refs/heads/master' }}
+        with:
+          clean: false
+          ref: "master"
+
+      - name: Compile master
+        if: ${{ github.ref != 'refs/heads/master' }}
+        run: cargo build --all-features --bin cargo-asm
+
+      - name: copy master executable (non windows)
+        shell: bash
+        if: ${{ github.ref != 'refs/heads/master' && matrix.os != 'windows-latest' }}
+        run: mv ./target/debug/cargo-asm ./master-asm
+
+      - name: copy master executable (windows)
+        shell: bash
+        if: ${{ github.ref != 'refs/heads/master' && matrix.os == 'windows-latest' }}
+        run: mv ./target/debug/cargo-asm.exe ./master-asm.exe
+
+
+      - name: Upload binaries (non windows)
+        if: ${{ matrix.os != 'windows-latest' && github.ref != 'refs/heads/master' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ matrix.os }}
+          path: |
+            master-asm
+            branch-asm
+
+      - name: Upload binaries (windows)
+        if: ${{ matrix.os == 'windows-latest' && github.ref != 'refs/heads/master' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ matrix.os }}
+          path: |
+            master-asm.exe
+            branch-asm.exe
+
+
+  compare:
+    needs: build
+    if: ${{ github.ref != 'refs/heads/master' }}
+    strategy:
+      matrix:
+        os: ["ubuntu-latest", "windows-latest", "macos-latest"]
+
+      fail-fast: false # failure doesn't mean results are bad, it means they are different
+                       # and I still want to see the difference for all the OSes
+    name: ${{ matrix.os }} difference vs master
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: rustfmt clippy rust-src
+          targets: armv7-unknown-linux-gnueabihf
+
+      - name: Download prebuilt binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: binaries-${{ matrix.os }}
+
+      - name: set executable bit
+        shell: bash
+        if: ${{ matrix.os != 'windows-latest' }}
+        run: |
+          chmod +x ./branch-asm
+          chmod +x ./master-asm
+
+      - name: disassembler on a binary
+        shell: bash
+        if: ${{ !cancelled() && matrix.os == 'ubuntu-latest' }} # linux only
+        run: ./.github/check.sh --manifest-path sample/Cargo.toml --bin sample sample::main 0 --disasm
+
+      - name: disassembler on a library
+        shell: bash
+        if: ${{ !cancelled() && matrix.os == 'ubuntu-latest' }} # linux only
+        run: ./.github/check.sh --manifest-path sample/Cargo.toml --lib sample::main 0 --disasm
 
       - name: run disassembler directly on a file
-        run: cargo run --features disasm -- --file sample/target/release/sample sample::main 0
+        shell: bash
+        if: ${{ !cancelled() && matrix.os == 'ubuntu-latest' }} # linux only
+        run: ./.github/check.sh --file sample/target/release/sample sample::main 0
 
       - name: Native version of cargo-show-asm (Intel ASM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --lib --intel sample::main --rust
+        shell: bash
+        if: ${{ !cancelled() }}
+        run: ./.github/check.sh --manifest-path sample/Cargo.toml --lib --intel sample::main --rust
 
       - name: Native version of cargo-show-asm (Intel ASM) + native CPU
-        run: cargo run -- --manifest-path sample/Cargo.toml --lib --native --intel sample::main --rust
+        shell: bash
+        if: ${{ !cancelled() }}
+        run: ./.github/check.sh --manifest-path sample/Cargo.toml --lib --native --intel sample::main --rust
 
       - name: Native version of cargo-show-asm (Intel ASM) + native CPU + no default features
-        run: cargo run -- -vvv --manifest-path sample/Cargo.toml --lib --native --intel sample::main --rust --no-default-features
+        shell: bash
+        if: ${{ !cancelled() }}
+        run: ./.github/check.sh -vvv --manifest-path sample/Cargo.toml --lib --native --intel sample::main --rust --no-default-features
 
       - name: Native version of cargo-show-asm (Intel ASM) + atom
-        run: cargo run -- --manifest-path sample/Cargo.toml --lib --target-cpu atom --intel sample::main --rust
+        shell: bash
+        if: ${{ !cancelled() }}
+        run: ./.github/check.sh --manifest-path sample/Cargo.toml --lib --target-cpu atom --intel sample::main --rust
 
       - name: Native version of cargo-show-asm with symbol mangling (Intel ASM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --lib --intel sample::main --rust --keep-mangled
+        shell: bash
+        if: ${{ !cancelled() }}
+        run: ./.github/check.sh --manifest-path sample/Cargo.toml --lib --intel sample::main --rust --keep-mangled
 
       - name: Native version of cargo-show-asm (LLVM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --lib --llvm sample::main
+        shell: bash
+        if: ${{ !cancelled() }}
+        run: ./.github/check.sh --manifest-path sample/Cargo.toml --lib --llvm sample::main
 
       - name: Native version of cargo-show-asm with symbol mangling (LLVM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --lib --llvm --keep-mangled sample::main
+        shell: bash
+        if: ${{ !cancelled() }}
+        run: ./.github/check.sh --manifest-path sample/Cargo.toml --lib --llvm --keep-mangled sample::main
 
       - name: Native version of cargo-show-asm (LLVM Input)
-        run: cargo run -- --manifest-path sample/Cargo.toml --lib --llvm-input sample::main
+        shell: bash
+        if: ${{ !cancelled() }}
+        run: ./.github/check.sh --manifest-path sample/Cargo.toml --lib --llvm-input sample::main
 
       - name: Native version of cargo-show-asm (MIR)
-        run: cargo run -- --manifest-path sample/Cargo.toml --lib --mir "main()"
+        shell: bash
+        if: ${{ !cancelled() }}
+        run: ./.github/check.sh --manifest-path sample/Cargo.toml --lib --mir "main()"
 
       - name: Crosscompiled version of cargo-show-asm (Intel ASM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --lib --intel sample::main --target armv7-unknown-linux-gnueabihf
+        shell: bash
+        if: ${{ !cancelled() }}
+        run: ./.github/check.sh --manifest-path sample/Cargo.toml --lib --intel sample::main --target armv7-unknown-linux-gnueabihf
 
       - name: Rlib project, AT&T asm
-        run: cargo run -- --manifest-path sample_rlib/Cargo.toml --att
+        shell: bash
+        if: ${{ !cancelled() }}
+        run: ./.github/check.sh --manifest-path sample_rlib/Cargo.toml --att
 
       - name: cdylib project
-        run: cargo run -- --manifest-path sample_cdylib/Cargo.toml add
+        shell: bash
+        if: ${{ !cancelled() }}
+        run: ./.github/check.sh --manifest-path sample_cdylib/Cargo.toml add
 
       - name: cdylib project, underscore prefix
-        run: cargo run -- --manifest-path sample_cdylib/Cargo.toml _mul
+        shell: bash
+        if: ${{ !cancelled() }}
+        run: ./.github/check.sh --manifest-path sample_cdylib/Cargo.toml _mul
 
-      - name: merged functions
-        run: |
-          cargo run -- --manifest-path sample_merged/Cargo.toml sample_merged::merged_0
-          cargo run -- --manifest-path sample_merged/Cargo.toml sample_merged::merged_1
-          cargo run -- --manifest-path sample_merged/Cargo.toml sample_merged::one_num
-          cargo run -- --manifest-path sample_merged/Cargo.toml sample_merged::one_plus_one
-          cargo run -- --manifest-path sample_merged/Cargo.toml sample_merged::two_num
-          cargo run -- --manifest-path sample_merged/Cargo.toml sample_merged::two_minus_one
+      - name: merged functions simd
+        shell: bash
+        if: ${{ !cancelled() && matrix.os != 'macos-latest' }} # uses x86 primops
+        run: ./.github/check.sh --manifest-path sample_merged/Cargo.toml sample_merged::merged_0
 
-  windows:
-    runs-on: windows-latest
-    name: Tests on windows
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+      - name: merged functions simd
+        shell: bash
+        if: ${{ !cancelled() && matrix.os != 'macos-latest' }} # uses x86 primops
+        run: ./.github/check.sh --manifest-path sample_merged/Cargo.toml sample_merged::merged_1
 
-      - name: Install rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
-          components: rustfmt clippy rust-src
-          targets: armv7-unknown-linux-gnueabihf
+      - name: merged functions extern c
+        shell: bash
+        if: ${{ !cancelled() }}
+        run: ./.github/check.sh --manifest-path sample_merged/Cargo.toml sample_merged::extern_c_0
 
-      - name: Build all the things
-        run: cargo build --tests
+      - name: merged functions extern c
+        shell: bash
+        if: ${{ !cancelled() }}
+        run: ./.github/check.sh --manifest-path sample_merged/Cargo.toml sample_merged::extern_c_1
 
-      - name: Run unit tests
-        run: cargo test --all-features
+      - name: merged functions plain
+        shell: bash
+        if: ${{ !cancelled() }}
+        run: ./.github/check.sh --manifest-path sample_merged/Cargo.toml sample_merged::plain_0
 
-      - name: Clippy
-        run: cargo clippy -- -D clippy::disallowed_macros
-
-      - name: Check formatting
-        run: cargo fmt --all --check
-
-      - name: Native version of cargo-show-asm (Intel ASM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --lib --intel sample::main --rust
-
-      - name: Native version of cargo-show-asm (Intel ASM) + native CPU
-        run: cargo run -- --manifest-path sample/Cargo.toml --lib --native --intel sample::main --rust
-
-      - name: Native version of cargo-show-asm (Intel ASM) + native CPU + no default features
-        run: cargo run -- -vvv --manifest-path sample/Cargo.toml --lib --native --intel sample::main --rust --no-default-features
-
-      - name: Native version of cargo-show-asm (Intel ASM) + atom
-        run: cargo run -- --manifest-path sample/Cargo.toml --lib --target-cpu atom --intel sample::main --rust
-
-      - name: Native version of cargo-show-asm with symbol mangling (Intel ASM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --lib --intel sample::main --rust --keep-mangled
-
-      - name: Native version of cargo-show-asm (LLVM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --lib --llvm sample::main
-
-      - name: Native version of cargo-show-asm with symbol mangling (LLVM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --lib --llvm --keep-mangled sample::main
-
-      - name: Native version of cargo-show-asm (LLVM Input)
-        run: cargo run -- --manifest-path sample/Cargo.toml --lib --llvm-input sample::main
-
-      - name: Native version of cargo-show-asm (MIR)
-        run: cargo run -- --manifest-path sample/Cargo.toml --lib --mir "main()"
-
-      - name: Crosscompiled version of cargo-show-asm (Intel ASM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --lib --intel sample::main --target armv7-unknown-linux-gnueabihf
-
-      - name: Rlib project, AT&T asm
-        run: cargo run -- --manifest-path sample_rlib/Cargo.toml --att
-
-      - name: cdylib project, everything
-        run: cargo run -- --manifest-path sample_cdylib/Cargo.toml --everything
-
-      - name: cdylib project
-        run: cargo run -- --manifest-path sample_cdylib/Cargo.toml add
-
-      - name: cdylib project, underscore prefix
-        run: cargo run -- --manifest-path sample_cdylib/Cargo.toml _mul
-
-      - name: merged functions
-        run: |
-          cargo run -- --manifest-path sample_merged/Cargo.toml sample_merged::merged_0
-          cargo run -- --manifest-path sample_merged/Cargo.toml sample_merged::merged_1
-          cargo run -- --manifest-path sample_merged/Cargo.toml sample_merged::one_num
-          cargo run -- --manifest-path sample_merged/Cargo.toml sample_merged::one_plus_one
-          cargo run -- --manifest-path sample_merged/Cargo.toml sample_merged::two_num
-          cargo run -- --manifest-path sample_merged/Cargo.toml sample_merged::two_minus_one
-
-  macos:
-    runs-on: macos-latest
-    name: Tests on MacOS
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
-
-      - name: Install rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
-          components: rustfmt clippy rust-src
-          targets: armv7-unknown-linux-gnueabihf
-
-      - name: Build all the things
-        run: cargo build --tests
-
-      - name: Run unit tests
-        run: cargo test --all-features
-
-      - name: Clippy
-        run: cargo clippy -- -D clippy::disallowed_macros
-
-      - name: Check formatting
-        run: cargo fmt --all --check
-
-      - name: Native version of cargo-show-asm (Intel ASM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --lib --intel sample::main --rust
-
-      - name: Native version of cargo-show-asm (Intel ASM) + native CPU
-        run: cargo run -- --manifest-path sample/Cargo.toml --lib --native --intel sample::main --rust
-
-      - name: Native version of cargo-show-asm (Intel ASM) + native CPU + no default features
-        run: cargo run -- -vvv --manifest-path sample/Cargo.toml --lib --native --intel sample::main --rust --no-default-features
-
-      - name: Native version of cargo-show-asm (Intel ASM) + atom
-        run: cargo run -- --manifest-path sample/Cargo.toml --lib --target-cpu atom --intel sample::main --rust
-
-      - name: Native version of cargo-show-asm with symbol mangling (Intel ASM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --lib --intel sample::main --rust --keep-mangled
-
-      - name: Native version of cargo-show-asm (LLVM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --lib --llvm sample::main
-
-      - name: Native version of cargo-show-asm with symbol mangling (LLVM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --lib --llvm --keep-mangled sample::main
-
-      - name: Native version of cargo-show-asm (LLVM Input)
-        run: cargo run -- --manifest-path sample/Cargo.toml --lib --llvm-input sample::main
-
-      - name: Native version of cargo-show-asm (MIR)
-        run: cargo run -- --manifest-path sample/Cargo.toml --lib --mir "main()"
-
-      - name: Crosscompiled version of cargo-show-asm (Intel ASM)
-        run: cargo run -- --manifest-path sample/Cargo.toml --lib --intel sample::main --target armv7-unknown-linux-gnueabihf
-
-      - name: Rlib project, AT&T asm
-        run: cargo run -- --manifest-path sample_rlib/Cargo.toml --att
-
-      - name: cdylib project
-        run: cargo run -- --manifest-path sample_cdylib/Cargo.toml add
-
-      - name: cdylib project, underscore prefix
-        run: cargo run -- --manifest-path sample_cdylib/Cargo.toml _mul
-
-      - name: merged functions
-        run: |
-          cargo run -- --manifest-path sample_merged/Cargo.toml sample_merged::one_num
-          cargo run -- --manifest-path sample_merged/Cargo.toml sample_merged::one_plus_one
-          cargo run -- --manifest-path sample_merged/Cargo.toml sample_merged::two_num
-          cargo run -- --manifest-path sample_merged/Cargo.toml sample_merged::two_minus_one
+      - name: merged functions plain
+        shell: bash
+        if: ${{ !cancelled() }}
+        run: ./.github/check.sh --manifest-path sample_merged/Cargo.toml sample_merged::plain_1
