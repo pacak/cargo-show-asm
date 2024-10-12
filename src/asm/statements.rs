@@ -174,14 +174,14 @@ impl std::fmt::Display for Directive<'_> {
                 let dem = demangle::contents(s, display);
                 write!(
                     f,
-                    ".{} {dem},@function",
+                    ".{}\t{dem},@function",
                     color!("type", OwoColorize::bright_magenta)
                 )
             }
             Directive::Data(ty, data) => {
                 write!(
                     f,
-                    "\t.{} {}",
+                    "\t.{}\t{}",
                     color!(ty, OwoColorize::bright_magenta),
                     color!(data, OwoColorize::bright_cyan)
                 )
