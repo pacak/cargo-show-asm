@@ -179,11 +179,13 @@ impl std::fmt::Display for Directive<'_> {
                 )
             }
             Directive::Data(ty, data) => {
+                let data = demangle::contents(data, display);
+                let w_label = demangle::color_local_labels(&data);
                 write!(
                     f,
                     "\t.{}\t{}",
                     color!(ty, OwoColorize::bright_magenta),
-                    color!(data, OwoColorize::bright_cyan)
+                    color!(w_label, OwoColorize::bright_cyan)
                 )
             }
         }
