@@ -14,7 +14,7 @@ use owo_colors::OwoColorize;
 use statements::{parse_statement, Loc};
 pub use statements::{Directive, Instruction, Statement};
 use std::cell::RefCell;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
@@ -105,67 +105,82 @@ pub fn find_items(lines: &[Statement]) -> BTreeMap<Item, Range<usize>> {
                     *name_entry += 1;
                 }
             }
-        } else if let Some((name, range)) = merged_function(lines, ix) {
-            assert_eq!(item, None);
-
-            let sym = name;
-            if let Some(dem) = demangle::demangled(sym) {
-                let hashed = format!("{dem:?}");
-                let name = format!("{dem:#?}");
-                let name_entry = names.entry(name.clone()).or_insert(0);
-                res.insert(
-                    Item {
-                        mangled_name: sym.to_string(),
-                        name,
-                        hashed,
-                        index: *name_entry,
-                        len: range.len(),
-                        non_blank_len: range.len(),
-                    },
-                    range,
-                );
-                *name_entry += 1;
-            }
         }
     }
-    res
-}
 
-/// CHeck if ix is a merged function.
-///
-/// merged function are defined (at least on Linux) as a sequence of 3
-/// commands:
-/// .globl  _ZN13sample_merged3two17h0afab563317f9d7bE
-/// .type   _ZN13sample_merged3two17h0afab563317f9d7bE,@function
-/// .set _ZN13sample_merged3two17h0afab563317f9d7bE, _ZN13sample_merged12one_plus_one17h408b56cb936d6f10E
-///
-/// check above looks for `.type..@function` followed by `.set ...`
-///
-/// except if we are on mac, where .type is absent:
-/// .globl  _ZN13sample_merged3two17h0afab563317f9d7bE
-/// .set _ZN13sample_merged3two17h0afab563317f9d7bE, _ZN13sample_merged12one_plus_one17h408b56cb936d6f10E
-///
-/// So... We have to check both
-fn merged_function<'a>(lines: &'a [Statement<'a>], ix: usize) -> Option<(&'a str, Range<usize>)> {
-    let Statement::Directive(Directive::SetValue(name, _val)) = lines.get(ix)? else {
-        return None;
-    };
+    // detect merged functions
+    // we'll define merged function as something with a global label and a reference to a different
+    // global label
 
-    if let Some(Statement::Directive(Directive::SymIsFun(sym))) = lines.get(ix.checked_sub(1)?) {
-        assert_eq!(sym, name);
-        Some((name, ix - 2..ix + 1))
-    } else if lines
-        .get(ix.checked_sub(1)?)
-        .map_or(false, |l| l.is_global())
-    {
-        Some((name, ix - 1..ix + 1))
-    } else {
-        None
+    let globals = lines
+        .iter()
+        .enumerate()
+        .filter_map(|(ix, line)| {
+            if let Statement::Directive(Directive::Global(name)) = line {
+                Some((name, ix))
+            } else {
+                None
+            }
+        })
+        .collect::<HashMap<_, _>>();
+
+    for (end, line) in lines.iter().enumerate() {
+        let Statement::Directive(Directive::SetValue(name, _)) = line else {
+            continue;
+        };
+        let Some(start) = globals.get(name).copied() else {
+            continue;
+        };
+
+        // Merged function is different on different system, lol.
+        //
+        // Linux: a sequence of 3 items
+        //
+        // .globl  _ZN13sample_merged3two17h0afab563317f9d7bE
+        // .type   _ZN13sample_merged3two17h0afab563317f9d7bE,@function
+        // .set _ZN13sample_merged3two17h0afab563317f9d7bE, _ZN13sample_merged12one_plus_one17h408b56cb936d6f10E
+        //
+        // MacOS: a sequence of 2 items
+        //
+        // .globl  _ZN13sample_merged3two17h0afab563317f9d7bE
+        // .set _ZN13sample_merged3two17h0afab563317f9d7bE, _ZN13sample_merged12one_plus_one17h408b56cb936d6f10E
+        //
+        // Windows: a sequence of 6-ish items, different on CI machine LOL
+        //
+        //  .globl  _ZN13sample_merged7two_num17h2372a6fab541fa02E
+        //  .def    _ZN13sample_merged7two_num17h2372a6fab541fa02E;
+        //  .scl    2;
+        //  .type   32;
+        //  .endef
+        // .set _ZN13sample_merged7two_num17h2372a6fab541fa02E, _ZN13sample_merged12one_plus_one17h96e22123e4e22951E
+
+        let range = start..end + 1;
+        if range.len() > 10 {
+            // merged function body should contain just a few lines, use
+            // this as a sanity check
+            continue;
+        }
+        let sym = name;
+        if let Some(dem) = demangle::demangled(sym) {
+            let hashed = format!("{dem:?}");
+            let name = format!("{dem:#?}");
+            let name_entry = names.entry(name.clone()).or_insert(0);
+            res.insert(
+                Item {
+                    mangled_name: sym.to_string(),
+                    name,
+                    hashed,
+                    index: *name_entry,
+                    len: range.len(),
+                    non_blank_len: range.len(),
+                },
+                range,
+            );
+            *name_entry += 1;
+        }
     }
 
-    //if let            Some(Statement::Directive(Directive::SymIsFun(sym))),
-    //            Statement::Directive(Directive::SetValue(name, _val)),
-    //        ) = (ix.checked_sub(1).and_then(|prev| lines.get(prev)), line)
+    res
 }
 
 /// Handles the non-mangled labels found in the given lines of ASM statements.
@@ -253,6 +268,7 @@ fn used_labels<'a>(stmts: &'_ [Statement<'a>]) -> BTreeSet<&'a str> {
             Statement::Directive(dir) => match dir {
                 Directive::File(_)
                 | Directive::Loc(_)
+                | Directive::Global(_)
                 | Directive::SubsectionsViaSym
                 | Directive::SymIsFun(_) => None,
                 Directive::Data(_, val) | Directive::SetValue(_, val) => Some(*val),
