@@ -1,6 +1,6 @@
 # Change Log
 
-## [0.2.41] - Unreleased
+## [0.2.41] - 2024-10-13
 - make sure not to drop used labels (#318)
 - add release-lto profile for slightly smaller/faster version
   thanks @zamazan4ik for the suggestion
