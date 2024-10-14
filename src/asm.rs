@@ -293,7 +293,8 @@ fn scan_constant(
         + body[start + 1..]
             .iter()
             .take_while(|s| matches!(s, Statement::Directive(Directive::Data(_, _))))
-            .count();
+            .count()
+        + 1;
     Some(URange { start, end })
 }
 
