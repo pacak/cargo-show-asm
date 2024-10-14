@@ -59,7 +59,7 @@ pub enum CodeSource {
         cargo: Cargo,
     },
     File {
-        /// Disassemble this file instead of calling cargo,
+        /// Disassemble or process this file instead of calling cargo,
         ///  requires cargo-show-asm to be compiled with disasm feature
         ///
         /// You can specify executable, rlib or an object file
