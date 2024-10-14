@@ -61,13 +61,11 @@ fn parse_data_dec(input: &str) -> IResult<&str, Directive> {
     // .dc
     // .inst .insn
     let reg = DATA_DEC.get_or_init(|| {
+        // regexp is inspired by the compiler explorer
         Regex::new(
-            "^[\\s\\t]*\\.(long|short|octa|quad|word|\
-            single|double|float|\
-            ascii|asciz|string|string8|string16|string32|string64|\
-            byte|2byte|4byte|8byte|dc|\
-            inst|insn\
-            )[\\s\\t]+([^\\n]+)",
+            "^\\s*\\.(ascii|asciz|[1248]?byte|dc(?:\\.[abdlswx])?|dcb(?:\\.[bdlswx])?\
+            |ds(?:\\.[bdlpswx])?|double|dword|fill|float|half|hword|int|long|octa|quad|\
+            short|single|skip|space|string(?:8|16|32|64)?|value|word|xword|zero)\\s+([^\\n]+)",
         )
         .expect("regexp should be valid")
     });
