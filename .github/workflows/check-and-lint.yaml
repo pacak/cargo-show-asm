@@ -212,12 +212,12 @@ jobs:
       - name: merged functions simd
         shell: bash
         if: ${{ !cancelled() && matrix.os != 'macos-latest' }} # uses x86 primops
-        run: ./.github/check.sh --manifest-path sample_merged/Cargo.toml sample_merged::merged_0
+        run: ./.github/check.sh --manifest-path sample_merged/Cargo.toml sample_merged::merged_0 --include-constants
 
       - name: merged functions simd
         shell: bash
         if: ${{ !cancelled() && matrix.os != 'macos-latest' }} # uses x86 primops
-        run: ./.github/check.sh --manifest-path sample_merged/Cargo.toml sample_merged::merged_1
+        run: ./.github/check.sh --manifest-path sample_merged/Cargo.toml sample_merged::merged_1 --include-constants
 
       - name: merged functions extern c
         shell: bash
