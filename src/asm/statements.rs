@@ -847,15 +847,18 @@ fn good_for_label(c: char) -> bool {
     c == '.' || c == '$' || c == '_' || c.is_ascii_alphanumeric()
 }
 impl Statement<'_> {
+    /// Is this a label that starts with ".Lfunc_end"?
     pub(crate) fn is_end_of_fn(&self) -> bool {
         let check_id = |id: &str| id.strip_prefix('.').unwrap_or(id).starts_with("Lfunc_end");
         matches!(self, Statement::Label(Label { id, .. }) if check_id(id))
     }
 
+    /// Is this a .section directive?
     pub(crate) fn is_section_start(&self) -> bool {
         matches!(self, Statement::Directive(Directive::SectionStart(_)))
     }
 
+    /// Is this a .global directive?
     pub(crate) fn is_global(&self) -> bool {
         matches!(self, Statement::Directive(Directive::Global(_)))
     }
