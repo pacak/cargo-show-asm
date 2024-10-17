@@ -206,12 +206,12 @@ fn handle_non_mangled_labels(
             if is_windows || is_mac {
                 // Search for .globl between sec_start and ix
                 for line in &lines[sec_start..ix] {
-                    if let Statement::Directive(Directive::Generic(GenericDirective(g))) = line {
+                    if let Statement::Directive(Directive::Global(g)) = line {
                         // last bool is responsible for stripping leading underscore.
                         // Stripping is not needed on Linux and 64-bit Windows.
                         // Currently we want to strip underscore on MacOS
                         // TODO: on 32-bit Windows we ought to remove underscores
-                        if let Some(item) = get_item_in_section("globl\t", ix, label, g, is_mac) {
+                        if let Some(item) = get_item_in_section(ix, label, g, is_mac) {
                             return Some(item);
                         }
                     }
@@ -219,45 +219,37 @@ fn handle_non_mangled_labels(
                 None
             } else {
                 // Linux symbols each have their own section, named with this prefix.
-                get_item_in_section(".text.", ix, label, ss, false)
+                get_item_in_section(ix, label, ss.strip_prefix(".text.")?, false)
             }
         }
-        Some(Statement::Directive(Directive::Generic(GenericDirective(g)))) => {
-            // macOS symbols after the first are matched here.
-            get_item_in_section("globl\t", ix, label, g, true)
-        }
+        //        Some(Statement::Directive(Directive::Generic(GenericDirective(g)))) => {
+        // macOS symbols after the first are matched here.
+        //            get_item_in_section(PrefixKind::Global, ix, label, g, true)
+        //        }
+        Some(Statement::Directive(Directive::Global(g))) => get_item_in_section(ix, label, g, true),
         _ => None,
     }
 }
 
-/// Checks if the provided section `ss` starts with the provided `prefix`.
-/// If it does, it further checks if the section starts with the `label`.
-/// If both conditions are satisfied, it creates a new [`Item`], but sets `item.index` to 0.
-fn get_item_in_section(
-    prefix: &str,
-    ix: usize,
-    label: &Label,
-    ss: &str,
-    strip_underscore: bool,
-) -> Option<Item> {
-    if let Some(ss) = ss.strip_prefix(prefix) {
-        if ss.starts_with(label.id) {
-            let name = if strip_underscore && label.id.starts_with('_') {
-                String::from(&label.id[1..])
-            } else {
-                String::from(label.id)
-            };
-            return Some(Item {
-                mangled_name: label.id.to_owned(),
-                name: name.clone(),
-                hashed: name,
-                index: 0, // Written later in find_items
-                len: ix,
-                non_blank_len: 0,
-            });
-        }
+/// Checks if the place (ss) starts with the `label`. Place can be either section or .global
+/// Creates a new [`Item`], but sets `item.index` to 0.
+fn get_item_in_section(ix: usize, label: &Label, ss: &str, strip_underscore: bool) -> Option<Item> {
+    if !ss.starts_with(label.id) {
+        return None;
     }
-    None
+    let name = if strip_underscore && label.id.starts_with('_') {
+        String::from(&label.id[1..])
+    } else {
+        String::from(label.id)
+    };
+    Some(Item {
+        mangled_name: label.id.to_owned(),
+        name: name.clone(),
+        hashed: name,
+        index: 0, // Written later in find_items
+        len: ix,
+        non_blank_len: 0,
+    })
 }
 
 fn used_labels<'a>(stmts: &'_ [Statement<'a>]) -> BTreeSet<&'a str> {

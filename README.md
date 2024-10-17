@@ -186,7 +186,7 @@ Show the code rustc generates for any function
 
   required for workspace projects, can also point to a dependency
 - **`    --file`**=_`PATH`_ &mdash; 
-  Disassemble this file instead of calling cargo,
+  Disassemble or process this file instead of calling cargo,
 requires cargo-show-asm to be compiled with disasm feature
 
   You can specify executable, rlib or an object file

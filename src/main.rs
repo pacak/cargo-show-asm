@@ -167,14 +167,32 @@ fn main() -> anyhow::Result<()> {
 
     let cargo = match opts.code_source {
         CodeSource::FromCargo { ref cargo } => cargo,
-        #[cfg(not(feature = "disasm"))]
-        CodeSource::File { .. } => no_disasm!(),
-        #[cfg(feature = "disasm")]
         CodeSource::File { ref file } => {
             if opts.format.verbosity > 0 {
                 esafeprintln!("Processing a given single file");
             }
-            return dump_disasm(opts.to_dump, file, &opts.format, opts.syntax.output_style);
+            match file.extension() {
+                Some(ext) if ext == "s" => {
+                    let nope = PathBuf::new();
+                    let asm = Asm::new(&nope, &nope);
+                    let mut format = opts.format;
+                    // For standalone file we don't know the matching
+                    // system root so don't even try to dump it
+                    format.rust = false;
+                    dump_function(&asm, opts.to_dump, file, &format)?;
+                }
+                _ => {
+                    #[cfg(feature = "disasm")]
+                    {
+                        dump_disasm(opts.to_dump, file, &opts.format, opts.syntax.output_style)?
+                    }
+                    #[cfg(not(feature = "disasm"))]
+                    {
+                        no_disasm!()
+                    }
+                }
+            }
+            return Ok(());
         }
     };
 
