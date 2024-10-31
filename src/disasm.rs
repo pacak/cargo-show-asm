@@ -156,7 +156,7 @@ fn dump_slices(
         .iter()
         .map(|data| object::File::parse(data.as_slice()))
         .collect::<Result<Vec<_>, _>>()?;
-    let (file, section_index, addr, len) = pick_item(goal, &files, fmt)?;
+    let (file, section_index, mut addr, len) = pick_item(goal, &files, fmt)?;
     let mut opcode_cache = BTreeMap::new();
 
     let section = file.section_by_index(section_index)?;
@@ -183,8 +183,8 @@ fn dump_slices(
         BTreeMap::new()
     };
 
+    let cs = make_capstone(file, syntax, &mut addr)?;
     let start = addr - section.address() as usize;
-    let cs = make_capstone(file, syntax)?;
     let code = &section.data()?[start..start + len];
 
     if fmt.verbosity >= 2 {
@@ -334,29 +334,53 @@ impl From<OutputStyle> for capstone::Syntax {
     }
 }
 
-fn make_capstone(file: &object::File, syntax: OutputStyle) -> anyhow::Result<Capstone> {
-    use capstone::{
-        arch::{self, BuildsCapstone},
-        Endian,
-    };
-
-    let endiannes = match file.endianness() {
-        object::Endianness::Little => Endian::Little,
-        object::Endianness::Big => Endian::Big,
-    };
-    let x86_width = if file.is_64() {
-        arch::x86::ArchMode::Mode64
-    } else {
-        arch::x86::ArchMode::Mode32
-    };
+fn make_capstone(
+    file: &object::File,
+    syntax: OutputStyle,
+    addr: &mut usize,
+) -> anyhow::Result<Capstone> {
+    use capstone::arch::{arm, arm64, riscv, x86, BuildsCapstone, BuildsCapstoneExtraMode};
 
     let mut capstone = match file.architecture() {
-        Architecture::Aarch64 => Capstone::new().arm64().build()?,
-        Architecture::X86_64 => Capstone::new().x86().mode(x86_width).build()?,
+        // Thumb breaks common assumptions about CPU modes. There is no distinction in the linker
+        // because the CPU mode is set by the lowest bit in the address of a branch target, and thus
+        // the symbol address of functions. Compatible CPUs can even switch modes on a per-function
+        // basis.
+        //
+        // Capstone is unaware of this convention so we have to do it ourselves: if the pointer is
+        // odd, we switch to disassembling Thumb code, and also fixup the address to point at the
+        // code.
+        Architecture::Arm if *addr & 1 == 1 => {
+            *addr -= 1;
+            Capstone::new().arm().mode(arm::ArchMode::Thumb).build()?
+        }
+        Architecture::Arm => Capstone::new().arm().mode(arm::ArchMode::Arm).build()?,
+        Architecture::Aarch64 => Capstone::new().arm64().mode(arm64::ArchMode::Arm).build()?,
+
+        Architecture::I386 => {
+            let mut capstone = Capstone::new().x86().mode(x86::ArchMode::Mode32).build()?;
+            capstone.set_syntax(syntax.into())?;
+            capstone
+        }
+        Architecture::X86_64_X32 | Architecture::X86_64 => {
+            let mut capstone = Capstone::new().x86().mode(x86::ArchMode::Mode64).build()?;
+            capstone.set_syntax(syntax.into())?;
+            capstone
+        }
+
+        Architecture::Riscv32 => Capstone::new()
+            .riscv()
+            .mode(riscv::ArchMode::RiscV32)
+            .extra_mode([riscv::ArchExtraMode::RiscVC].into_iter())
+            .build()?,
+        Architecture::Riscv64 => Capstone::new()
+            .riscv()
+            .mode(riscv::ArchMode::RiscV64)
+            .extra_mode([riscv::ArchExtraMode::RiscVC].into_iter())
+            .build()?,
+
         unknown => anyhow::bail!("Dunno how to decompile {unknown:?}"),
     };
-    capstone.set_syntax(syntax.into())?;
     capstone.set_detail(true)?;
-    capstone.set_endian(endiannes)?;
     Ok(capstone)
 }
