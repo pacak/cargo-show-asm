@@ -75,6 +75,7 @@ fn spawn_cargo(
         .args(cargo.frozen.then_some("--frozen"))
         .args(cargo.locked.then_some("--locked"))
         .args(cargo.offline.then_some("--offline"))
+        .args(cargo.quiet.then_some("--quiet"))
         .args(cargo.target.iter().flat_map(|t| ["--target", t]))
         .args(cargo.unstable.iter().flat_map(|z| ["-Z", z]))
         .args((syntax.output_type == OutputType::Wasm).then_some("--target=wasm32-unknown-unknown"))

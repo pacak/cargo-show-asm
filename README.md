@@ -85,6 +85,8 @@ Show the code rustc generates for any function
   Requires Cargo.lock to be up-to-date
 - **`    --offline`** &mdash; 
   Run without accessing the network
+- **`-q`**, **`--quiet`** &mdash; 
+  Do not print cargo log messages
 - **`    --no-default-features`** &mdash; 
   Do not activate `default` feature
 - **`    --all-features`** &mdash; 

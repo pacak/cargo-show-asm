@@ -1,5 +1,8 @@
 # Change Log
 
+## [0.2.42] - unreleased
+- `--quiet` option that gets passed to `cargo
+
 ## [0.2.41] - 2024-10-13
 - make sure not to drop used labels (#318)
 - add release-lto profile for slightly smaller/faster version
