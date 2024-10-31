@@ -115,6 +115,9 @@ pub struct Cargo {
     /// Run without accessing the network
     #[bpaf(hide_usage)]
     pub offline: bool,
+    /// Do not print cargo log messages
+    #[bpaf(short, long, hide_usage)]
+    pub quiet: bool,
     #[bpaf(external, hide_usage)]
     pub cli_features: CliFeatures,
     #[bpaf(external)]
