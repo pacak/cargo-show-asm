@@ -566,6 +566,7 @@ impl RawLines for Statement<'_> {
     fn lines(&self) -> Option<&str> {
         match self {
             Statement::Instruction(i) => i.args,
+            Statement::Directive(Directive::SetValue(_, i)) => Some(i),
             _ => None,
         }
     }
