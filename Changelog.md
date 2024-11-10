@@ -1,7 +1,10 @@
 # Change Log
 
-## [0.2.42] - unreleased
+## [0.2.42] - 2024-11-10
 - `--quiet` option that gets passed to `cargo
+- Also search for context in `.set` statements - for merged functions
+  this mean that when you are showing the alias with `-c 1` - the actual
+  implementation will show up as well (#338)
 
 ## [0.2.41] - 2024-10-13
 - make sure not to drop used labels (#318)

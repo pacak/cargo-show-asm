@@ -212,29 +212,29 @@ jobs:
       - name: merged functions simd
         shell: bash
         if: ${{ !cancelled() && matrix.os != 'macos-latest' }} # uses x86 primops
-        run: ./.github/check.sh --manifest-path sample_merged/Cargo.toml sample_merged::merged_0 --include-constants
+        run: ./.github/check.sh --manifest-path sample_merged/Cargo.toml sample_merged::merged_0 --include-constants -c 1
 
       - name: merged functions simd
         shell: bash
         if: ${{ !cancelled() && matrix.os != 'macos-latest' }} # uses x86 primops
-        run: ./.github/check.sh --manifest-path sample_merged/Cargo.toml sample_merged::merged_1 --include-constants
+        run: ./.github/check.sh --manifest-path sample_merged/Cargo.toml sample_merged::merged_1 --include-constants -c 1
 
       - name: merged functions extern c
         shell: bash
         if: ${{ !cancelled() }}
-        run: ./.github/check.sh --manifest-path sample_merged/Cargo.toml sample_merged::extern_c_0
+        run: ./.github/check.sh --manifest-path sample_merged/Cargo.toml sample_merged::extern_c_0 -c 1
 
       - name: merged functions extern c
         shell: bash
         if: ${{ !cancelled() }}
-        run: ./.github/check.sh --manifest-path sample_merged/Cargo.toml sample_merged::extern_c_1
+        run: ./.github/check.sh --manifest-path sample_merged/Cargo.toml sample_merged::extern_c_1 -c 1
 
       - name: merged functions plain
         shell: bash
         if: ${{ !cancelled() }}
-        run: ./.github/check.sh --manifest-path sample_merged/Cargo.toml sample_merged::plain_0
+        run: ./.github/check.sh --manifest-path sample_merged/Cargo.toml sample_merged::plain_0 -c 1
 
       - name: merged functions plain
         shell: bash
         if: ${{ !cancelled() }}
-        run: ./.github/check.sh --manifest-path sample_merged/Cargo.toml sample_merged::plain_1
+        run: ./.github/check.sh --manifest-path sample_merged/Cargo.toml sample_merged::plain_1 -c 1
