@@ -16,7 +16,7 @@ anyhow = "1"
 ar = { version = "0.9", optional = true }
 bpaf = { version = "0.9.15", features = ["bpaf_derive", "autocomplete"] }
 capstone = { version = "0.12", optional = true }
-cargo_metadata = "0.18.1"
+cargo_metadata = "0.19.0"
 line-span = "0.1"
 nom = "7"
 object = { version = "0.36", optional = true }
