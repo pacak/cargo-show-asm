@@ -135,6 +135,10 @@ fn spawn_cargo(
         cmd.arg("-Ccodegen-units=1");
     }
 
+    if format.verbosity >= 2 {
+        safeprintln!("Running: {cmd:?}");
+    }
+
     cmd.stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit())
