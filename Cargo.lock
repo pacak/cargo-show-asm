@@ -43,7 +43,7 @@ checksum = "50fd5174866dc2fa2ddc96e8fb800852d37f064f32a45c7b7c2f8fa2c64c77fa"
 dependencies = [
  "bpaf_derive",
  "owo-colors",
- "supports-color 3.0.1",
+ "supports-color 2.1.0",
 ]
 
 [[package]]
@@ -119,7 +119,7 @@ dependencies = [
  "rustc-demangle",
  "same-file",
  "serde",
- "supports-color 3.0.1",
+ "supports-color 3.0.2",
 ]
 
 [[package]]
@@ -273,7 +273,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fb37767f6569cd834a413442455e0f066d0d522de8630436e2a1761d9726ba56"
 dependencies = [
  "supports-color 2.1.0",
- "supports-color 3.0.1",
+ "supports-color 3.0.2",
 ]
 
 [[package]]
@@ -425,9 +425,9 @@ dependencies = [
 
 [[package]]
 name = "supports-color"
-version = "3.0.1"
+version = "3.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8775305acf21c96926c900ad056abeef436701108518cf890020387236ac5a77"
+checksum = "c64fc7232dd8d2e4ac5ce4ef302b1d81e0b80d055b9d77c7c4f51f6aa4c867d6"
 dependencies = [
  "is_ci",
 ]
