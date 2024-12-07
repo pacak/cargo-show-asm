@@ -1,5 +1,10 @@
 # Change Log
 
+## [0.2.43] - 2024-12-07
+- `-vv` also prints invoked cargo command (#345)
+  thanks @zheland
+- bump deps
+
 ## [0.2.42] - 2024-11-10
 - `--quiet` option that gets passed to `cargo
 - Also search for context in `.set` statements - for merged functions
