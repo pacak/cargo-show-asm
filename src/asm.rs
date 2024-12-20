@@ -327,7 +327,9 @@ fn dump_range(
             match files.get(&loc.file) {
                 Some((fname, Some((source, file)))) => {
                     if source.show_for(fmt.sources_from) {
-                        let rust_line = &file[loc.line as usize - 1];
+                        let rust_line = &file.get(loc.line as usize - 1).expect(
+                            "Corrupted rust-src installation? Try re-adding rust-src component.",
+                        );
                         let pos = format!("\t\t// {} : {}", fname.display(), loc.line);
                         safeprintln!("{}", color!(pos, OwoColorize::cyan));
                         safeprintln!(
