@@ -24,7 +24,7 @@ owo-colors = { version = "4", features = ["supports-colors"] }
 regex = "1"
 rustc-demangle = "0.1"
 same-file = "1.0.6"
-serde = "=1.0.195"
+serde = "=1.0.216"
 supports-color = "3.0"
 
 [dev-dependencies]
