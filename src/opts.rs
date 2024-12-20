@@ -462,13 +462,20 @@ impl TryFrom<&'_ cargo_metadata::Target> for Focus {
     type Error = anyhow::Error;
 
     fn try_from(target: &cargo_metadata::Target) -> Result<Self, Self::Error> {
-        match target.kind.first().map(|s| &**s) {
-            Some("lib" | "rlib" | "cdylib") => Ok(Focus::Lib),
-            Some("test") => Ok(Focus::Test(target.name.clone())),
-            Some("bench") => Ok(Focus::Bench(target.name.clone())),
-            Some("example") => Ok(Focus::Example(target.name.clone())),
-            Some("bin") => Ok(Focus::Bin(target.name.clone())),
-            _ => anyhow::bail!("Unknown target kind: {:?}", target.kind),
+        use cargo_metadata::TargetKind as T;
+        let kind = target
+            .kind
+            .first()
+            .ok_or_else(|| anyhow::anyhow!("No target kinds in target"))?;
+        let name = target.name.clone();
+        match kind {
+            T::Lib | T::RLib | T::CDyLib => Ok(Focus::Lib),
+            T::Test => Ok(Focus::Test(name)),
+            T::Bench => Ok(Focus::Bench(name)),
+            T::Example => Ok(Focus::Example(name)),
+            T::Bin => Ok(Focus::Bin(name)),
+            // don't bother with handling remaining cases since struct is #[non_exhaustive]
+            _ => anyhow::bail!("Unsupported target kind {kind:?}"),
         }
     }
 }
@@ -497,13 +504,11 @@ impl Focus {
     #[must_use]
     pub fn matches_artifact(&self, artifact: &Artifact) -> bool {
         let (kind, name) = self.as_parts();
-        let somewhat_matches = kind == "lib"
-            && artifact
-                .target
-                .kind
-                .iter()
-                .any(|i| ["rlib", "cdylib"].contains(&i.as_str()));
-        let kind_matches = artifact.target.kind == [kind];
+        let somewhat_matches =
+            kind == "lib" && artifact.target.is_rlib() || artifact.target.is_cdylib();
+        let kind = <cargo_metadata::TargetKind as std::str::FromStr>::from_str(kind)
+            .expect("cargo_metadata made me do it");
+        let kind_matches = artifact.target.kind.contains(&kind);
         (somewhat_matches || kind_matches)
             && name.map_or(true, |name| artifact.target.name == *name)
     }
