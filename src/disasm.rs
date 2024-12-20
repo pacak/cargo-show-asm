@@ -183,8 +183,13 @@ fn dump_slices(
         BTreeMap::new()
     };
 
+    // In ARM ELF files, bit zero of the symbol address indicates its encoding.
+    // It is one for Thumb-v2 (aka "t32") instructions and zero for ARM (aka
+    // "a32") instructions. See ARM Arch ABI, 2024Q3, ELF, section 5.5.3.
+    let is_thumb = addr & 1 == 1;
+    let addr = addr & !1;
     let start = addr - section.address() as usize;
-    let cs = make_capstone(file, syntax)?;
+    let cs = make_capstone(file, syntax, is_thumb)?;
     let code = &section.data()?[start..start + len];
 
     if fmt.verbosity >= 2 {
@@ -334,7 +339,11 @@ impl From<OutputStyle> for capstone::Syntax {
     }
 }
 
-fn make_capstone(file: &object::File, syntax: OutputStyle) -> anyhow::Result<Capstone> {
+fn make_capstone(
+    file: &object::File,
+    syntax: OutputStyle,
+    is_thumb: bool,
+) -> anyhow::Result<Capstone> {
     use capstone::{
         arch::{self, BuildsCapstone},
         Endian,
@@ -352,6 +361,14 @@ fn make_capstone(file: &object::File, syntax: OutputStyle) -> anyhow::Result<Cap
 
     let mut capstone = match file.architecture() {
         Architecture::Aarch64 => Capstone::new().arm64().build()?,
+        Architecture::Arm => {
+            let mode = if is_thumb {
+                arch::arm::ArchMode::Thumb
+            } else {
+                arch::arm::ArchMode::Arm
+            };
+            Capstone::new().arm().mode(mode).build()?
+        }
         Architecture::X86_64 => Capstone::new().x86().mode(x86_width).build()?,
         unknown => anyhow::bail!("Dunno how to decompile {unknown:?}"),
     };
