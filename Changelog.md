@@ -1,5 +1,12 @@
 # Change Log
 
+## [0.2.44] - 2024-12-20
+- improve error for mismaching/corrupted rust-src
+- support for ARM disassembly
+  thanks @fg-cfh
+- bump serde that was pinned due to it shipping binary blobs
+- bump deps
+
 ## [0.2.43] - 2024-12-07
 - `-vv` also prints invoked cargo command (#345)
   thanks @zheland
