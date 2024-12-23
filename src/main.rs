@@ -50,8 +50,10 @@ fn spawn_cargo(
     force_single_cgu: bool,
 ) -> std::io::Result<std::process::Child> {
     use std::ffi::OsStr;
+    use std::fmt::Write;
 
     let mut cmd = std::process::Command::new(cargo_path());
+    let mut rust_flags = std::env::var("RUSTFLAGS").unwrap_or_default();
 
     // Cargo flags.
     cmd.arg("rustc")
@@ -118,8 +120,11 @@ fn spawn_cargo(
         .args(cargo.codegen.iter().flat_map(|c| ["-C", c]))
         // Next, we care about asm/wasm/llvm-ir/llvm-mac.
         .args(syntax.emit().iter().flat_map(|s| ["--emit", s]))
-        .args(syntax.format().iter().flat_map(|s| ["-C", s]))
-        .args(target_cpu.iter().map(|cpu| format!("-Ctarget-cpu={cpu}")));
+        .args(syntax.format().iter().flat_map(|s| ["-C", s]));
+
+    if let Some(cpu) = target_cpu {
+        write!(rust_flags, " -Ctarget-cpu={cpu}").unwrap();
+    }
 
     {
         // None corresponds to disasm
@@ -134,6 +139,10 @@ fn spawn_cargo(
     if force_single_cgu {
         cmd.arg("-Ccodegen-units=1");
     }
+
+    // `args` from `cargo rustc -- args` are passed only to the final compiler instance.
+    // `RUSTFLAGS` envvar is useful for passing flags to all compiler instances.
+    cmd.env("RUSTFLAGS", rust_flags.trim_start());
 
     if format.verbosity >= 2 {
         safeprintln!("Running: {cmd:?}");
