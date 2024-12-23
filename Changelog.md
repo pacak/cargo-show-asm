@@ -1,5 +1,11 @@
 # Change Log
 
+## [0.2.45] - 2024-12-23
+- flags related to target cpu are now passed to all the dependencies if specified
+  thanks @zheland
+- bump deps in tests
+- bump deps
+
 ## [0.2.44] - 2024-12-20
 - improve error for mismaching/corrupted rust-src
 - support for ARM disassembly
