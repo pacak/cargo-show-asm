@@ -544,7 +544,9 @@ fn load_rust_sources(
                     }
                     let sources = std::fs::read_to_string(&filepath).expect("Can't read a file");
                     if sources.is_empty() {
-                        safeprintln!("Ignoring empty file {filepath:?}!");
+                        if fmt.verbosity > 0 {
+                            safeprintln!("Ignoring empty file {filepath:?}!");
+                        }
                         (path, None)
                     } else {
                         if fmt.verbosity > 2 {

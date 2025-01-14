@@ -107,14 +107,14 @@ pub struct Item {
 
 pub fn suggest_name<'a>(
     search: &str,
-    name_display: &NameDisplay,
+    fmt: &Format,
     items: impl IntoIterator<Item = &'a Item>,
 ) -> ! {
     let mut count = 0usize;
     let names: BTreeMap<&String, Vec<usize>> =
         items.into_iter().fold(BTreeMap::new(), |mut m, item| {
             count += 1;
-            let entry = match name_display {
+            let entry = match fmt.name_display {
                 NameDisplay::Full => &item.hashed,
                 NameDisplay::Short => &item.name,
                 NameDisplay::Mangled => &item.mangled_name,
@@ -123,15 +123,19 @@ pub fn suggest_name<'a>(
             m
         });
 
-    if names.is_empty() {
-        if search.is_empty() {
-            safeprintln!("This target defines no functions (or cargo-show-asm can't find them)");
+    if fmt.verbosity > 0 {
+        if names.is_empty() {
+            if search.is_empty() {
+                safeprintln!(
+                    "This target defines no functions (or cargo-show-asm can't find them)"
+                );
+            } else {
+                safeprintln!("No matching functions, try relaxing your search request");
+            }
+            safeprintln!("You can pass --everything to see the demangled contents of a file");
         } else {
-            safeprintln!("No matching functions, try relaxing your search request");
+            safeprintln!("Try one of those by name or a sequence number");
         }
-        safeprintln!("You can pass --everything to see the demangled contents of a file");
-    } else {
-        safeprintln!("Try one of those by name or a sequence number");
     }
 
     #[allow(clippy::cast_sign_loss)]
@@ -213,7 +217,7 @@ pub fn pick_dump_item<K: Clone>(
             } else {
                 // Otherwise, print suggestions and exit
                 let items = items.keys();
-                suggest_name("", &fmt.name_display, items);
+                suggest_name("", &fmt, items);
             }
         }
     }

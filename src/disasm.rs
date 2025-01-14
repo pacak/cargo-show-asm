@@ -201,7 +201,7 @@ fn dump_slices(
     }
 
     let insns = cs.disasm_all(code, addr as u64)?;
-    if insns.is_empty() {
+    if insns.is_empty() && fmt.verbosity > 0 {
         safeprintln!("No instructions - empty code block?");
     }
 

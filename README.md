@@ -135,6 +135,8 @@ Show the code rustc generates for any function
   Strip redundant labels entirely
 - **`-v`**, **`--verbose`** &mdash; 
   more verbose output, can be specified multiple times
+- **`-s`**, **`--silent`** &mdash; 
+  print less user-forward information to make consumption by tools easier
 - **`    --simplify`** &mdash; 
   Try to strip some of the non-assembly instruction information
 - **`    --include-constants`** &mdash; 
