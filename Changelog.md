@@ -1,5 +1,9 @@
 # Change Log
 
+## [0.2.46] - 2025-01-15
+- `--silent` flag can be used to suppress some of the user directed informatin
+  thanks @tgross35
+
 ## [0.2.45] - 2024-12-23
 - flags related to target cpu are now passed to all the dependencies if specified
   thanks @zheland
