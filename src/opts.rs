@@ -202,13 +202,19 @@ pub enum CompileMode {
 }
 
 fn verbosity() -> impl Parser<usize> {
-    short('v')
+    let verbose = short('v')
         .long("verbose")
         .help("more verbose output, can be specified multiple times")
         .req_flag(())
-        .many()
-        .map(|v| v.len())
         .hide_usage()
+        .count();
+    let silent = short('s')
+        .long("silent")
+        .help("print less user-forward information to make consumption by tools easier")
+        .req_flag(())
+        .hide_usage()
+        .count();
+    construct!(verbose, silent).map(|(v, q)| (v + 1).saturating_sub(q))
 }
 
 fn manifest_path() -> impl Parser<PathBuf> {
