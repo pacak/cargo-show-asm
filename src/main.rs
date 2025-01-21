@@ -140,9 +140,11 @@ fn spawn_cargo(
         cmd.arg("-Ccodegen-units=1");
     }
 
-    // `args` from `cargo rustc -- args` are passed only to the final compiler instance.
-    // `RUSTFLAGS` envvar is useful for passing flags to all compiler instances.
-    cmd.env("RUSTFLAGS", rust_flags.trim_start());
+    if !rust_flags.is_empty() {
+        // `args` from `cargo rustc -- args` are passed only to the final compiler instance.
+        // `RUSTFLAGS` envvar is useful for passing flags to all compiler instances.
+        cmd.env("RUSTFLAGS", rust_flags.trim_start());
+    }
 
     if format.verbosity >= 2 {
         safeprintln!("Running: {cmd:?}");
