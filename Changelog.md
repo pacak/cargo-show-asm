@@ -1,5 +1,8 @@
 # Change Log
 
+## [0.2.47] - 2025-01-21
+- don't try to override RUSTFLAGS unless needed - this should keep .config/cargo working (#364)
+
 ## [0.2.46] - 2025-01-15
 - `--silent` flag can be used to suppress some of the user directed informatin
   thanks @tgross35
