@@ -15,7 +15,7 @@ license = "MIT OR Apache-2.0"
 anyhow = "1"
 ar = { version = "0.9", optional = true }
 bpaf = { version = "0.9.16", features = ["bpaf_derive", "autocomplete"] }
-capstone = { version = "0.12", optional = true }
+capstone = { version = "0.13", optional = true }
 cargo_metadata = "0.19.1"
 line-span = "0.1"
 nom = "7"
