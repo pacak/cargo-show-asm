@@ -73,9 +73,18 @@ impl Dumpable for Mca<'_> {
         let o = mca.stdout.take().expect("Stdout should be piped");
         let e = mca.stderr.take().expect("Stderr should be piped");
 
+        let is_x86 = self
+            .target_triple
+            .map(|t| t.starts_with("x86_64-") || t.starts_with("i686-") || t.starts_with("i586-"))
+            .unwrap_or(cfg!(target_arch = "x86_64") || cfg!(target_arch = "x86"));
+
         match self.output_style {
             // without that llvm-mca gets confused for some instructions
-            OutputStyle::Intel => writeln!(i, ".intel_syntax")?,
+            OutputStyle::Intel => {
+                if is_x86 {
+                    writeln!(i, ".intel_syntax")?
+                }
+            }
             OutputStyle::Att => {}
         };
 
