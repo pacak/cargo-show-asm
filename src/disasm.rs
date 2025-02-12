@@ -196,7 +196,7 @@ fn dump_slices(
         if reloc_map.is_empty() {
             safeprintln!("There is no relocation table");
         } else {
-            safeprintln!("{:?}", reloc_map);
+            safeprintln!("reloc_map {:#?}", reloc_map);
         }
     }
 
