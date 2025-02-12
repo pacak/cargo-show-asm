@@ -85,6 +85,13 @@ fn pick_item<'a>(
     let mut items = BTreeMap::new();
 
     for file in files {
+        let mut addresses: Vec<_> = file
+            .symbols()
+            .filter(|s| s.is_definition() && s.kind() == SymbolKind::Text)
+            .map(|s| s.address() as usize)
+            .collect();
+        addresses.sort_unstable();
+
         for (index, symbol) in file
             .symbols()
             .filter(|s| s.is_definition() && s.kind() == SymbolKind::Text)
@@ -101,11 +108,21 @@ fn pick_item<'a>(
                 continue;
             };
 
-            let len = symbol.size() as usize; // sorry 32bit platforms, you are not real
-            if len == 0 {
-                continue;
-            }
             let addr = symbol.address() as usize;
+            let mut len = symbol.size() as usize; // sorry 32bit platforms, you are not real
+            if len == 0 {
+                // Most symbols do not have a size.
+                // Guess size from the address of the next symbol after it.
+                let (Ok(idx) | Err(idx)) = addresses.binary_search(&addr);
+                let next_address = match addresses[idx..].iter().copied().find(|&a| a > addr) {
+                    Some(addr) => addr,
+                    None => {
+                        let section = file.section_by_index(section_index)?;
+                        (section.address() + section.size()) as usize
+                    }
+                };
+                len = next_address - addr;
+            }
             let item = Item {
                 name,
                 hashed,
@@ -196,13 +213,16 @@ fn dump_slices(
         if reloc_map.is_empty() {
             safeprintln!("There is no relocation table");
         } else {
-            safeprintln!("{:?}", reloc_map);
+            safeprintln!("reloc_map {:#?}", reloc_map);
         }
     }
 
     let insns = cs.disasm_all(code, addr as u64)?;
-    if insns.is_empty() && fmt.verbosity > 0 {
-        safeprintln!("No instructions - empty code block?");
+    if insns.is_empty() {
+        if fmt.verbosity > 0 {
+            safeprintln!("No instructions - empty code block?");
+        }
+        return Ok(());
     }
 
     let max_width = insns.iter().map(|i| i.len()).max().unwrap_or(1);
@@ -360,7 +380,10 @@ fn make_capstone(
     };
 
     let mut capstone = match file.architecture() {
-        Architecture::Aarch64 => Capstone::new().arm64().build()?,
+        Architecture::Aarch64 => Capstone::new()
+            .arm64()
+            .mode(arch::arm64::ArchMode::Arm)
+            .build()?,
         Architecture::Arm => {
             let mode = if is_thumb {
                 arch::arm::ArchMode::Thumb
