@@ -85,6 +85,13 @@ fn pick_item<'a>(
     let mut items = BTreeMap::new();
 
     for file in files {
+        let mut addresses: Vec<_> = file
+            .symbols()
+            .filter(|s| s.is_definition() && s.kind() == SymbolKind::Text)
+            .map(|s| s.address() as usize)
+            .collect();
+        addresses.sort_unstable();
+
         for (index, symbol) in file
             .symbols()
             .filter(|s| s.is_definition() && s.kind() == SymbolKind::Text)
@@ -101,11 +108,21 @@ fn pick_item<'a>(
                 continue;
             };
 
-            let len = symbol.size() as usize; // sorry 32bit platforms, you are not real
-            if len == 0 {
-                continue;
-            }
             let addr = symbol.address() as usize;
+            let mut len = symbol.size() as usize; // sorry 32bit platforms, you are not real
+            if len == 0 {
+                // Most symbols do not have a size.
+                // Guess size from the address of the next symbol after it.
+                let (Ok(idx) | Err(idx)) = addresses.binary_search(&addr);
+                let next_address = match addresses[idx..].iter().copied().find(|&a| a > addr) {
+                    Some(addr) => addr,
+                    None => {
+                        let section = file.section_by_index(section_index)?;
+                        (section.address() + section.size()) as usize
+                    }
+                };
+                len = next_address - addr;
+            }
             let item = Item {
                 name,
                 hashed,
