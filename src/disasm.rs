@@ -360,7 +360,10 @@ fn make_capstone(
     };
 
     let mut capstone = match file.architecture() {
-        Architecture::Aarch64 => Capstone::new().arm64().build()?,
+        Architecture::Aarch64 => Capstone::new()
+            .arm64()
+            .mode(arch::arm64::ArchMode::Arm)
+            .build()?,
         Architecture::Arm => {
             let mode = if is_thumb {
                 arch::arm::ArchMode::Thumb
