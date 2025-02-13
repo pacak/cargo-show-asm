@@ -308,7 +308,7 @@ fn dump_range(
 
     let mut empty_line = false;
     for (ix, line) in stmts.iter().enumerate() {
-        if fmt.verbosity > 2 {
+        if fmt.verbosity > 3 {
             safeprintln!("{line:?}");
         }
         if let Statement::Directive(Directive::File(_)) = &line {
@@ -339,7 +339,7 @@ fn dump_range(
                     }
                 }
                 Some((fname, None)) => {
-                    if fmt.verbosity > 0 {
+                    if fmt.verbosity > 1 {
                         safeprintln!(
                             "\t\t{} {}",
                             color!("//", OwoColorize::cyan),
@@ -534,12 +534,12 @@ fn load_rust_sources(
         if let Statement::Directive(Directive::File(f)) = line {
             files.entry(f.index).or_insert_with(|| {
                 let path = f.path.as_full_path().into_owned();
-                if fmt.verbosity > 1 {
+                if fmt.verbosity > 2 {
                     safeprintln!("Reading file #{} {}", f.index, path.display());
                 }
 
                 if let Some((source, filepath)) = locate_sources(sysroot, workspace, &path) {
-                    if fmt.verbosity > 2 {
+                    if fmt.verbosity > 3 {
                         safeprintln!("Resolved name is {filepath:?}");
                     }
                     let sources = std::fs::read_to_string(&filepath).expect("Can't read a file");
@@ -549,14 +549,14 @@ fn load_rust_sources(
                         }
                         (path, None)
                     } else {
-                        if fmt.verbosity > 2 {
+                        if fmt.verbosity > 3 {
                             safeprintln!("Got {} bytes", sources.len());
                         }
                         let lines = CachedLines::without_ending(sources);
                         (path, Some((source, lines)))
                     }
                 } else {
-                    if fmt.verbosity > 0 {
+                    if fmt.verbosity > 1 {
                         safeprintln!("File not found {}", path.display());
                     }
                     (path, None)

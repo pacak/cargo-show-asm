@@ -146,7 +146,7 @@ fn spawn_cargo(
         cmd.env("RUSTFLAGS", rust_flags.trim_start());
     }
 
-    if format.verbosity >= 2 {
+    if format.verbosity >= 3 {
         safeprintln!("Running: {cmd:?}");
     }
 
@@ -184,7 +184,7 @@ fn main() -> anyhow::Result<()> {
     let cargo = match opts.code_source {
         CodeSource::FromCargo { ref cargo } => cargo,
         CodeSource::File { ref file } => {
-            if opts.format.verbosity > 0 {
+            if opts.format.verbosity > 1 {
                 esafeprintln!("Processing a given single file");
             }
             match file.extension() {
@@ -213,7 +213,7 @@ fn main() -> anyhow::Result<()> {
     };
 
     let sysroot = sysroot()?;
-    if opts.format.verbosity > 0 {
+    if opts.format.verbosity > 1 {
         esafeprintln!("Found sysroot: {}", sysroot.display());
     }
 
@@ -289,7 +289,7 @@ fn main() -> anyhow::Result<()> {
 
     let asm_path = cargo_to_asm_path(cargo_child, &focus_artifact, &opts)?;
 
-    if opts.format.verbosity > 2 {
+    if opts.format.verbosity > 3 {
         safeprintln!("goal: {:?}", opts.to_dump);
     }
 
@@ -352,7 +352,7 @@ fn cargo_to_asm_path(
     }
     let artifact = result_artifact.context("No artifact found")?;
 
-    if opts.format.verbosity > 0 {
+    if opts.format.verbosity > 1 {
         esafeprintln!("Artifact files: {:?}", artifact.filenames);
     }
 
@@ -372,7 +372,7 @@ fn cargo_to_asm_path(
             }
         }
     };
-    if opts.format.verbosity > 0 {
+    if opts.format.verbosity > 1 {
         esafeprintln!("Working with file: {}", asm_path.display());
     }
     Ok(asm_path)
