@@ -592,7 +592,7 @@ impl<'a> Asm<'a> {
     }
 }
 
-impl<'a> Dumpable for Asm<'a> {
+impl Dumpable for Asm<'_> {
     type Line<'l> = Statement<'l>;
 
     fn split_lines(contents: &str) -> anyhow::Result<Vec<Self::Line<'_>>> {

@@ -83,7 +83,7 @@ fn parse_data_dec(input: &str) -> IResult<&str, Directive> {
     ))
 }
 
-impl<'a> Statement<'a> {
+impl Statement<'_> {
     /// Should we skip it for --simplify output?
     pub fn boring(&self) -> bool {
         if let Statement::Directive(Directive::SetValue(_, _)) = self {
@@ -313,7 +313,7 @@ pub struct Loc<'a> {
     pub extra: Option<&'a str>,
 }
 
-impl<'a> PartialEq for Loc<'a> {
+impl PartialEq for Loc<'_> {
     fn eq(&self, other: &Self) -> bool {
         self.file == other.file && self.line == other.line
     }

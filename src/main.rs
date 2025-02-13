@@ -425,7 +425,7 @@ fn locate_asm_path_via_artifact(artifact: &Artifact, expect_ext: &str) -> anyhow
     if let Some(rlib_path) = artifact
         .filenames
         .iter()
-        .find(|f| f.extension().map_or(false, |e| e == "rlib"))
+        .find(|f| f.extension() == Some("rlib"))
     {
         let deps_dir = rlib_path.with_file_name("deps");
 
@@ -458,7 +458,7 @@ fn locate_asm_path_via_artifact(artifact: &Artifact, expect_ext: &str) -> anyhow
     //    if artifact.target.kind.iter().any(|k| k == "cdylib") {
     if let Some(cdylib_path) = artifact.filenames.iter().find(|f| {
         f.extension()
-            .map_or(false, |e| ["so", "dylib", "dll"].contains(&e))
+            .is_some_and(|e| ["so", "dylib", "dll"].contains(&e))
     }) {
         let deps_dir = cdylib_path.with_file_name("deps");
         for entry in deps_dir.read_dir()? {

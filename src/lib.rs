@@ -202,7 +202,7 @@ pub fn pick_dump_item<K: Clone>(
                 if filtered.is_empty() {
                     esafeprintln!("Can't find any items matching {function:?}");
                 } else {
-                    suggest_name(&function, &fmt, filtered.iter().map(|x| x.0));
+                    suggest_name(&function, fmt, filtered.iter().map(|x| x.0));
                 }
                 std::process::exit(1);
             };
@@ -217,7 +217,7 @@ pub fn pick_dump_item<K: Clone>(
             } else {
                 // Otherwise, print suggestions and exit
                 let items = items.keys();
-                suggest_name("", &fmt, items);
+                suggest_name("", fmt, items);
             }
         }
     }
