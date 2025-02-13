@@ -282,6 +282,9 @@ pub trait Dumpable {
     /// Given a set of lines find all the interesting items
     fn find_items(lines: &[Self::Line<'_>]) -> BTreeMap<Item, Range<usize>>;
 
+    /// Initialize freshly created Dumpable using additional information from the file
+    fn init(&mut self, _lines: &[Self::Line<'_>]) {}
+
     /// print all the lines from this range, aplying the required formatting
     fn dump_range(&self, fmt: &Format, lines: &[Self::Line<'_>]) -> anyhow::Result<()>;
 
@@ -300,7 +303,7 @@ pub trait Dumpable {
 
 /// Parse a dumpable item from a file and dump it with all the extra context
 pub fn dump_function<T: Dumpable>(
-    dumpable: &T,
+    dumpable: &mut T,
     goal: ToDump,
     path: &Path,
     fmt: &Format,
@@ -312,6 +315,7 @@ pub fn dump_function<T: Dumpable>(
 
     let lines = T::split_lines(&contents)?;
     let items = T::find_items(&lines);
+    dumpable.init(&lines);
 
     match pick_dump_item(goal, fmt, &items) {
         Some(range) => {
