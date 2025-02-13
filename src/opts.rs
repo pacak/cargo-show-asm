@@ -254,6 +254,7 @@ pub struct Format {
     pub redundant_labels: RedundantLabels,
 
     /// more verbose output, can be specified multiple times
+    // default verbosity is 1
     #[bpaf(external)]
     pub verbosity: usize,
 

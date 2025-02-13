@@ -56,7 +56,7 @@ impl Dumpable for Mca<'_> {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
 
-        if fmt.verbosity >= 2 {
+        if fmt.verbosity >= 3 {
             safeprintln!("running {mca:?}");
         }
         let mca = mca.spawn();
