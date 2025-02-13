@@ -190,12 +190,12 @@ fn main() -> anyhow::Result<()> {
             match file.extension() {
                 Some(ext) if ext == "s" => {
                     let nope = PathBuf::new();
-                    let asm = Asm::new(&nope, &nope);
+                    let mut asm = Asm::new(&nope, &nope);
                     let mut format = opts.format;
                     // For standalone file we don't know the matching
                     // system root so don't even try to dump it
                     format.rust = false;
-                    dump_function(&asm, opts.to_dump, file, &format)?;
+                    dump_function(&mut asm, opts.to_dump, file, &format)?;
                 }
                 _ => {
                     #[cfg(feature = "disasm")]
@@ -295,21 +295,20 @@ fn main() -> anyhow::Result<()> {
 
     match opts.syntax.output_type {
         OutputType::Asm | OutputType::Wasm => {
-            let asm = Asm::new(metadata.workspace_root.as_std_path(), &sysroot);
-            dump_function(&asm, opts.to_dump, &asm_path, &opts.format)
+            let mut asm = Asm::new(metadata.workspace_root.as_std_path(), &sysroot);
+            dump_function(&mut asm, opts.to_dump, &asm_path, &opts.format)
         }
         OutputType::Llvm | OutputType::LlvmInput => {
-            dump_function(&Llvm, opts.to_dump, &asm_path, &opts.format)
+            dump_function(&mut Llvm, opts.to_dump, &asm_path, &opts.format)
         }
-        OutputType::Mir => dump_function(&Mir, opts.to_dump, &asm_path, &opts.format),
+        OutputType::Mir => dump_function(&mut Mir, opts.to_dump, &asm_path, &opts.format),
         OutputType::Mca => {
-            let mca = Mca::new(
+            let mut mca = Mca::new(
                 &opts.mca_arg,
-                opts.syntax.output_style,
                 cargo.target.as_deref(),
                 opts.target_cpu.as_deref(),
             );
-            dump_function(&mca, opts.to_dump, &asm_path, &opts.format)
+            dump_function(&mut mca, opts.to_dump, &asm_path, &opts.format)
         }
         #[cfg(not(feature = "disasm"))]
         OutputType::Disasm => no_disasm!(),
