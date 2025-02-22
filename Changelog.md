@@ -1,6 +1,6 @@
 # Change Log
 
-## [0.2.48] - unreleased
+## [0.2.48] - 2025-02-22
 - better support for ARM MCA and disassembly (#378) and (#375)
   thanks @kornelski
 - default verbosity changes - (#377)
