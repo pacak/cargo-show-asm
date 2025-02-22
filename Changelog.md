@@ -1,5 +1,11 @@
 # Change Log
 
+## [0.2.48] - 2025-02-22
+- better support for ARM MCA and disassembly (#378) and (#375)
+  thanks @kornelski
+- default verbosity changes - (#377)
+- clippy improvements - (#376)
+
 ## [0.2.47] - 2025-01-21
 - don't try to override RUSTFLAGS unless needed - this should keep .config/cargo working (#364)
 
