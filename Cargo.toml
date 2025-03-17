@@ -18,7 +18,7 @@ bpaf = { version = "0.9.19", features = ["bpaf_derive", "autocomplete"] }
 capstone = { version = "0.13", optional = true }
 cargo_metadata = "0.19.2"
 line-span = "0.1"
-nom = "7"
+nom = "8"
 object = { version = "0.36", optional = true }
 owo-colors = { version = "4", features = ["supports-colors"] }
 regex = "1"
