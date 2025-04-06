@@ -1,5 +1,11 @@
 # Change Log
 
+## [0.2.49] - 2025-04-06
+- Add a short alias `-F` in addition to `--features` (#390)
+  thanks @joseluis
+- try to support cursed combinations of forward and backward slashes
+  in file names created in case of crosscompilation (#382)
+
 ## [0.2.48] - 2025-02-22
 - better support for ARM MCA and disassembly (#378) and (#375)
   thanks @kornelski
