@@ -183,7 +183,7 @@ pub struct CliFeatures {
     pub all_features: bool,
 
     /// A feature to activate, can be used multiple times
-    #[bpaf(argument("FEATURE"))]
+    #[bpaf(short('F'), long("features"), argument("FEATURE"))]
     pub features: Vec<String>,
 }
 

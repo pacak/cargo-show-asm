@@ -91,7 +91,7 @@ Show the code rustc generates for any function
   Do not activate `default` feature
 - **`    --all-features`** &mdash; 
   Activate all available features
-- **`    --features`**=_`FEATURE`_ &mdash; 
+- **`-F`**, **`--features`**=_`FEATURE`_ &mdash; 
   A feature to activate, can be used multiple times
 - **`    --release`** &mdash; 
   Compile in release mode (default)
