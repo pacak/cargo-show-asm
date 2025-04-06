@@ -13,6 +13,7 @@ mod statements;
 use owo_colors::OwoColorize;
 use statements::{parse_statement, Loc};
 pub use statements::{Directive, GenericDirective, Instruction, Statement};
+use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::ops::Range;
@@ -437,6 +438,7 @@ impl Source {
 //    /rustc/89e2160c4ca5808657ed55392620ed1dbbce78d1/compiler/rustc_span/src/span_encoding.rs
 //    $sysroot/lib/rustlib/rust-src/rust/compiler/rustc_span/src/span_encoding.rs
 fn locate_sources(sysroot: &Path, workspace: &Path, path: &Path) -> Option<(Source, PathBuf)> {
+    let mut path = Cow::Borrowed(path);
     // a real file that simply exists
     if path.exists() {
         let source = if path.starts_with(workspace) {
@@ -455,6 +457,27 @@ fn locate_sources(sysroot: &Path, workspace: &Path, path: &Path) -> Option<(Sour
         );
         std::process::exit(1);
     };
+
+    // then during crosscompilation we can get this cursed mix of path names
+    //
+    // /rustc/cc66ad468955717ab92600c770da8c1601a4ff33\\library\\core\\src\\convert\\mod.rs
+    //
+    // where one bit comes from the host platform and second bit comes from the target platform
+    // This feels like a problem in upstream, but supporting that is not _that_ hard.
+    //
+    // I think this should take care of Linux and MacOS support
+    if (path.starts_with("/rustc/") || path.starts_with("/private/tmp"))
+        && path
+            .as_os_str()
+            .to_str()
+            .is_some_and(|s| s.contains("\\") && s.contains("/"))
+    {
+        let cursed_path = path
+            .as_os_str()
+            .to_str()
+            .expect("They are coming from a text file");
+        path = Cow::Owned(PathBuf::from(cursed_path.replace("\\", "/")));
+    }
 
     // /rustc/89e2160c4ca5808657ed55392620ed1dbbce78d1/compiler/rustc_span/src/span_encoding.rs
     if path.starts_with("/rustc") && path.iter().any(|c| c == "compiler") {
