@@ -56,7 +56,7 @@ pub fn dump_disasm(
     fmt: &Format,
     syntax: OutputStyle,
 ) -> anyhow::Result<()> {
-    if file.extension().map_or(false, |e| e == "rlib") {
+    if file.extension().is_some_and(|e| e == "rlib") {
         let mut slices = Vec::new();
         let mut archive = Archive::new(std::fs::File::open(file)?);
 

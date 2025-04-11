@@ -516,8 +516,7 @@ impl Focus {
         let kind = <cargo_metadata::TargetKind as std::str::FromStr>::from_str(kind)
             .expect("cargo_metadata made me do it");
         let kind_matches = artifact.target.kind.contains(&kind);
-        (somewhat_matches || kind_matches)
-            && name.map_or(true, |name| artifact.target.name == *name)
+        (somewhat_matches || kind_matches) && name.is_none_or(|name| artifact.target.name == *name)
     }
 }
 

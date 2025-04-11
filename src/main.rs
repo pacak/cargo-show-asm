@@ -63,7 +63,10 @@ fn spawn_cargo(
             "--color",
             if format.color { "always" } else { "never" },
         ])
-        .args(std::iter::repeat("-v").take(format.verbosity.saturating_sub(1)))
+        .args(std::iter::repeat_n(
+            "-v",
+            format.verbosity.saturating_sub(1),
+        ))
         // Workspace location.
         .arg("--manifest-path")
         .arg(&cargo.manifest_path)
