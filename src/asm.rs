@@ -10,6 +10,7 @@ use crate::opts::{Format, NameDisplay, RedundantLabels, SourcesFrom};
 
 mod statements;
 
+use nom::Parser as _;
 use owo_colors::OwoColorize;
 use statements::{parse_statement, Loc};
 pub use statements::{Directive, GenericDirective, Instruction, Statement};
@@ -23,7 +24,7 @@ type SourceFile = (PathBuf, Option<(Source, CachedLines)>);
 
 pub fn parse_file(input: &str) -> anyhow::Result<Vec<Statement>> {
     // eat all statements until the eof, so we can report the proper errors on failed parse
-    match nom::multi::many0(parse_statement)(input) {
+    match nom::multi::many0(parse_statement).parse(input) {
         Ok(("", stmts)) => Ok(stmts),
         Ok((leftovers, _)) =>
         {
