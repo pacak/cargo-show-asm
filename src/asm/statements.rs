@@ -7,8 +7,8 @@ use nom::bytes::complete::{escaped_transform, tag, take_while1, take_while_m_n};
 use nom::character::complete::{self, newline, none_of, not_line_ending, one_of, space0, space1};
 use nom::combinator::{map, opt, recognize, value, verify};
 use nom::multi::count;
-use nom::sequence::{delimited, pair, preceded, terminated, tuple};
-use nom::{AsChar, IResult};
+use nom::sequence::{delimited, pair, preceded, terminated};
+use nom::{AsChar, IResult, Parser as _};
 use owo_colors::OwoColorize;
 use regex::Regex;
 
@@ -33,13 +33,13 @@ pub struct Instruction<'a> {
 
 impl<'a> Instruction<'a> {
     pub fn parse(input: &'a str) -> IResult<&'a str, Self> {
-        preceded(tag("\t"), alt((Self::parse_regular, Self::parse_sharp)))(input)
+        preceded(tag("\t"), alt((Self::parse_regular, Self::parse_sharp))).parse(input)
     }
 
     fn parse_sharp(input: &'a str) -> IResult<&'a str, Self> {
         let sharps = take_while_m_n(1, 2, |c| c == '#');
         let sharp_tag = pair(sharps, not_line_ending);
-        map(recognize(sharp_tag), |op| Instruction { op, args: None })(input)
+        map(recognize(sharp_tag), |op| Instruction { op, args: None }).parse(input)
     }
 
     fn parse_regular(input: &'a str) -> IResult<&'a str, Self> {
@@ -47,7 +47,7 @@ impl<'a> Instruction<'a> {
         //       Wasm also uses `.` in instr names, and uses `_` for `end_function`
         let op = take_while1(|c| AsChar::is_alphanum(c) || matches!(c, '.' | '_'));
         let args = opt(preceded(space1, not_line_ending));
-        map(pair(op, args), |(op, args)| Instruction { op, args })(input)
+        map(pair(op, args), |(op, args)| Instruction { op, args }).parse(input)
     }
 }
 
@@ -289,11 +289,11 @@ impl<'a> Label<'a> {
         let no_comment = tag(":");
         let comment = terminated(
             tag(":"),
-            tuple((
+            (
                 take_while1(|c| c == ' '),
                 tag("# @"),
                 take_while1(|c| c != '\n'),
-            )),
+            ),
         );
         map(
             terminated(take_while1(good_for_label), alt((comment, no_comment))),
@@ -301,7 +301,8 @@ impl<'a> Label<'a> {
                 id,
                 kind: demangle::label_kind(id),
             },
-        )(input)
+        )
+        .parse(input)
     }
 }
 
@@ -324,10 +325,10 @@ impl<'a> Loc<'a> {
         // DWARF2 (Unix):      .loc               fileno lineno [column] [options]
         // CodeView (Windows): .cv_loc functionid fileno lineno [column] [prologue_end] [is_stmt value]
         map(
-            tuple((
+            (
                 alt((
                     tag("\t.loc\t"),
-                    terminated(tag("\t.cv_loc\t"), tuple((complete::u64, space1))),
+                    terminated(tag("\t.cv_loc\t"), (complete::u64, space1)),
                 )),
                 complete::u64,
                 space1,
@@ -335,14 +336,15 @@ impl<'a> Loc<'a> {
                 space1,
                 complete::u64,
                 opt(preceded(tag(" "), take_while1(|c| c != '\n'))),
-            )),
+            ),
             |(_, file, _, line, _, column, extra)| Loc {
                 file,
                 line,
                 column,
                 extra,
             },
-        )(input)
+        )
+        .parse(input)
     }
 }
 
@@ -394,7 +396,8 @@ fn parse_quoted_string(input: &str) -> IResult<&str, String> {
             )),
         ),
         tag("\""),
-    )(input)
+    )
+    .parse(input)
 }
 
 // Workaround for a problem in llvm code that produces debug symbols on Windows.
@@ -417,14 +420,14 @@ impl<'a> File<'a> {
         // CodeView (Windows):   .cv_file fileno           "filename" ["checksum"] [checksumkind]
         alt((
             map(
-                tuple((
+                (
                     tag("\t.file\t"),
                     complete::u64,
                     space1,
                     parse_quoted_string,
                     opt(preceded(space1, parse_quoted_string)),
                     opt(preceded(space1, complete::hex_digit1)),
-                )),
+                ),
                 |(_, fileno, _, filepath, filename, md5)| File {
                     index: fileno,
                     path: match filename {
@@ -438,7 +441,7 @@ impl<'a> File<'a> {
                 },
             ),
             map(
-                tuple((
+                (
                     tag("\t.cv_file\t"),
                     complete::u64,
                     space1,
@@ -448,7 +451,7 @@ impl<'a> File<'a> {
                         delimited(tag("\""), complete::hex_digit1, tag("\"")),
                     )),
                     opt(preceded(space1, complete::u64)),
-                )),
+                ),
                 |(_, fileno, _, filename, checksum, checksumkind)| File {
                     index: fileno,
                     path: FilePath::FullPath(fixup_windows_file_path(filename)),
@@ -461,7 +464,8 @@ impl<'a> File<'a> {
                     },
                 },
             ),
-        ))(input)
+        ))
+        .parse(input)
     }
 }
 
@@ -782,14 +786,14 @@ pub fn parse_statement(input: &str) -> IResult<&str, Statement> {
         Directive::Generic(GenericDirective(s))
     });
     let set = map(
-        tuple((
+        (
             tag(".set"),
             space1,
             take_while1(good_for_label),
             tag(","),
             space0,
             take_while1(|c| c != '\n'),
-        )),
+        ),
         |(_, _, name, _, _, val)| Directive::SetValue(name, val),
     );
     let ssvs = map(tag(".subsections_via_symbols"), |_| {
@@ -805,22 +809,22 @@ pub fn parse_statement(input: &str) -> IResult<&str, Statement> {
     });
 
     let typ = map(
-        tuple((
+        (
             tag("\t.type"),
             space1,
             take_while1(good_for_label),
             tag(",@function"),
-        )),
+        ),
         |(_, _, id, _)| Directive::SymIsFun(id),
     );
 
     let global = map(
-        tuple((
+        (
             space0,
             alt((tag(".globl"), tag(".global"))),
             space1,
             take_while1(|c| good_for_label(c) || c == '@'),
-        )),
+        ),
         |(_, _, _, name)| Directive::Global(name),
     );
     let dir = map(
@@ -840,7 +844,7 @@ pub fn parse_statement(input: &str) -> IResult<&str, Statement> {
 
     // use terminated on the subparsers so that if the subparser doesn't consume the whole line, it's discarded
     // we assume that each label/instruction/directive will only take one line
-    terminated(alt((label, dir, instr, nothing, dunno)), newline)(input)
+    terminated(alt((label, dir, instr, nothing, dunno)), newline).parse(input)
 }
 
 fn good_for_label(c: char) -> bool {
