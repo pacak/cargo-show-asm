@@ -230,7 +230,6 @@ fn main() -> anyhow::Result<()> {
         .cargo_path(cargo_path())
         .manifest_path(&cargo.manifest_path)
         .other_options(unstable)
-        .no_deps()
         .exec()?;
 
     let focus_package = match opts.select_fragment.package {
