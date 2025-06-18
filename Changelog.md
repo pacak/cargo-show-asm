@@ -1,5 +1,10 @@
 # Change Log
 
+## [0.2.50] - 2025-06-18
+- Print links to rust sources as `file:line`, some terminals allow you to click them
+  thanks @kornelski
+- update deps
+
 ## [0.2.49] - 2025-04-06
 - Add a short alias `-F` in addition to `--features` (#390)
   thanks @joseluis
