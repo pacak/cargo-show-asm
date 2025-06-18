@@ -329,15 +329,18 @@ fn dump_range(
             match files.get(&loc.file) {
                 Some((fname, Some((source, file)))) => {
                     if source.show_for(fmt.sources_from) {
-                        let rust_line = &file.get(loc.line as usize - 1).expect(
-                            "Corrupted rust-src installation? Try re-adding rust-src component.",
-                        );
                         let pos = format!("\t\t// {}:{}", fname.display(), loc.line);
                         safeprintln!("{}", color!(pos, OwoColorize::cyan));
-                        safeprintln!(
-                            "\t\t{}",
-                            color!(rust_line.trim_start(), OwoColorize::bright_red)
-                        );
+                        if let Some(rust_line) = &file.get(loc.line as usize - 1) {
+                            safeprintln!(
+                                "\t\t{}",
+                                color!(rust_line.trim_start(), OwoColorize::bright_red)
+                            );
+                        } else {
+                            safeprintln!("\t\t{}",
+                                color!("Corrupted rust-src installation? Try re-adding rust-src component.", OwoColorize::red)
+                            );
+                        }
                     }
                 }
                 Some((fname, None)) => {
