@@ -309,6 +309,7 @@ fn dump_range(
     };
 
     let format_path = path_formatter();
+    let mut tmp = PathBuf::new();
 
     let mut empty_line = false;
     for (ix, line) in stmts.iter().enumerate() {
@@ -331,7 +332,7 @@ fn dump_range(
             match files.get(&loc.file) {
                 Some((fname, Some((source, file)))) => {
                     if source.show_for(fmt.sources_from) {
-                        let pos = format!("\t\t// {}:{}", format_path(fname), loc.line);
+                        let pos = format!("\t\t// {}:{}", format_path(fname, &mut tmp), loc.line);
                         safeprintln!("{}", color!(pos, OwoColorize::cyan));
                         if let Some(rust_line) = &file.get(loc.line as usize - 1) {
                             safeprintln!(
@@ -356,7 +357,7 @@ fn dump_range(
                             ),
                         );
                     }
-                    let pos = format!("\t\t// {}:{}", format_path(fname), loc.line);
+                    let pos = format!("\t\t// {}:{}", format_path(fname, &mut tmp), loc.line);
                     safeprintln!("{}", color!(pos, OwoColorize::cyan));
                 }
                 None => {
@@ -404,11 +405,24 @@ fn dump_range(
 }
 
 /// Returns a closure that trims the paths
-fn path_formatter() -> impl for<'p> Fn(&'p Path) -> Display<'p> {
+fn path_formatter() -> impl for<'p> Fn(&'p Path, &'p mut PathBuf) -> Display<'p> {
     let current_dir = std::env::current_dir().unwrap_or_default();
-    move |path| {
+    let home_dir = std::env::home_dir();
+    move |path, tmp| {
         if path.is_absolute() {
-            path.strip_prefix(&current_dir).unwrap_or(path)
+            if let Ok(rel) = path.strip_prefix(&current_dir) {
+                rel
+            } else if let Some(path_in_home) = home_dir
+                .as_ref()
+                .and_then(|home| path.strip_prefix(home).ok())
+            {
+                tmp.clear();
+                tmp.push("~");
+                tmp.push(path_in_home);
+                &*tmp
+            } else {
+                path
+            }
         } else {
             path
         }
