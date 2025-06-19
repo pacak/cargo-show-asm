@@ -18,7 +18,7 @@ use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::ops::Range;
-use std::path::{Path, PathBuf};
+use std::path::{Display, Path, PathBuf};
 
 type SourceFile = (PathBuf, Option<(Source, CachedLines)>);
 
@@ -308,6 +308,8 @@ fn dump_range(
         used_labels(stmts)
     };
 
+    let format_path = path_formatter();
+
     let mut empty_line = false;
     for (ix, line) in stmts.iter().enumerate() {
         if fmt.verbosity > 3 {
@@ -329,7 +331,7 @@ fn dump_range(
             match files.get(&loc.file) {
                 Some((fname, Some((source, file)))) => {
                     if source.show_for(fmt.sources_from) {
-                        let pos = format!("\t\t// {}:{}", fname.display(), loc.line);
+                        let pos = format!("\t\t// {}:{}", format_path(fname), loc.line);
                         safeprintln!("{}", color!(pos, OwoColorize::cyan));
                         if let Some(rust_line) = &file.get(loc.line as usize - 1) {
                             safeprintln!(
@@ -354,7 +356,7 @@ fn dump_range(
                             ),
                         );
                     }
-                    let pos = format!("\t\t// {}:{}", fname.display(), loc.line);
+                    let pos = format!("\t\t// {}:{}", format_path(fname), loc.line);
                     safeprintln!("{}", color!(pos, OwoColorize::cyan));
                 }
                 None => {
@@ -399,6 +401,19 @@ fn dump_range(
     }
 
     Ok(())
+}
+
+/// Returns a closure that trims the paths
+fn path_formatter() -> impl for<'p> Fn(&'p Path) -> Display<'p> {
+    let current_dir = std::env::current_dir().unwrap_or_default();
+    move |path| {
+        if path.is_absolute() {
+            path.strip_prefix(&current_dir).unwrap_or(path)
+        } else {
+            path
+        }
+        .display()
+    }
 }
 
 #[derive(Debug, Clone)]
