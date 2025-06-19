@@ -572,10 +572,15 @@ fn load_rust_sources(
     fmt: &Format,
     files: &mut BTreeMap<u64, SourceFile>,
 ) {
+    let home_dir = std::env::home_dir();
+
     for line in statements {
         if let Statement::Directive(Directive::File(f)) = line {
             files.entry(f.index).or_insert_with(|| {
-                let path = f.path.as_full_path().into_owned();
+                let path = f
+                    .path
+                    .as_full_path_with_home_dir(home_dir.as_deref())
+                    .into_owned();
                 if fmt.verbosity > 2 {
                     safeprintln!("Reading file #{} {}", f.index, path.display());
                 }

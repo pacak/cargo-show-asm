@@ -361,6 +361,22 @@ impl FilePath {
             FilePath::PathAndFileName { path, name } => Cow::Owned(Path::new(path).join(name)),
         }
     }
+
+    /// Optionally expand `~/` to `home_dir`
+    ///
+    /// Rewritten debug paths may use `~/` for privacy, but that's not a real path,
+    /// because `~` is usually expanded by the shell.
+    pub fn as_full_path_with_home_dir(&self, home_dir: Option<&Path>) -> Cow<'_, Path> {
+        let path = self.as_full_path();
+
+        if let Some(home_dir) = home_dir {
+            if let Ok(path_in_home) = path.strip_prefix("~") {
+                return Cow::Owned(home_dir.join(path_in_home));
+            }
+        }
+
+        path
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -616,6 +632,33 @@ fn test_parse_loc() {
                 extra: Some("rest of the line is ignored"),
             }
         ))
+    );
+}
+
+#[test]
+fn test_home_dir() {
+    assert_eq!(
+        FilePath::FullPath("~/subdir/in/home".into())
+            .as_full_path_with_home_dir(Some("/home/dir".as_ref())),
+        Path::new("/home/dir/subdir/in/home")
+    );
+
+    assert_eq!(
+        FilePath::PathAndFileName {
+            path: "~/subdir/in/home".into(),
+            name: "filename".into(),
+        }
+        .as_full_path_with_home_dir(Some("/home/dir".as_ref())),
+        Path::new("/home/dir/subdir/in/home/filename"),
+    );
+
+    assert_eq!(
+        FilePath::PathAndFileName {
+            path: "~/~/tilde/~".into(),
+            name: "~".into(),
+        }
+        .as_full_path_with_home_dir(Some("home/dir/".as_ref())),
+        Path::new("home/dir/~/tilde/~/~"),
     );
 }
 
