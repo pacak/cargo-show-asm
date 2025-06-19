@@ -81,10 +81,10 @@ impl Dumpable for Mca<'_> {
 
         if self.intel_syntax {
             // without that llvm-mca gets confused for some instructions
-            writeln!(i, ".intel_syntax")?
+            writeln!(i, ".intel_syntax")?;
         }
 
-        for line in lines.iter() {
+        for line in lines {
             match line {
                 Statement::Label(l) => writeln!(i, "{}:", l.id)?,
                 Statement::Directive(_) => {}

@@ -203,7 +203,7 @@ fn main() -> anyhow::Result<()> {
                 _ => {
                     #[cfg(feature = "disasm")]
                     {
-                        dump_disasm(opts.to_dump, file, &opts.format, opts.syntax.output_style)?
+                        dump_disasm(opts.to_dump, file, &opts.format, opts.syntax.output_style)?;
                     }
                     #[cfg(not(feature = "disasm"))]
                     {

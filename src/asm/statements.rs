@@ -779,7 +779,7 @@ fn parse_function_alias() {
     assert_eq!(
         parse_statement(".set\ttwo,\tone_plus_one\n").unwrap().1,
         Statement::Directive(Directive::SetValue("two", "one_plus_one"))
-    )
+    );
 }
 
 #[test]

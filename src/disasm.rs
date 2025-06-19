@@ -39,8 +39,8 @@ impl std::fmt::Display for HexDump<'_> {
         if self.bytes.is_empty() {
             return Ok(());
         }
-        for byte in self.bytes.iter() {
-            write!(f, "{:02x} ", byte)?;
+        for byte in self.bytes {
+            write!(f, "{byte:02x} ")?;
         }
         for _ in 0..(1 + self.max_width - self.bytes.len()) {
             f.write_str("   ")?;

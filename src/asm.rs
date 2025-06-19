@@ -169,7 +169,7 @@ pub fn find_items(lines: &[Statement]) -> BTreeMap<Item, Range<usize>> {
             let name_entry = names.entry(name.clone()).or_insert(0);
             res.insert(
                 Item {
-                    mangled_name: sym.to_string(),
+                    mangled_name: (*sym).to_string(),
                     name,
                     hashed,
                     index: *name_entry,
@@ -505,13 +505,13 @@ fn locate_sources(sysroot: &Path, workspace: &Path, path: &Path) -> Option<(Sour
         && path
             .as_os_str()
             .to_str()
-            .is_some_and(|s| s.contains("\\") && s.contains("/"))
+            .is_some_and(|s| s.contains('\\') && s.contains('/'))
     {
         let cursed_path = path
             .as_os_str()
             .to_str()
             .expect("They are coming from a text file");
-        path = Cow::Owned(PathBuf::from(cursed_path.replace("\\", "/")));
+        path = Cow::Owned(PathBuf::from(cursed_path.replace('\\', "/")));
     }
 
     // /rustc/89e2160c4ca5808657ed55392620ed1dbbce78d1/compiler/rustc_span/src/span_encoding.rs
@@ -689,7 +689,7 @@ impl Dumpable for Asm<'_> {
         }
 
         if fmt.include_constants {
-            let print_range = URange::from(range.clone());
+            let print_range = URange::from(range);
             // scan for referenced constants such as strings, scan needs to be done recursively
             let mut pending = vec![print_range];
             let mut seen: BTreeSet<URange> = BTreeSet::new();
