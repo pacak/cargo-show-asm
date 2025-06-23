@@ -60,7 +60,7 @@ pub enum CodeSource {
     },
     File {
         /// Disassemble or process this file instead of calling cargo,
-        ///  requires cargo-show-asm to be compiled with disasm feature
+        /// requires cargo-show-asm to be compiled with disasm feature
         ///
         /// You can specify executable, rlib or an object file
         #[bpaf(argument("PATH"), hide_usage)]
