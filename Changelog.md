@@ -1,5 +1,10 @@
 # Change Log
 
+## [0.2.51] - 2025-06-29
+- Use ~ in place of home dir and relative paths for current project when printing rust source code
+  for both privacy and convenience
+  thanks @kornelski
+
 ## [0.2.50] - 2025-06-18
 - Print links to rust sources as `file:line`, some terminals allow you to click them
   thanks @kornelski

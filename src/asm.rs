@@ -18,9 +18,9 @@ use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::ops::Range;
-use std::path::{Path, PathBuf};
+use std::path::{Display, Path, PathBuf};
 
-type SourceFile = (PathBuf, Option<(Source, CachedLines)>);
+type SourceFile = (String, Option<(Source, CachedLines)>);
 
 pub fn parse_file(input: &str) -> anyhow::Result<Vec<Statement>> {
     // eat all statements until the eof, so we can report the proper errors on failed parse
@@ -329,7 +329,7 @@ fn dump_range(
             match files.get(&loc.file) {
                 Some((fname, Some((source, file)))) => {
                     if source.show_for(fmt.sources_from) {
-                        let pos = format!("\t\t// {}:{}", fname.display(), loc.line);
+                        let pos = format!("\t\t// {fname}:{}", loc.line);
                         safeprintln!("{}", color!(pos, OwoColorize::cyan));
                         if let Some(rust_line) = &file.get(loc.line as usize - 1) {
                             safeprintln!(
@@ -354,7 +354,7 @@ fn dump_range(
                             ),
                         );
                     }
-                    let pos = format!("\t\t// {}:{}", fname.display(), loc.line);
+                    let pos = format!("\t\t// {fname}:{}", loc.line);
                     safeprintln!("{}", color!(pos, OwoColorize::cyan));
                 }
                 None => {
@@ -399,6 +399,37 @@ fn dump_range(
     }
 
     Ok(())
+}
+
+/// Returns a closure that trims the paths
+fn path_formatter() -> impl for<'p> Fn(&'p Path, &'p mut PathBuf) -> Display<'p> {
+    let current_dir = std::env::current_dir().unwrap_or_default();
+    let home_dir = std::env::home_dir();
+    let home = if std::path::MAIN_SEPARATOR == '/' {
+        "~"
+    } else {
+        "%userprofile%"
+    };
+    move |path, tmp| {
+        if path.is_absolute() {
+            if let Ok(rel) = path.strip_prefix(&current_dir) {
+                rel
+            } else if let Some(path_in_home) = home_dir
+                .as_ref()
+                .and_then(|home| path.strip_prefix(home).ok())
+            {
+                tmp.clear();
+                tmp.push(home);
+                tmp.push(path_in_home);
+                &*tmp
+            } else {
+                path
+            }
+        } else {
+            path
+        }
+        .display()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -557,10 +588,15 @@ fn load_rust_sources(
     fmt: &Format,
     files: &mut BTreeMap<u64, SourceFile>,
 ) {
+    let home_dir = std::env::home_dir();
+    let format_path = path_formatter();
+    let mut tmp = PathBuf::new();
+
     for line in statements {
         if let Statement::Directive(Directive::File(f)) = line {
             files.entry(f.index).or_insert_with(|| {
-                let path = f.path.as_full_path().into_owned();
+                let path = f.path.as_full_path_with_home_dir(home_dir.as_deref());
+                let pretty_path = format_path(&path, &mut tmp).to_string();
                 if fmt.verbosity > 2 {
                     safeprintln!("Reading file #{} {}", f.index, path.display());
                 }
@@ -574,19 +610,19 @@ fn load_rust_sources(
                         if fmt.verbosity > 0 {
                             safeprintln!("Ignoring empty file {filepath:?}!");
                         }
-                        (path, None)
+                        (pretty_path, None)
                     } else {
                         if fmt.verbosity > 3 {
                             safeprintln!("Got {} bytes", sources.len());
                         }
                         let lines = CachedLines::without_ending(sources);
-                        (path, Some((source, lines)))
+                        (pretty_path, Some((source, lines)))
                     }
                 } else {
                     if fmt.verbosity > 1 {
                         safeprintln!("File not found {}", path.display());
                     }
-                    (path, None)
+                    (pretty_path, None)
                 }
             });
         }
