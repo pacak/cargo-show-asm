@@ -405,6 +405,11 @@ fn dump_range(
 fn path_formatter() -> impl for<'p> Fn(&'p Path, &'p mut PathBuf) -> Display<'p> {
     let current_dir = std::env::current_dir().unwrap_or_default();
     let home_dir = std::env::home_dir();
+    let home = if std::path::MAIN_SEPARATOR == '/' {
+        "~"
+    } else {
+        "%userprofile%"
+    };
     move |path, tmp| {
         if path.is_absolute() {
             if let Ok(rel) = path.strip_prefix(&current_dir) {
@@ -414,7 +419,7 @@ fn path_formatter() -> impl for<'p> Fn(&'p Path, &'p mut PathBuf) -> Display<'p>
                 .and_then(|home| path.strip_prefix(home).ok())
             {
                 tmp.clear();
-                tmp.push("~");
+                tmp.push(home);
                 tmp.push(path_in_home);
                 &*tmp
             } else {
