@@ -233,6 +233,14 @@ fn main() -> anyhow::Result<()> {
         .no_deps()
         .exec()?;
 
+    #[cfg(feature = "_unstable")]
+    let target_dir_to_build_dir = metadata
+        .build_directory
+        .as_ref()
+        .map(|build| (metadata.target_directory.as_std_path(), build.as_std_path()));
+    #[cfg(not(feature = "_unstable"))]
+    let target_dir_to_build_dir = None;
+
     let focus_package = match opts.select_fragment.package {
         Some(ref name) => metadata
             .packages
@@ -290,7 +298,7 @@ fn main() -> anyhow::Result<()> {
         force_single_cgu,
     )?;
 
-    let asm_path = cargo_to_asm_path(cargo_child, &focus_artifact, &opts)?;
+    let asm_path = cargo_to_asm_path(cargo_child, &focus_artifact, &opts, target_dir_to_build_dir)?;
 
     if opts.format.verbosity > 3 {
         safeprintln!("goal: {:?}", opts.to_dump);
@@ -330,6 +338,7 @@ fn cargo_to_asm_path(
     mut cargo: Child,
     focus_artifact: &opts::Focus,
     opts: &crate::opts::Options,
+    target_dir_to_build_dir: Option<(&Path, &Path)>,
 ) -> anyhow::Result<PathBuf> {
     let mut result_artifact = None;
     let mut success = false;
@@ -359,7 +368,9 @@ fn cargo_to_asm_path(
     }
 
     let asm_path = match opts.syntax.ext() {
-        Some(expect_ext) => locate_asm_path_via_artifact(&artifact, expect_ext)?,
+        Some(expect_ext) => {
+            locate_asm_path_via_artifact(&artifact, expect_ext, target_dir_to_build_dir)?
+        }
         None => {
             if let Some(executable) = artifact.executable {
                 executable.into()
@@ -380,7 +391,25 @@ fn cargo_to_asm_path(
     Ok(asm_path)
 }
 
-fn locate_asm_path_via_artifact(artifact: &Artifact, expect_ext: &str) -> anyhow::Result<PathBuf> {
+fn locate_asm_path_via_artifact(
+    artifact: &Artifact,
+    expect_ext: &str,
+    target_dir_to_build_dir: Option<(&Path, &Path)>,
+) -> anyhow::Result<PathBuf> {
+    // When build-dir is enabled, deps are in the build dir rather than the target dir.
+    let build_dir = |path: &Path| {
+        target_dir_to_build_dir
+            .and_then(|(target, build)| Some(build.join(path.strip_prefix(target).ok()?)))
+            .unwrap_or_else(|| path.into())
+    };
+    let read_dir = |path: &Path| {
+        build_dir(path)
+            .read_dir()
+            .ok()
+            .into_iter()
+            .flat_map(|iter| iter.filter_map(|entry| entry.ok()))
+    };
+
     // For lib, test, bench, lib-type example, `filenames` hint the file stem of the asm file.
     // We could locate asm files precisely.
     //
@@ -401,18 +430,18 @@ fn locate_asm_path_via_artifact(artifact: &Artifact, expect_ext: &str) -> anyhow
             )
         })
         .find_map(|path| {
-            let path = path.with_extension(expect_ext);
+            let path = build_dir(path.as_ref()).with_extension(expect_ext);
             if path.exists() {
                 return Some(path);
             }
-            let path = path.with_file_name(path.file_name()?.strip_prefix("lib")?);
+            let path = path.with_file_name(path.file_name()?.to_str()?.strip_prefix("lib")?);
             if path.exists() {
                 return Some(path);
             }
             None
         })
     {
-        return Ok(path.into_std_path_buf());
+        return Ok(path);
     }
 
     // then there's rlib with filenames as following:
@@ -431,8 +460,8 @@ fn locate_asm_path_via_artifact(artifact: &Artifact, expect_ext: &str) -> anyhow
     {
         let deps_dir = rlib_path.with_file_name("deps");
 
-        for entry in deps_dir.read_dir()? {
-            let maybe_origin = entry?.path();
+        for entry in read_dir(deps_dir.as_ref()) {
+            let maybe_origin = entry.path();
             if same_contents(rlib_path.as_ref(), &maybe_origin) {
                 let name = maybe_origin
                     .file_name()
@@ -463,8 +492,7 @@ fn locate_asm_path_via_artifact(artifact: &Artifact, expect_ext: &str) -> anyhow
             .is_some_and(|e| ["so", "dylib", "dll"].contains(&e))
     }) {
         let deps_dir = cdylib_path.with_file_name("deps");
-        for entry in deps_dir.read_dir()? {
-            let entry = entry?;
+        for entry in read_dir(deps_dir.as_ref()) {
             let maybe_origin = entry.path();
             if same_contents(cdylib_path.as_ref(), &maybe_origin) {
                 let Some(name) = maybe_origin.file_name() else {
@@ -503,8 +531,8 @@ fn locate_asm_path_via_artifact(artifact: &Artifact, expect_ext: &str) -> anyhow
             exe_path.with_file_name("deps")
         };
 
-        for entry in deps_dir.read_dir()? {
-            let maybe_origin = entry?.path();
+        for entry in read_dir(deps_dir.as_ref()) {
+            let maybe_origin = entry.path();
             if same_contents(exe_path.as_ref(), &maybe_origin) {
                 let asm_file = maybe_origin.with_extension(expect_ext);
                 if asm_file.exists() {

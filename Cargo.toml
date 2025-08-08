@@ -33,10 +33,11 @@ cargo-show-asm = { path = ".", features = ["disasm"] }
 
 
 [features]
+default = ["dull-color", "_unstable"]
 bright-color = ["bpaf/bright-color"]
-default = ["dull-color"]
 disasm = ["ar", "capstone", "object"]
 dull-color = ["bpaf/dull-color"]
+_unstable = ["cargo_metadata/unstable"]
 
 [[bin]]
 name = "cargo-asm"
