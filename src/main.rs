@@ -348,7 +348,7 @@ fn cargo_to_asm_path(
     // add some spacing between cargo's output and ours
     esafeprintln!();
     if !success {
-        let status = cargo.wait()?;
+        let status = cargo.wait().context("cargo process failed")?;
         esafeprintln!("Cargo failed with {status}");
         std::process::exit(101);
     }
@@ -433,7 +433,7 @@ fn locate_asm_path_via_artifact(artifact: &Artifact, expect_ext: &str) -> anyhow
 
         for entry in deps_dir.read_dir()? {
             let maybe_origin = entry?.path();
-            if same_contents(&rlib_path, &maybe_origin)? {
+            if same_contents(rlib_path.as_ref(), &maybe_origin) {
                 let name = maybe_origin
                     .file_name()
                     .unwrap()
@@ -466,7 +466,7 @@ fn locate_asm_path_via_artifact(artifact: &Artifact, expect_ext: &str) -> anyhow
         for entry in deps_dir.read_dir()? {
             let entry = entry?;
             let maybe_origin = entry.path();
-            if same_contents(cdylib_path, &maybe_origin)? {
+            if same_contents(cdylib_path.as_ref(), &maybe_origin) {
                 let Some(name) = maybe_origin.file_name() else {
                     continue;
                 };
@@ -505,7 +505,7 @@ fn locate_asm_path_via_artifact(artifact: &Artifact, expect_ext: &str) -> anyhow
 
         for entry in deps_dir.read_dir()? {
             let maybe_origin = entry?.path();
-            if same_contents(&exe_path, &maybe_origin)? {
+            if same_contents(exe_path.as_ref(), &maybe_origin) {
                 let asm_file = maybe_origin.with_extension(expect_ext);
                 if asm_file.exists() {
                     return Ok(asm_file);
@@ -514,11 +514,26 @@ fn locate_asm_path_via_artifact(artifact: &Artifact, expect_ext: &str) -> anyhow
         }
     }
 
-    anyhow::bail!("Cannot locate the path to the asm file");
+    anyhow::bail!(
+        "Cannot locate the path to the asm file\nArtifact paths: {}",
+        artifact
+            .filenames
+            .iter()
+            .chain(artifact.executable.as_ref())
+            .map(|f| f.as_str())
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
 }
 
-fn same_contents<A: AsRef<Path>, B: AsRef<Path>>(a: &A, b: &B) -> anyhow::Result<bool> {
-    Ok(same_file::is_same_file(a, b)?
-        || (std::fs::metadata(a)?.len() == std::fs::metadata(b)?.len()
-            && std::fs::read(a)? == std::fs::read(b)?))
+fn same_contents(a: &Path, b: &Path) -> bool {
+    same_file::is_same_file(a, b).unwrap_or(false)
+        || (std::fs::metadata(a)
+            .ok()
+            .zip(std::fs::metadata(b).ok())
+            .is_some_and(|(a, b)| a.len() == b.len())
+            && std::fs::read(a)
+                .ok()
+                .zip(std::fs::read(b).ok())
+                .is_some_and(|(a, b)| a == b))
 }
