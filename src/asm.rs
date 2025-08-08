@@ -22,7 +22,7 @@ use std::path::{Display, Path, PathBuf};
 
 type SourceFile = (String, Option<(Source, CachedLines)>);
 
-pub fn parse_file(input: &str) -> anyhow::Result<Vec<Statement>> {
+pub fn parse_file(input: &str) -> anyhow::Result<Vec<Statement<'_>>> {
     // eat all statements until the eof, so we can report the proper errors on failed parse
     match nom::multi::many0(parse_statement).parse(input) {
         Ok(("", stmts)) => Ok(stmts),
