@@ -237,7 +237,7 @@ fn main() -> anyhow::Result<()> {
         Some(ref name) => metadata
             .packages
             .iter()
-            .find(|p| p.name == name.as_str())
+            .find(|p| *p.name == name.as_str())
             .with_context(|| format!("Package '{name}' is not found"))?,
         None if metadata.packages.len() == 1 => &metadata.packages[0],
         None => {
