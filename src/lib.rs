@@ -337,7 +337,7 @@ pub fn dump_function<T: Dumpable>(
                 // for asm files extra_context loads rust sources
                 T::extra_context(dumpable, fmt, &lines, 0..lines.len(), &items);
             }
-            dumpable.dump_range(fmt, &lines)?
+            dumpable.dump_range(fmt, &lines)?;
         }
     }
     Ok(())
