@@ -14,7 +14,7 @@ impl CachedLines {
     }
 
     #[must_use]
-    pub fn iter(&self) -> LineIter {
+    pub fn iter(&self) -> LineIter<'_> {
         LineIter {
             payload: self,
             current: 0,

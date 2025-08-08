@@ -13,7 +13,7 @@ pub fn name(input: &str) -> Option<String> {
 }
 
 #[must_use]
-pub fn demangled(input: &str) -> Option<Demangle> {
+pub fn demangled(input: &str) -> Option<Demangle<'_>> {
     let name = if input.starts_with("__") {
         #[allow(clippy::string_slice)]
         rustc_demangle::try_demangle(&input[1..]).ok()?

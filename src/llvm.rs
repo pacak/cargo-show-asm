@@ -77,7 +77,7 @@ impl Dumpable for Llvm {
                         },
                         start: ix,
                     });
-                    cur.item.mangled_name = name.to_owned();
+                    name.clone_into(&mut cur.item.mangled_name);
                     cur.item.hashed = demangle::demangled(name)
                         .map_or_else(|| name.to_owned(), |hashed| format!("{hashed:?}"));
                 }

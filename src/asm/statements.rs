@@ -51,7 +51,7 @@ impl<'a> Instruction<'a> {
     }
 }
 
-fn parse_data_dec(input: &str) -> IResult<&str, Directive> {
+fn parse_data_dec(input: &str) -> IResult<&str, Directive<'_>> {
     static DATA_DEC: OnceLock<Regex> = OnceLock::new();
     // all of those can insert something as well... Not sure if it's a full list or not
     // .long, .short .octa, .quad, .word,
@@ -779,7 +779,7 @@ fn parse_function_alias() {
     assert_eq!(
         parse_statement(".set\ttwo,\tone_plus_one\n").unwrap().1,
         Statement::Directive(Directive::SetValue("two", "one_plus_one"))
-    )
+    );
 }
 
 #[test]
@@ -814,7 +814,7 @@ pub enum Directive<'a> {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GenericDirective<'a>(pub &'a str);
 
-pub fn parse_statement(input: &str) -> IResult<&str, Statement> {
+pub fn parse_statement(input: &str) -> IResult<&str, Statement<'_>> {
     let label = map(Label::parse, Statement::Label);
 
     let file = map(File::parse, Directive::File);
