@@ -1,5 +1,10 @@
 # Change Log
 
+## [0.2.52] - 2025-08-10
+- Various codebase improvements and support for unstable cargo `build-dir`
+  thanks @kornelski
+- bump deps
+
 ## [0.2.51] - 2025-06-29
 - Use ~ in place of home dir and relative paths for current project when printing rust source code
   for both privacy and convenience
