@@ -350,7 +350,7 @@ fn get_reference(cs: &Capstone, insn: &Insn) -> Option<u64> {
     }
 }
 
-impl From<OutputStyle> for capstone::Syntax {
+impl From<OutputStyle> for capstone::arch::x86::ArchSyntax {
     fn from(value: OutputStyle) -> Self {
         match value {
             OutputStyle::Intel => Self::Intel,
@@ -365,38 +365,64 @@ fn make_capstone(
     is_thumb: bool,
 ) -> anyhow::Result<Capstone> {
     use capstone::{
-        arch::{self, BuildsCapstone},
+        arch::{self, BuildsCapstone, BuildsCapstoneExtraMode, BuildsCapstoneSyntax},
         Endian,
     };
 
-    let endiannes = match file.endianness() {
+    let endianness = match file.endianness() {
         object::Endianness::Little => Endian::Little,
         object::Endianness::Big => Endian::Big,
     };
-    let x86_width = if file.is_64() {
-        arch::x86::ArchMode::Mode64
-    } else {
-        arch::x86::ArchMode::Mode32
-    };
 
     let mut capstone = match file.architecture() {
+        Architecture::Arm if is_thumb => Capstone::new()
+            .arm()
+            .mode(arch::arm::ArchMode::Thumb)
+            .build()?,
+        Architecture::Arm => Capstone::new()
+            .arm()
+            .mode(arch::arm::ArchMode::Arm)
+            .build()?,
         Architecture::Aarch64 => Capstone::new()
             .arm64()
             .mode(arch::arm64::ArchMode::Arm)
             .build()?,
-        Architecture::Arm => {
-            let mode = if is_thumb {
-                arch::arm::ArchMode::Thumb
-            } else {
-                arch::arm::ArchMode::Arm
-            };
-            Capstone::new().arm().mode(mode).build()?
-        }
-        Architecture::X86_64 => Capstone::new().x86().mode(x86_width).build()?,
+
+        Architecture::I386 => Capstone::new()
+            .x86()
+            .mode(arch::x86::ArchMode::Mode32)
+            .syntax(syntax.into())
+            .build()?,
+        Architecture::X86_64_X32 | Architecture::X86_64 => Capstone::new()
+            .x86()
+            .mode(arch::x86::ArchMode::Mode64)
+            .syntax(syntax.into())
+            .build()?,
+
+        // Capstone obliges us to choose a CPU "mode" even though m68k CPUs only have one: m68k.
+        // (Compare with x86 which has 16-, 32- and 64-bit modes.) The mode options it offers are
+        // actually between different CPU models. I've picked the 68040 as being the superset of the
+        // others. (Pedantically, the 68040 lacks the 68881/68882 trancendental functions, and
+        // supervisor mode varies slightly, but LLVM doesn't emit those instructions.)
+        Architecture::M68k => Capstone::new()
+            .m68k()
+            .mode(arch::m68k::ArchMode::M68k040)
+            .build()?,
+
+        Architecture::Riscv32 => Capstone::new()
+            .riscv()
+            .mode(arch::riscv::ArchMode::RiscV32)
+            .extra_mode([arch::riscv::ArchExtraMode::RiscVC].into_iter())
+            .build()?,
+        Architecture::Riscv64 => Capstone::new()
+            .riscv()
+            .mode(arch::riscv::ArchMode::RiscV64)
+            .extra_mode([arch::riscv::ArchExtraMode::RiscVC].into_iter())
+            .build()?,
+
         unknown => anyhow::bail!("Dunno how to decompile {unknown:?}"),
     };
-    capstone.set_syntax(syntax.into())?;
     capstone.set_detail(true)?;
-    capstone.set_endian(endiannes)?;
+    capstone.set_endian(endianness)?;
     Ok(capstone)
 }
