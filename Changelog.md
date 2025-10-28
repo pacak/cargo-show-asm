@@ -1,5 +1,10 @@
 # Change Log
 
+## [0.2.53] - 2025-10-28
+- `--disasm` support for m68k, RISC-V (32- and 64-bit) and x32
+  thanks @cabalorguk
+- bump deps
+
 ## [0.2.52] - 2025-08-10
 - Various codebase improvements and support for unstable cargo `build-dir`
   thanks @kornelski
