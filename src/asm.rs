@@ -1,5 +1,5 @@
 #![allow(clippy::missing_errors_doc)]
-use crate::asm::statements::{GenericDirective, Label};
+use crate::asm::statements::Label;
 use crate::cached_lines::CachedLines;
 use crate::demangle::LabelKind;
 use crate::{
@@ -10,19 +10,21 @@ use crate::opts::{Format, NameDisplay, RedundantLabels, SourcesFrom};
 
 mod statements;
 
+use nom::Parser as _;
 use owo_colors::OwoColorize;
 use statements::{parse_statement, Loc};
-pub use statements::{Directive, Instruction, Statement};
+pub use statements::{Directive, GenericDirective, Instruction, Statement};
+use std::borrow::Cow;
 use std::cell::RefCell;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::ops::Range;
-use std::path::{Path, PathBuf};
+use std::path::{Display, Path, PathBuf};
 
-type SourceFile = (PathBuf, Option<(Source, CachedLines)>);
+type SourceFile = (String, Option<(Source, CachedLines)>);
 
-pub fn parse_file(input: &str) -> anyhow::Result<Vec<Statement>> {
+pub fn parse_file(input: &str) -> anyhow::Result<Vec<Statement<'_>>> {
     // eat all statements until the eof, so we can report the proper errors on failed parse
-    match nom::multi::many0(parse_statement)(input) {
+    match nom::multi::many0(parse_statement).parse(input) {
         Ok(("", stmts)) => Ok(stmts),
         Ok((leftovers, _)) =>
         {
@@ -51,7 +53,6 @@ pub fn find_items(lines: &[Statement]) -> BTreeMap<Item, Range<usize>> {
     let mut names = BTreeMap::new();
 
     for (ix, line) in lines.iter().enumerate() {
-        #[allow(clippy::if_same_then_else)]
         if line.is_section_start() {
             if item.is_none() {
                 sec_start = ix;
@@ -108,6 +109,79 @@ pub fn find_items(lines: &[Statement]) -> BTreeMap<Item, Range<usize>> {
             }
         }
     }
+
+    // detect merged functions
+    // we'll define merged function as something with a global label and a reference to a different
+    // global label
+
+    let globals = lines
+        .iter()
+        .enumerate()
+        .filter_map(|(ix, line)| {
+            if let Statement::Directive(Directive::Global(name)) = line {
+                Some((name, ix))
+            } else {
+                None
+            }
+        })
+        .collect::<HashMap<_, _>>();
+
+    for (end, line) in lines.iter().enumerate() {
+        let Statement::Directive(Directive::SetValue(name, _)) = line else {
+            continue;
+        };
+        let Some(start) = globals.get(name).copied() else {
+            continue;
+        };
+
+        // Merged function is different on different system, lol.
+        //
+        // Linux: a sequence of 3 items
+        //
+        // .globl  _ZN13sample_merged3two17h0afab563317f9d7bE
+        // .type   _ZN13sample_merged3two17h0afab563317f9d7bE,@function
+        // .set _ZN13sample_merged3two17h0afab563317f9d7bE, _ZN13sample_merged12one_plus_one17h408b56cb936d6f10E
+        //
+        // MacOS: a sequence of 2 items
+        //
+        // .globl  _ZN13sample_merged3two17h0afab563317f9d7bE
+        // .set _ZN13sample_merged3two17h0afab563317f9d7bE, _ZN13sample_merged12one_plus_one17h408b56cb936d6f10E
+        //
+        // Windows: a sequence of 6-ish items, different on CI machine LOL
+        //
+        //  .globl  _ZN13sample_merged7two_num17h2372a6fab541fa02E
+        //  .def    _ZN13sample_merged7two_num17h2372a6fab541fa02E;
+        //  .scl    2;
+        //  .type   32;
+        //  .endef
+        // .set _ZN13sample_merged7two_num17h2372a6fab541fa02E, _ZN13sample_merged12one_plus_one17h96e22123e4e22951E
+
+        let range = start..end + 1;
+        if range.len() > 10 {
+            // merged function body should contain just a few lines, use
+            // this as a sanity check
+            continue;
+        }
+        let sym = name;
+        if let Some(dem) = demangle::demangled(sym) {
+            let hashed = format!("{dem:?}");
+            let name = format!("{dem:#?}");
+            let name_entry = names.entry(name.clone()).or_insert(0);
+            res.insert(
+                Item {
+                    mangled_name: (*sym).to_string(),
+                    name,
+                    hashed,
+                    index: *name_entry,
+                    len: range.len(),
+                    non_blank_len: range.len(),
+                },
+                range,
+            );
+            *name_entry += 1;
+        }
+    }
+
     res
 }
 
@@ -134,12 +208,12 @@ fn handle_non_mangled_labels(
             if is_windows || is_mac {
                 // Search for .globl between sec_start and ix
                 for line in &lines[sec_start..ix] {
-                    if let Statement::Directive(Directive::Generic(GenericDirective(g))) = line {
+                    if let Statement::Directive(Directive::Global(g)) = line {
                         // last bool is responsible for stripping leading underscore.
                         // Stripping is not needed on Linux and 64-bit Windows.
                         // Currently we want to strip underscore on MacOS
                         // TODO: on 32-bit Windows we ought to remove underscores
-                        if let Some(item) = get_item_in_section("globl\t", ix, label, g, is_mac) {
+                        if let Some(item) = get_item_in_section(ix, label, g, is_mac) {
                             return Some(item);
                         }
                     }
@@ -147,45 +221,37 @@ fn handle_non_mangled_labels(
                 None
             } else {
                 // Linux symbols each have their own section, named with this prefix.
-                get_item_in_section(".text.", ix, label, ss, false)
+                get_item_in_section(ix, label, ss.strip_prefix(".text.")?, false)
             }
         }
-        Some(Statement::Directive(Directive::Generic(GenericDirective(g)))) => {
-            // macOS symbols after the first are matched here.
-            get_item_in_section("globl\t", ix, label, g, true)
-        }
+        //        Some(Statement::Directive(Directive::Generic(GenericDirective(g)))) => {
+        // macOS symbols after the first are matched here.
+        //            get_item_in_section(PrefixKind::Global, ix, label, g, true)
+        //        }
+        Some(Statement::Directive(Directive::Global(g))) => get_item_in_section(ix, label, g, true),
         _ => None,
     }
 }
 
-/// Checks if the provided section `ss` starts with the provided `prefix`.
-/// If it does, it further checks if the section starts with the `label`.
-/// If both conditions are satisfied, it creates a new [`Item`], but sets `item.index` to 0.
-fn get_item_in_section(
-    prefix: &str,
-    ix: usize,
-    label: &Label,
-    ss: &str,
-    strip_underscore: bool,
-) -> Option<Item> {
-    if let Some(ss) = ss.strip_prefix(prefix) {
-        if ss.starts_with(label.id) {
-            let name = if strip_underscore && label.id.starts_with('_') {
-                String::from(&label.id[1..])
-            } else {
-                String::from(label.id)
-            };
-            return Some(Item {
-                mangled_name: label.id.to_owned(),
-                name: name.clone(),
-                hashed: name,
-                index: 0, // Written later in find_items
-                len: ix,
-                non_blank_len: 0,
-            });
-        }
+/// Checks if the place (ss) starts with the `label`. Place can be either section or .global
+/// Creates a new [`Item`], but sets `item.index` to 0.
+fn get_item_in_section(ix: usize, label: &Label, ss: &str, strip_underscore: bool) -> Option<Item> {
+    if !ss.starts_with(label.id) {
+        return None;
     }
-    None
+    let name = if strip_underscore && label.id.starts_with('_') {
+        String::from(&label.id[1..])
+    } else {
+        String::from(label.id)
+    };
+    Some(Item {
+        mangled_name: label.id.to_owned(),
+        name: name.clone(),
+        hashed: name,
+        index: 0, // Written later in find_items
+        len: ix,
+        non_blank_len: 0,
+    })
 }
 
 fn used_labels<'a>(stmts: &'_ [Statement<'a>]) -> BTreeSet<&'a str> {
@@ -196,8 +262,10 @@ fn used_labels<'a>(stmts: &'_ [Statement<'a>]) -> BTreeSet<&'a str> {
             Statement::Directive(dir) => match dir {
                 Directive::File(_)
                 | Directive::Loc(_)
+                | Directive::Global(_)
                 | Directive::SubsectionsViaSym
-                | Directive::Set(_) => None,
+                | Directive::SymIsFun(_) => None,
+                Directive::Data(_, val) | Directive::SetValue(_, val) => Some(*val),
                 Directive::Generic(g) => Some(g.0),
                 Directive::SectionStart(ss) => Some(*ss),
             },
@@ -205,19 +273,22 @@ fn used_labels<'a>(stmts: &'_ [Statement<'a>]) -> BTreeSet<&'a str> {
             Statement::Dunno(s) => Some(s),
         })
         .flat_map(demangle::local_labels)
-        .map(|m| m.as_str())
         .collect::<BTreeSet<_>>()
 }
 
 /// Scans for referenced constants
-fn scan_constant(name: &str, sections: &[(usize, &str)], body: &[Statement]) -> Option<URange> {
-    let start = sections
-        .iter()
-        .find_map(|(ix, ss)| ss.contains(name).then_some(*ix))?;
-    let end = body[start..]
-        .iter()
-        .position(|s| matches!(s, Statement::Nothing))
-        .map_or_else(|| body.len(), |e| start + e);
+fn scan_constant(
+    name: &str,
+    sections: &BTreeMap<&str, usize>,
+    body: &[Statement],
+) -> Option<URange> {
+    let start = *sections.get(name)?;
+    let end = start
+        + body[start + 1..]
+            .iter()
+            .take_while(|s| matches!(s, Statement::Directive(Directive::Data(_, _))))
+            .count()
+        + 1;
     Some(URange { start, end })
 }
 
@@ -238,8 +309,8 @@ fn dump_range(
     };
 
     let mut empty_line = false;
-    for line in stmts {
-        if fmt.verbosity > 2 {
+    for (ix, line) in stmts.iter().enumerate() {
+        if fmt.verbosity > 3 {
             safeprintln!("{line:?}");
         }
         if let Statement::Directive(Directive::File(_)) = &line {
@@ -258,17 +329,22 @@ fn dump_range(
             match files.get(&loc.file) {
                 Some((fname, Some((source, file)))) => {
                     if source.show_for(fmt.sources_from) {
-                        let rust_line = &file[loc.line as usize - 1];
-                        let pos = format!("\t\t// {} : {}", fname.display(), loc.line);
+                        let pos = format!("\t\t// {fname}:{}", loc.line);
                         safeprintln!("{}", color!(pos, OwoColorize::cyan));
-                        safeprintln!(
-                            "\t\t{}",
-                            color!(rust_line.trim_start(), OwoColorize::bright_red)
-                        );
+                        if let Some(rust_line) = &file.get(loc.line as usize - 1) {
+                            safeprintln!(
+                                "\t\t{}",
+                                color!(rust_line.trim_start(), OwoColorize::bright_red)
+                            );
+                        } else {
+                            safeprintln!("\t\t{}",
+                                color!("Corrupted rust-src installation? Try re-adding rust-src component.", OwoColorize::red)
+                            );
+                        }
                     }
                 }
                 Some((fname, None)) => {
-                    if fmt.verbosity > 0 {
+                    if fmt.verbosity > 1 {
                         safeprintln!(
                             "\t\t{} {}",
                             color!("//", OwoColorize::cyan),
@@ -278,7 +354,7 @@ fn dump_range(
                             ),
                         );
                     }
-                    let pos = format!("\t\t// {} : {}", fname.display(), loc.line);
+                    let pos = format!("\t\t// {fname}:{}", loc.line);
                     safeprintln!("{}", color!(pos, OwoColorize::cyan));
                 }
                 None => {
@@ -292,7 +368,9 @@ fn dump_range(
         }) = line
         {
             match fmt.redundant_labels {
-                _ if used.contains(id) => {
+                // We always include used labels and labels at the very
+                // beginning of the fragment - those are used for data declarations
+                _ if ix == 0 || used.contains(id) => {
                     safeprintln!("{line}");
                 }
                 RedundantLabels::Keep => {
@@ -321,6 +399,37 @@ fn dump_range(
     }
 
     Ok(())
+}
+
+/// Returns a closure that trims the paths
+fn path_formatter() -> impl for<'p> Fn(&'p Path, &'p mut PathBuf) -> Display<'p> {
+    let current_dir = std::env::current_dir().unwrap_or_default();
+    let home_dir = std::env::home_dir();
+    let home = if std::path::MAIN_SEPARATOR == '/' {
+        "~"
+    } else {
+        "%userprofile%"
+    };
+    move |path, tmp| {
+        if path.is_absolute() {
+            if let Ok(rel) = path.strip_prefix(&current_dir) {
+                rel
+            } else if let Some(path_in_home) = home_dir
+                .as_ref()
+                .and_then(|home| path.strip_prefix(home).ok())
+            {
+                tmp.clear();
+                tmp.push(home);
+                tmp.push(path_in_home);
+                &*tmp
+            } else {
+                path
+            }
+        } else {
+            path
+        }
+        .display()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -364,6 +473,7 @@ impl Source {
 //    /rustc/89e2160c4ca5808657ed55392620ed1dbbce78d1/compiler/rustc_span/src/span_encoding.rs
 //    $sysroot/lib/rustlib/rust-src/rust/compiler/rustc_span/src/span_encoding.rs
 fn locate_sources(sysroot: &Path, workspace: &Path, path: &Path) -> Option<(Source, PathBuf)> {
+    let mut path = Cow::Borrowed(path);
     // a real file that simply exists
     if path.exists() {
         let source = if path.starts_with(workspace) {
@@ -382,6 +492,27 @@ fn locate_sources(sysroot: &Path, workspace: &Path, path: &Path) -> Option<(Sour
         );
         std::process::exit(1);
     };
+
+    // then during crosscompilation we can get this cursed mix of path names
+    //
+    // /rustc/cc66ad468955717ab92600c770da8c1601a4ff33\\library\\core\\src\\convert\\mod.rs
+    //
+    // where one bit comes from the host platform and second bit comes from the target platform
+    // This feels like a problem in upstream, but supporting that is not _that_ hard.
+    //
+    // I think this should take care of Linux and MacOS support
+    if (path.starts_with("/rustc/") || path.starts_with("/private/tmp"))
+        && path
+            .as_os_str()
+            .to_str()
+            .is_some_and(|s| s.contains('\\') && s.contains('/'))
+    {
+        let cursed_path = path
+            .as_os_str()
+            .to_str()
+            .expect("They are coming from a text file");
+        path = Cow::Owned(PathBuf::from(cursed_path.replace('\\', "/")));
+    }
 
     // /rustc/89e2160c4ca5808657ed55392620ed1dbbce78d1/compiler/rustc_span/src/span_encoding.rs
     if path.starts_with("/rustc") && path.iter().any(|c| c == "compiler") {
@@ -457,34 +588,41 @@ fn load_rust_sources(
     fmt: &Format,
     files: &mut BTreeMap<u64, SourceFile>,
 ) {
+    let home_dir = std::env::home_dir();
+    let format_path = path_formatter();
+    let mut tmp = PathBuf::new();
+
     for line in statements {
         if let Statement::Directive(Directive::File(f)) = line {
             files.entry(f.index).or_insert_with(|| {
-                let path = f.path.as_full_path().into_owned();
-                if fmt.verbosity > 1 {
+                let path = f.path.as_full_path_with_home_dir(home_dir.as_deref());
+                let pretty_path = format_path(&path, &mut tmp).to_string();
+                if fmt.verbosity > 2 {
                     safeprintln!("Reading file #{} {}", f.index, path.display());
                 }
 
                 if let Some((source, filepath)) = locate_sources(sysroot, workspace, &path) {
-                    if fmt.verbosity > 2 {
+                    if fmt.verbosity > 3 {
                         safeprintln!("Resolved name is {filepath:?}");
                     }
                     let sources = std::fs::read_to_string(&filepath).expect("Can't read a file");
                     if sources.is_empty() {
-                        safeprintln!("Ignoring empty file {filepath:?}!");
-                        (path, None)
+                        if fmt.verbosity > 0 {
+                            safeprintln!("Ignoring empty file {filepath:?}!");
+                        }
+                        (pretty_path, None)
                     } else {
-                        if fmt.verbosity > 2 {
+                        if fmt.verbosity > 3 {
                             safeprintln!("Got {} bytes", sources.len());
                         }
                         let lines = CachedLines::without_ending(sources);
-                        (path, Some((source, lines)))
+                        (pretty_path, Some((source, lines)))
                     }
                 } else {
-                    if fmt.verbosity > 0 {
+                    if fmt.verbosity > 1 {
                         safeprintln!("File not found {}", path.display());
                     }
-                    (path, None)
+                    (pretty_path, None)
                 }
             });
         }
@@ -495,6 +633,7 @@ impl RawLines for Statement<'_> {
     fn lines(&self) -> Option<&str> {
         match self {
             Statement::Instruction(i) => i.args,
+            Statement::Directive(Directive::SetValue(_, i)) => Some(i),
             _ => None,
         }
     }
@@ -516,7 +655,7 @@ impl<'a> Asm<'a> {
     }
 }
 
-impl<'a> Dumpable for Asm<'a> {
+impl Dumpable for Asm<'_> {
     type Line<'l> = Statement<'l>;
 
     fn split_lines(contents: &str) -> anyhow::Result<Vec<Self::Line<'_>>> {
@@ -550,19 +689,26 @@ impl<'a> Dumpable for Asm<'a> {
         }
 
         if fmt.include_constants {
-            let print_range = URange::from(range.clone());
+            let print_range = URange::from(range);
             // scan for referenced constants such as strings, scan needs to be done recursively
             let mut pending = vec![print_range];
             let mut seen: BTreeSet<URange> = BTreeSet::new();
 
-            let sections = lines
+            // Let's define a constant as a label followed by one or more data declarations
+            let constants = lines
                 .iter()
                 .enumerate()
-                .filter_map(|(ix, stmt)| match stmt {
-                    Statement::Directive(Directive::SectionStart(ss)) => Some((ix, *ss)),
-                    _ => None,
+                .filter_map(|(ix, stmt)| {
+                    let Statement::Label(Label { id, .. }) = stmt else {
+                        return None;
+                    };
+                    matches!(
+                        lines.get(ix + 1),
+                        Some(Statement::Directive(Directive::Data(_, _)))
+                    )
+                    .then_some((*id, ix))
                 })
-                .collect::<Vec<_>>();
+                .collect::<BTreeMap<_, _>>();
             while let Some(subset) = pending.pop() {
                 seen.insert(subset);
                 for s in &lines[subset] {
@@ -571,11 +717,8 @@ impl<'a> Dumpable for Asm<'a> {
                     })
                     | Statement::Directive(Directive::Generic(GenericDirective(arg))) = s
                     {
-                        for label in crate::demangle::local_labels_reg().find_iter(arg) {
-                            let referenced_label = label.as_str().trim();
-                            if let Some(constant_range) =
-                                scan_constant(referenced_label, &sections, lines)
-                            {
+                        for label in crate::demangle::local_labels(arg) {
+                            if let Some(constant_range) = scan_constant(label, &constants, lines) {
                                 if !seen.contains(&constant_range)
                                     && !print_range.fully_contains(constant_range)
                                 {

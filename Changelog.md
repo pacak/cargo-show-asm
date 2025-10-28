@@ -1,5 +1,73 @@
 # Change Log
 
+## [0.2.52] - 2025-08-10
+- Various codebase improvements and support for unstable cargo `build-dir`
+  thanks @kornelski
+- bump deps
+
+## [0.2.51] - 2025-06-29
+- Use ~ in place of home dir and relative paths for current project when printing rust source code
+  for both privacy and convenience
+  thanks @kornelski
+
+## [0.2.50] - 2025-06-18
+- Print links to rust sources as `file:line`, some terminals allow you to click them
+  thanks @kornelski
+- update deps
+
+## [0.2.49] - 2025-04-06
+- Add a short alias `-F` in addition to `--features` (#390)
+  thanks @joseluis
+- try to support cursed combinations of forward and backward slashes
+  in file names created in case of crosscompilation (#382)
+
+## [0.2.48] - 2025-02-22
+- better support for ARM MCA and disassembly (#378) and (#375)
+  thanks @kornelski
+- default verbosity changes - (#377)
+- clippy improvements - (#376)
+
+## [0.2.47] - 2025-01-21
+- don't try to override RUSTFLAGS unless needed - this should keep .config/cargo working (#364)
+
+## [0.2.46] - 2025-01-15
+- `--silent` flag can be used to suppress some of the user directed informatin
+  thanks @tgross35
+
+## [0.2.45] - 2024-12-23
+- flags related to target cpu are now passed to all the dependencies if specified
+  thanks @zheland
+- bump deps in tests
+- bump deps
+
+## [0.2.44] - 2024-12-20
+- improve error for mismaching/corrupted rust-src
+- support for ARM disassembly
+  thanks @fg-cfh
+- bump serde that was pinned due to it shipping binary blobs
+- bump deps
+
+## [0.2.43] - 2024-12-07
+- `-vv` also prints invoked cargo command (#345)
+  thanks @zheland
+- bump deps
+
+## [0.2.42] - 2024-11-10
+- `--quiet` option that gets passed to `cargo
+- Also search for context in `.set` statements - for merged functions
+  this mean that when you are showing the alias with `-c 1` - the actual
+  implementation will show up as well (#338)
+
+## [0.2.41] - 2024-10-13
+- make sure not to drop used labels (#318)
+- add release-lto profile for slightly smaller/faster version
+  thanks @zamazan4ik for the suggestion
+- detect and render merged functions (#310)
+- update docs (#320)
+- smarter approach for detecting constants (#315)
+- smarter CI (#79)
+- bump deps
+
 ## [0.2.40] - 2024-10-01
 - more consistend behavior when only one item is detected (#312)
   thanks @zheland

@@ -39,8 +39,8 @@ impl std::fmt::Display for HexDump<'_> {
         if self.bytes.is_empty() {
             return Ok(());
         }
-        for byte in self.bytes.iter() {
-            write!(f, "{:02x} ", byte)?;
+        for byte in self.bytes {
+            write!(f, "{byte:02x} ")?;
         }
         for _ in 0..(1 + self.max_width - self.bytes.len()) {
             f.write_str("   ")?;
@@ -56,7 +56,7 @@ pub fn dump_disasm(
     fmt: &Format,
     syntax: OutputStyle,
 ) -> anyhow::Result<()> {
-    if file.extension().map_or(false, |e| e == "rlib") {
+    if file.extension().is_some_and(|e| e == "rlib") {
         let mut slices = Vec::new();
         let mut archive = Archive::new(std::fs::File::open(file)?);
 
@@ -85,6 +85,13 @@ fn pick_item<'a>(
     let mut items = BTreeMap::new();
 
     for file in files {
+        let mut addresses: Vec<_> = file
+            .symbols()
+            .filter(|s| s.is_definition() && s.kind() == SymbolKind::Text)
+            .map(|s| s.address() as usize)
+            .collect();
+        addresses.sort_unstable();
+
         for (index, symbol) in file
             .symbols()
             .filter(|s| s.is_definition() && s.kind() == SymbolKind::Text)
@@ -101,11 +108,21 @@ fn pick_item<'a>(
                 continue;
             };
 
-            let len = symbol.size() as usize; // sorry 32bit platforms, you are not real
-            if len == 0 {
-                continue;
-            }
             let addr = symbol.address() as usize;
+            let mut len = symbol.size() as usize; // sorry 32bit platforms, you are not real
+            if len == 0 {
+                // Most symbols do not have a size.
+                // Guess size from the address of the next symbol after it.
+                let (Ok(idx) | Err(idx)) = addresses.binary_search(&addr);
+                let next_address = match addresses[idx..].iter().copied().find(|&a| a > addr) {
+                    Some(addr) => addr,
+                    None => {
+                        let section = file.section_by_index(section_index)?;
+                        (section.address() + section.size()) as usize
+                    }
+                };
+                len = next_address - addr;
+            }
             let item = Item {
                 name,
                 hashed,
@@ -183,21 +200,29 @@ fn dump_slices(
         BTreeMap::new()
     };
 
-    let cs = make_capstone(file, syntax, &mut addr)?;
+    // In ARM ELF files, bit zero of the symbol address indicates its encoding.
+    // It is one for Thumb-v2 (aka "t32") instructions and zero for ARM (aka
+    // "a32") instructions. See ARM Arch ABI, 2024Q3, ELF, section 5.5.3.
+    let is_thumb = addr & 1 == 1;
+    let addr = addr & !1;
     let start = addr - section.address() as usize;
+    let cs = make_capstone(file, syntax, is_thumb)?;
     let code = &section.data()?[start..start + len];
 
     if fmt.verbosity >= 2 {
         if reloc_map.is_empty() {
             safeprintln!("There is no relocation table");
         } else {
-            safeprintln!("{:?}", reloc_map);
+            safeprintln!("reloc_map {:#?}", reloc_map);
         }
     }
 
     let insns = cs.disasm_all(code, addr as u64)?;
     if insns.is_empty() {
-        safeprintln!("No instructions - empty code block?");
+        if fmt.verbosity > 0 {
+            safeprintln!("No instructions - empty code block?");
+        }
+        return Ok(());
     }
 
     let max_width = insns.iter().map(|i| i.len()).max().unwrap_or(1);
@@ -337,21 +362,25 @@ impl From<OutputStyle> for capstone::Syntax {
 fn make_capstone(
     file: &object::File,
     syntax: OutputStyle,
-    addr: &mut usize,
+    is_thumb: bool,
 ) -> anyhow::Result<Capstone> {
-    use capstone::arch::{arm, arm64, riscv, x86, BuildsCapstone, BuildsCapstoneExtraMode};
+    use capstone::{
+        arch::{self, arm, arm64, riscv, x86, BuildsCapstone, BuildsCapstoneExtraMode},
+        Endian,
+    };
+
+    let endiannes = match file.endianness() {
+        object::Endianness::Little => Endian::Little,
+        object::Endianness::Big => Endian::Big,
+    };
+    let x86_width = if file.is_64() {
+        arch::x86::ArchMode::Mode64
+    } else {
+        arch::x86::ArchMode::Mode32
+    };
 
     let mut capstone = match file.architecture() {
-        // Thumb breaks common assumptions about CPU modes. There is no distinction in the linker
-        // because the CPU mode is set by the lowest bit in the address of a branch target, and thus
-        // the symbol address of functions. Compatible CPUs can even switch modes on a per-function
-        // basis.
-        //
-        // Capstone is unaware of this convention so we have to do it ourselves: if the pointer is
-        // odd, we switch to disassembling Thumb code, and also fixup the address to point at the
-        // code.
-        Architecture::Arm if *addr & 1 == 1 => {
-            *addr -= 1;
+        Architecture::Arm if is_thumb => {
             Capstone::new().arm().mode(arm::ArchMode::Thumb).build()?
         }
         Architecture::Arm => Capstone::new().arm().mode(arm::ArchMode::Arm).build()?,
@@ -382,5 +411,6 @@ fn make_capstone(
         unknown => anyhow::bail!("Dunno how to decompile {unknown:?}"),
     };
     capstone.set_detail(true)?;
+    capstone.set_endian(endiannes)?;
     Ok(capstone)
 }

@@ -77,7 +77,7 @@ impl Dumpable for Llvm {
                         },
                         start: ix,
                     });
-                    cur.item.mangled_name = name.to_owned();
+                    name.clone_into(&mut cur.item.mangled_name);
                     cur.item.hashed = demangle::demangled(name)
                         .map_or_else(|| name.to_owned(), |hashed| format!("{hashed:?}"));
                 }
@@ -190,7 +190,7 @@ pub fn collect_or_dump(
                     {
                         let hashed = format!("{hashed:?}");
                         let name_entry = names.entry(name.clone()).or_insert(0);
-                        seen = goal.map_or(true, |goal| {
+                        seen = goal.is_none_or(|goal| {
                             (name.as_ref(), *name_entry) == goal || hashed == goal.0
                         });
 
@@ -224,8 +224,7 @@ pub fn collect_or_dump(
                     if let Some(mut cur) = current_item.take() {
                         cur.len = ix - cur.len;
                         cur.non_blank_len = cur.len;
-                        if goal.map_or(true, |goal| goal.0.is_empty() || cur.name.contains(goal.0))
-                        {
+                        if goal.is_none_or(|goal| goal.0.is_empty() || cur.name.contains(goal.0)) {
                             items.push(cur);
                         }
                     }

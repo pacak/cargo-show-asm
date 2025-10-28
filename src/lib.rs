@@ -107,14 +107,14 @@ pub struct Item {
 
 pub fn suggest_name<'a>(
     search: &str,
-    name_display: &NameDisplay,
+    fmt: &Format,
     items: impl IntoIterator<Item = &'a Item>,
 ) -> ! {
     let mut count = 0usize;
     let names: BTreeMap<&String, Vec<usize>> =
         items.into_iter().fold(BTreeMap::new(), |mut m, item| {
             count += 1;
-            let entry = match name_display {
+            let entry = match fmt.name_display {
                 NameDisplay::Full => &item.hashed,
                 NameDisplay::Short => &item.name,
                 NameDisplay::Mangled => &item.mangled_name,
@@ -123,15 +123,19 @@ pub fn suggest_name<'a>(
             m
         });
 
-    if names.is_empty() {
-        if search.is_empty() {
-            safeprintln!("This target defines no functions (or cargo-show-asm can't find them)");
+    if fmt.verbosity > 0 {
+        if names.is_empty() {
+            if search.is_empty() {
+                safeprintln!(
+                    "This target defines no functions (or cargo-show-asm can't find them)"
+                );
+            } else {
+                safeprintln!("No matching functions, try relaxing your search request");
+            }
+            safeprintln!("You can pass --everything to see the demangled contents of a file");
         } else {
-            safeprintln!("No matching functions, try relaxing your search request");
+            safeprintln!("Try one of those by name or a sequence number");
         }
-        safeprintln!("You can pass --everything to see the demangled contents of a file");
-    } else {
-        safeprintln!("Try one of those by name or a sequence number");
     }
 
     #[allow(clippy::cast_sign_loss)]
@@ -170,7 +174,7 @@ pub fn pick_dump_item<K: Clone>(
                 Some(range.clone())
             } else {
                 let actual = items.len();
-                safeprintln!("You asked to display item #{value} (zero based), but there's only {actual} items");
+                esafeprintln!("You asked to display item #{value} (zero based), but there's only {actual} items");
                 std::process::exit(1);
             }
         }
@@ -192,13 +196,13 @@ pub fn pick_dump_item<K: Clone>(
                 range.1.clone()
             } else if let Some(value) = nth {
                 let filtered = filtered.len();
-                safeprintln!("You asked to display item #{value} (zero based), but there's only {filtered} matching items");
+                esafeprintln!("You asked to display item #{value} (zero based), but there's only {filtered} matching items");
                 std::process::exit(1);
             } else {
                 if filtered.is_empty() {
-                    safeprintln!("Can't find any items matching {function:?}");
+                    esafeprintln!("Can't find any items matching {function:?}");
                 } else {
-                    suggest_name(&function, &fmt.name_display, filtered.iter().map(|x| x.0));
+                    suggest_name(&function, fmt, filtered.iter().map(|x| x.0));
                 }
                 std::process::exit(1);
             };
@@ -213,7 +217,7 @@ pub fn pick_dump_item<K: Clone>(
             } else {
                 // Otherwise, print suggestions and exit
                 let items = items.keys();
-                suggest_name("", &fmt.name_display, items);
+                suggest_name("", fmt, items);
             }
         }
     }
@@ -278,6 +282,9 @@ pub trait Dumpable {
     /// Given a set of lines find all the interesting items
     fn find_items(lines: &[Self::Line<'_>]) -> BTreeMap<Item, Range<usize>>;
 
+    /// Initialize freshly created Dumpable using additional information from the file
+    fn init(&mut self, _lines: &[Self::Line<'_>]) {}
+
     /// print all the lines from this range, aplying the required formatting
     fn dump_range(&self, fmt: &Format, lines: &[Self::Line<'_>]) -> anyhow::Result<()>;
 
@@ -296,7 +303,7 @@ pub trait Dumpable {
 
 /// Parse a dumpable item from a file and dump it with all the extra context
 pub fn dump_function<T: Dumpable>(
-    dumpable: &T,
+    dumpable: &mut T,
     goal: ToDump,
     path: &Path,
     fmt: &Format,
@@ -308,6 +315,7 @@ pub fn dump_function<T: Dumpable>(
 
     let lines = T::split_lines(&contents)?;
     let items = T::find_items(&lines);
+    dumpable.init(&lines);
 
     match pick_dump_item(goal, fmt, &items) {
         Some(range) => {
@@ -329,7 +337,7 @@ pub fn dump_function<T: Dumpable>(
                 // for asm files extra_context loads rust sources
                 T::extra_context(dumpable, fmt, &lines, 0..lines.len(), &items);
             }
-            dumpable.dump_range(fmt, &lines)?
+            dumpable.dump_range(fmt, &lines)?;
         }
     }
     Ok(())

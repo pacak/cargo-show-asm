@@ -4,12 +4,11 @@ use std::sync::OnceLock;
 
 use nom::branch::alt;
 use nom::bytes::complete::{escaped_transform, tag, take_while1, take_while_m_n};
-use nom::character::complete;
-use nom::character::complete::{newline, none_of, not_line_ending, one_of, space1};
+use nom::character::complete::{self, newline, none_of, not_line_ending, one_of, space0, space1};
 use nom::combinator::{map, opt, recognize, value, verify};
 use nom::multi::count;
-use nom::sequence::{delimited, pair, preceded, terminated, tuple};
-use nom::{AsChar, IResult};
+use nom::sequence::{delimited, pair, preceded, terminated};
+use nom::{AsChar, IResult, Parser as _};
 use owo_colors::OwoColorize;
 use regex::Regex;
 
@@ -17,7 +16,7 @@ use crate::demangle::LabelKind;
 use crate::opts::NameDisplay;
 use crate::{color, demangle};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Statement<'a> {
     Label(Label<'a>),
     Directive(Directive<'a>),
@@ -26,7 +25,7 @@ pub enum Statement<'a> {
     Dunno(&'a str),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Instruction<'a> {
     pub op: &'a str,
     pub args: Option<&'a str>,
@@ -34,13 +33,13 @@ pub struct Instruction<'a> {
 
 impl<'a> Instruction<'a> {
     pub fn parse(input: &'a str) -> IResult<&'a str, Self> {
-        preceded(tag("\t"), alt((Self::parse_regular, Self::parse_sharp)))(input)
+        preceded(tag("\t"), alt((Self::parse_regular, Self::parse_sharp))).parse(input)
     }
 
     fn parse_sharp(input: &'a str) -> IResult<&'a str, Self> {
         let sharps = take_while_m_n(1, 2, |c| c == '#');
         let sharp_tag = pair(sharps, not_line_ending);
-        map(recognize(sharp_tag), |op| Instruction { op, args: None })(input)
+        map(recognize(sharp_tag), |op| Instruction { op, args: None }).parse(input)
     }
 
     fn parse_regular(input: &'a str) -> IResult<&'a str, Self> {
@@ -48,34 +47,47 @@ impl<'a> Instruction<'a> {
         //       Wasm also uses `.` in instr names, and uses `_` for `end_function`
         let op = take_while1(|c| AsChar::is_alphanum(c) || matches!(c, '.' | '_'));
         let args = opt(preceded(space1, not_line_ending));
-        map(pair(op, args), |(op, args)| Instruction { op, args })(input)
+        map(pair(op, args), |(op, args)| Instruction { op, args }).parse(input)
     }
 }
 
-impl<'a> Statement<'a> {
+fn parse_data_dec(input: &str) -> IResult<&str, Directive<'_>> {
+    static DATA_DEC: OnceLock<Regex> = OnceLock::new();
+    // all of those can insert something as well... Not sure if it's a full list or not
+    // .long, .short .octa, .quad, .word,
+    // .single .double .float
+    // .ascii, .asciz, .string, .string8 .string16 .string32 .string64
+    // .2byte .4byte .8byte
+    // .dc
+    // .inst .insn
+    let reg = DATA_DEC.get_or_init(|| {
+        // regexp is inspired by the compiler explorer
+        Regex::new(
+            "^\\s*\\.(ascii|asciz|[1248]?byte|dc(?:\\.[abdlswx])?|dcb(?:\\.[bdlswx])?\
+            |ds(?:\\.[bdlpswx])?|double|dword|fill|float|half|hword|int|long|octa|quad|\
+            short|single|skip|space|string(?:8|16|32|64)?|value|word|xword|zero)\\s+([^\\n]+)",
+        )
+        .expect("regexp should be valid")
+    });
+
+    let Some(cap) = reg.captures(input) else {
+        use nom::error::*;
+        return Err(nom::Err::Error(Error::new(input, ErrorKind::Eof)));
+    };
+    let (Some(instr), Some(data)) = (cap.get(1), cap.get(2)) else {
+        panic!("regexp should be valid and capture found something");
+    };
+    Ok((
+        &input[data.range().end..],
+        Directive::Data(instr.as_str(), data.as_str()),
+    ))
+}
+
+impl Statement<'_> {
     /// Should we skip it for --simplify output?
     pub fn boring(&self) -> bool {
-        if let Statement::Directive(Directive::Generic(GenericDirective(x))) = self {
-            static DATA_DEC: OnceLock<Regex> = OnceLock::new();
-            // all of those can insert something as well... Not sure if it's a full list or not
-            // .long, .short .octa, .quad, .word,
-            // .single .double .float
-            // .ascii, .asciz, .string, .string8 .string16 .string32 .string64
-            // .2byte .4byte .8byte
-            // .dc
-            // .inst .insn
-            let reg = DATA_DEC.get_or_init(|| {
-                Regex::new(
-                    "^(long|short|octa|quad|word|\
-            single|double|float|\
-            ascii|asciz|string|string8|string16|string32|string64|\
-            2byte|4byte|8byte|dc|\
-            inst|insn\
-            )[\\s\\t]",
-                )
-                .expect("regexp should be valid")
-            });
-            return !reg.is_match(x);
+        if let Statement::Directive(Directive::SetValue(_, _)) = self {
+            return false;
         }
         if let Statement::Directive(Directive::SectionStart(name)) = self {
             if name.starts_with(".data") || name.starts_with(".rodata") {
@@ -136,20 +148,54 @@ impl std::fmt::Display for Directive<'_> {
             Directive::File(ff) => ff.fmt(f),
             Directive::Loc(l) => l.fmt(f),
             Directive::Generic(g) => g.fmt(f),
-            Directive::Set(g) => {
-                f.write_str(&format!(".set {}", color!(g, OwoColorize::bright_cyan)))
+            Directive::SetValue(key, val) => {
+                let key = demangle::contents(key, display);
+                let val = demangle::contents(val, display);
+                write!(
+                    f,
+                    ".{} {}, {}",
+                    color!("set", OwoColorize::bright_magenta),
+                    color!(key, OwoColorize::bright_cyan),
+                    color!(val, OwoColorize::bright_cyan)
+                )
             }
             Directive::SectionStart(s) => {
                 let dem = demangle::contents(s, display);
-                f.write_str(&format!(
-                    "{} {dem}",
-                    color!(".section", OwoColorize::bright_red),
-                ))
+                write!(f, "{} {dem}", color!(".section", OwoColorize::bright_red))
             }
-            Directive::SubsectionsViaSym => f.write_str(&format!(
+            Directive::SubsectionsViaSym => write!(
+                f,
                 ".{}",
                 color!("subsections_via_symbols", OwoColorize::bright_red)
-            )),
+            ),
+            Directive::SymIsFun(s) => {
+                let dem = demangle::contents(s, display);
+                write!(
+                    f,
+                    ".{}\t{dem},@function",
+                    color!("type", OwoColorize::bright_magenta)
+                )
+            }
+            Directive::Data(ty, data) => {
+                let data = demangle::contents(data, display);
+                let w_label = demangle::color_local_labels(&data);
+                write!(
+                    f,
+                    "\t.{}\t{}",
+                    color!(ty, OwoColorize::bright_magenta),
+                    color!(w_label, OwoColorize::bright_cyan)
+                )
+            }
+            Directive::Global(data) => {
+                let data = demangle::contents(data, display);
+                let w_label = demangle::color_local_labels(&data);
+                write!(
+                    f,
+                    "\t.{}\t{}",
+                    color!("globl", OwoColorize::bright_magenta),
+                    color!(w_label, OwoColorize::bright_cyan)
+                )
+            }
         }
     }
 }
@@ -243,11 +289,11 @@ impl<'a> Label<'a> {
         let no_comment = tag(":");
         let comment = terminated(
             tag(":"),
-            tuple((
+            (
                 take_while1(|c| c == ' '),
                 tag("# @"),
                 take_while1(|c| c != '\n'),
-            )),
+            ),
         );
         map(
             terminated(take_while1(good_for_label), alt((comment, no_comment))),
@@ -255,7 +301,8 @@ impl<'a> Label<'a> {
                 id,
                 kind: demangle::label_kind(id),
             },
-        )(input)
+        )
+        .parse(input)
     }
 }
 
@@ -267,7 +314,7 @@ pub struct Loc<'a> {
     pub extra: Option<&'a str>,
 }
 
-impl<'a> PartialEq for Loc<'a> {
+impl PartialEq for Loc<'_> {
     fn eq(&self, other: &Self) -> bool {
         self.file == other.file && self.line == other.line
     }
@@ -278,10 +325,10 @@ impl<'a> Loc<'a> {
         // DWARF2 (Unix):      .loc               fileno lineno [column] [options]
         // CodeView (Windows): .cv_loc functionid fileno lineno [column] [prologue_end] [is_stmt value]
         map(
-            tuple((
+            (
                 alt((
                     tag("\t.loc\t"),
-                    terminated(tag("\t.cv_loc\t"), tuple((complete::u64, space1))),
+                    terminated(tag("\t.cv_loc\t"), (complete::u64, space1)),
                 )),
                 complete::u64,
                 space1,
@@ -289,14 +336,15 @@ impl<'a> Loc<'a> {
                 space1,
                 complete::u64,
                 opt(preceded(tag(" "), take_while1(|c| c != '\n'))),
-            )),
+            ),
             |(_, file, _, line, _, column, extra)| Loc {
                 file,
                 line,
                 column,
                 extra,
             },
-        )(input)
+        )
+        .parse(input)
     }
 }
 
@@ -312,6 +360,22 @@ impl FilePath {
             FilePath::FullPath(path) => Cow::Borrowed(Path::new(path)),
             FilePath::PathAndFileName { path, name } => Cow::Owned(Path::new(path).join(name)),
         }
+    }
+
+    /// Optionally expand `~/` to `home_dir`
+    ///
+    /// Rewritten debug paths may use `~/` for privacy, but that's not a real path,
+    /// because `~` is usually expanded by the shell.
+    pub fn as_full_path_with_home_dir(&self, home_dir: Option<&Path>) -> Cow<'_, Path> {
+        let path = self.as_full_path();
+
+        if let Some(home_dir) = home_dir {
+            if let Ok(path_in_home) = path.strip_prefix("~") {
+                return Cow::Owned(home_dir.join(path_in_home));
+            }
+        }
+
+        path
     }
 }
 
@@ -348,7 +412,8 @@ fn parse_quoted_string(input: &str) -> IResult<&str, String> {
             )),
         ),
         tag("\""),
-    )(input)
+    )
+    .parse(input)
 }
 
 // Workaround for a problem in llvm code that produces debug symbols on Windows.
@@ -371,14 +436,14 @@ impl<'a> File<'a> {
         // CodeView (Windows):   .cv_file fileno           "filename" ["checksum"] [checksumkind]
         alt((
             map(
-                tuple((
+                (
                     tag("\t.file\t"),
                     complete::u64,
                     space1,
                     parse_quoted_string,
                     opt(preceded(space1, parse_quoted_string)),
                     opt(preceded(space1, complete::hex_digit1)),
-                )),
+                ),
                 |(_, fileno, _, filepath, filename, md5)| File {
                     index: fileno,
                     path: match filename {
@@ -392,7 +457,7 @@ impl<'a> File<'a> {
                 },
             ),
             map(
-                tuple((
+                (
                     tag("\t.cv_file\t"),
                     complete::u64,
                     space1,
@@ -402,7 +467,7 @@ impl<'a> File<'a> {
                         delimited(tag("\""), complete::hex_digit1, tag("\"")),
                     )),
                     opt(preceded(space1, complete::u64)),
-                )),
+                ),
                 |(_, fileno, _, filename, checksum, checksumkind)| File {
                     index: fileno,
                     path: FilePath::FullPath(fixup_windows_file_path(filename)),
@@ -415,7 +480,8 @@ impl<'a> File<'a> {
                     },
                 },
             ),
-        ))(input)
+        ))
+        .parse(input)
     }
 }
 
@@ -570,6 +636,33 @@ fn test_parse_loc() {
 }
 
 #[test]
+fn test_home_dir() {
+    assert_eq!(
+        FilePath::FullPath("~/subdir/in/home".into())
+            .as_full_path_with_home_dir(Some("/home/dir".as_ref())),
+        Path::new("/home/dir/subdir/in/home")
+    );
+
+    assert_eq!(
+        FilePath::PathAndFileName {
+            path: "~/subdir/in/home".into(),
+            name: "filename".into(),
+        }
+        .as_full_path_with_home_dir(Some("/home/dir".as_ref())),
+        Path::new("/home/dir/subdir/in/home/filename"),
+    );
+
+    assert_eq!(
+        FilePath::PathAndFileName {
+            path: "~/~/tilde/~".into(),
+            name: "~".into(),
+        }
+        .as_full_path_with_home_dir(Some("home/dir/".as_ref())),
+        Path::new("home/dir/~/tilde/~/~"),
+    );
+}
+
+#[test]
 fn test_parse_file() {
     let (rest, file) = File::parse("\t.file\t9 \"/home/ubuntu/buf-test/src/main.rs\"").unwrap();
     assert!(rest.is_empty());
@@ -676,20 +769,52 @@ fn test_parse_file() {
     );
 }
 
-#[derive(Clone, Debug)]
+#[test]
+fn parse_function_alias() {
+    assert_eq!(
+        parse_statement("\t.type\ttwo,@function\n").unwrap().1,
+        Statement::Directive(Directive::SymIsFun("two"))
+    );
+
+    assert_eq!(
+        parse_statement(".set\ttwo,\tone_plus_one\n").unwrap().1,
+        Statement::Directive(Directive::SetValue("two", "one_plus_one"))
+    );
+}
+
+#[test]
+fn parse_data_decl() {
+    assert_eq!(
+        parse_statement("  .asciz  \"sample_merged\"\n").unwrap().1,
+        Statement::Directive(Directive::Data("asciz", "\"sample_merged\""))
+    );
+    assert_eq!(
+        parse_statement("          .byte   0\n").unwrap().1,
+        Statement::Directive(Directive::Data("byte", "0"))
+    );
+    assert_eq!(
+        parse_statement("\t.long   .Linfo_st\n").unwrap().1,
+        Statement::Directive(Directive::Data("long", ".Linfo_st"))
+    );
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Directive<'a> {
     File(File<'a>),
     Loc(Loc<'a>),
+    Global(&'a str),
     Generic(GenericDirective<'a>),
-    Set(&'a str),
+    SymIsFun(&'a str),
+    SetValue(&'a str, &'a str),
     SubsectionsViaSym,
     SectionStart(&'a str),
+    Data(&'a str, &'a str),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GenericDirective<'a>(pub &'a str);
 
-pub fn parse_statement(input: &str) -> IResult<&str, Statement> {
+pub fn parse_statement(input: &str) -> IResult<&str, Statement<'_>> {
     let label = map(Label::parse, Statement::Label);
 
     let file = map(File::parse, Directive::File);
@@ -704,8 +829,15 @@ pub fn parse_statement(input: &str) -> IResult<&str, Statement> {
         Directive::Generic(GenericDirective(s))
     });
     let set = map(
-        preceded(tag(".set"), take_while1(|c| c != '\n')),
-        Directive::Set,
+        (
+            tag(".set"),
+            space1,
+            take_while1(good_for_label),
+            tag(","),
+            space0,
+            take_while1(|c| c != '\n'),
+        ),
+        |(_, _, name, _, _, val)| Directive::SetValue(name, val),
     );
     let ssvs = map(tag(".subsections_via_symbols"), |_| {
         Directive::SubsectionsViaSym
@@ -719,41 +851,62 @@ pub fn parse_statement(input: &str) -> IResult<&str, Statement> {
         Statement::Nothing
     });
 
+    let typ = map(
+        (
+            tag("\t.type"),
+            space1,
+            take_while1(good_for_label),
+            tag(",@function"),
+        ),
+        |(_, _, id, _)| Directive::SymIsFun(id),
+    );
+
+    let global = map(
+        (
+            space0,
+            alt((tag(".globl"), tag(".global"))),
+            space1,
+            take_while1(|c| good_for_label(c) || c == '@'),
+        ),
+        |(_, _, _, name)| Directive::Global(name),
+    );
     let dir = map(
-        alt((file, loc, set, ssvs, section, generic)),
+        alt((
+            file,
+            global,
+            loc,
+            set,
+            ssvs,
+            section,
+            typ,
+            parse_data_dec,
+            generic,
+        )),
         Statement::Directive,
     );
 
     // use terminated on the subparsers so that if the subparser doesn't consume the whole line, it's discarded
     // we assume that each label/instruction/directive will only take one line
-    alt((
-        terminated(label, newline),
-        terminated(dir, newline),
-        terminated(instr, newline),
-        terminated(nothing, newline),
-        terminated(dunno, newline),
-    ))(input)
+    terminated(alt((label, dir, instr, nothing, dunno)), newline).parse(input)
 }
 
 fn good_for_label(c: char) -> bool {
     c == '.' || c == '$' || c == '_' || c.is_ascii_alphanumeric()
 }
 impl Statement<'_> {
+    /// Is this a label that starts with ".Lfunc_end"?
     pub(crate) fn is_end_of_fn(&self) -> bool {
         let check_id = |id: &str| id.strip_prefix('.').unwrap_or(id).starts_with("Lfunc_end");
         matches!(self, Statement::Label(Label { id, .. }) if check_id(id))
     }
 
+    /// Is this a .section directive?
     pub(crate) fn is_section_start(&self) -> bool {
         matches!(self, Statement::Directive(Directive::SectionStart(_)))
     }
 
+    /// Is this a .global directive?
     pub(crate) fn is_global(&self) -> bool {
-        match self {
-            Statement::Directive(Directive::Generic(GenericDirective(dir))) => {
-                dir.starts_with("globl\t")
-            }
-            _ => false,
-        }
+        matches!(self, Statement::Directive(Directive::Global(_)))
     }
 }

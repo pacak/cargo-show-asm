@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "xx"
+name = "sample_merged"
 version = "0.1.0"

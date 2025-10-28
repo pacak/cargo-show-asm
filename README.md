@@ -85,11 +85,13 @@ Show the code rustc generates for any function
   Requires Cargo.lock to be up-to-date
 - **`    --offline`** &mdash; 
   Run without accessing the network
+- **`-q`**, **`--quiet`** &mdash; 
+  Do not print cargo log messages
 - **`    --no-default-features`** &mdash; 
   Do not activate `default` feature
 - **`    --all-features`** &mdash; 
   Activate all available features
-- **`    --features`**=_`FEATURE`_ &mdash; 
+- **`-F`**, **`--features`**=_`FEATURE`_ &mdash; 
   A feature to activate, can be used multiple times
 - **`    --release`** &mdash; 
   Compile in release mode (default)
@@ -133,6 +135,8 @@ Show the code rustc generates for any function
   Strip redundant labels entirely
 - **`-v`**, **`--verbose`** &mdash; 
   more verbose output, can be specified multiple times
+- **`-s`**, **`--silent`** &mdash; 
+  print less user-forward information to make consumption by tools easier
 - **`    --simplify`** &mdash; 
   Try to strip some of the non-assembly instruction information
 - **`    --include-constants`** &mdash; 
@@ -186,8 +190,7 @@ Show the code rustc generates for any function
 
   required for workspace projects, can also point to a dependency
 - **`    --file`**=_`PATH`_ &mdash; 
-  Disassemble this file instead of calling cargo,
-requires cargo-show-asm to be compiled with disasm feature
+  Disassemble or process this file instead of calling cargo, requires cargo-show-asm to be compiled with disasm feature
 
   You can specify executable, rlib or an object file
 - **`-M`**, **`--mca-arg`**=_`ARG`_ &mdash; 
@@ -258,6 +261,10 @@ $ cargo asm --lib Debug
 generic parameters and if it is exported (in case of a library) and not inlined (in case of a
 binary, example, test, etc.). If your function takes a generic parameter - try making a monomorphic
 wrapper around it and make it `pub` and `#[inline(never)]`.
+
+Alternatively if your function is too small - `rustc` might decide to inline it automatically
+with the same result. Marking it with `#[inline(never)]` fixes this problem.
+See https://github.com/rust-lang/rust/pull/116505 for more details
 
 # Include related functions?
 

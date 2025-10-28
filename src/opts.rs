@@ -59,8 +59,8 @@ pub enum CodeSource {
         cargo: Cargo,
     },
     File {
-        /// Disassemble this file instead of calling cargo,
-        ///  requires cargo-show-asm to be compiled with disasm feature
+        /// Disassemble or process this file instead of calling cargo,
+        /// requires cargo-show-asm to be compiled with disasm feature
         ///
         /// You can specify executable, rlib or an object file
         #[bpaf(argument("PATH"), hide_usage)]
@@ -115,6 +115,9 @@ pub struct Cargo {
     /// Run without accessing the network
     #[bpaf(hide_usage)]
     pub offline: bool,
+    /// Do not print cargo log messages
+    #[bpaf(short, long, hide_usage)]
+    pub quiet: bool,
     #[bpaf(external, hide_usage)]
     pub cli_features: CliFeatures,
     #[bpaf(external)]
@@ -180,7 +183,7 @@ pub struct CliFeatures {
     pub all_features: bool,
 
     /// A feature to activate, can be used multiple times
-    #[bpaf(argument("FEATURE"))]
+    #[bpaf(short('F'), long("features"), argument("FEATURE"))]
     pub features: Vec<String>,
 }
 
@@ -199,13 +202,19 @@ pub enum CompileMode {
 }
 
 fn verbosity() -> impl Parser<usize> {
-    short('v')
+    let verbose = short('v')
         .long("verbose")
         .help("more verbose output, can be specified multiple times")
         .req_flag(())
-        .many()
-        .map(|v| v.len())
         .hide_usage()
+        .count();
+    let silent = short('s')
+        .long("silent")
+        .help("print less user-forward information to make consumption by tools easier")
+        .req_flag(())
+        .hide_usage()
+        .count();
+    construct!(verbose, silent).map(|(v, q)| (v + 1).saturating_sub(q))
 }
 
 fn manifest_path() -> impl Parser<PathBuf> {
@@ -245,6 +254,7 @@ pub struct Format {
     pub redundant_labels: RedundantLabels,
 
     /// more verbose output, can be specified multiple times
+    // default verbosity is 1
     #[bpaf(external)]
     pub verbosity: usize,
 
@@ -459,13 +469,20 @@ impl TryFrom<&'_ cargo_metadata::Target> for Focus {
     type Error = anyhow::Error;
 
     fn try_from(target: &cargo_metadata::Target) -> Result<Self, Self::Error> {
-        match target.kind.first().map(|s| &**s) {
-            Some("lib" | "rlib" | "cdylib") => Ok(Focus::Lib),
-            Some("test") => Ok(Focus::Test(target.name.clone())),
-            Some("bench") => Ok(Focus::Bench(target.name.clone())),
-            Some("example") => Ok(Focus::Example(target.name.clone())),
-            Some("bin") => Ok(Focus::Bin(target.name.clone())),
-            _ => anyhow::bail!("Unknown target kind: {:?}", target.kind),
+        use cargo_metadata::TargetKind as T;
+        let kind = target
+            .kind
+            .first()
+            .ok_or_else(|| anyhow::anyhow!("No target kinds in target"))?;
+        let name = target.name.clone();
+        match kind {
+            T::Lib | T::RLib | T::CDyLib => Ok(Focus::Lib),
+            T::Test => Ok(Focus::Test(name)),
+            T::Bench => Ok(Focus::Bench(name)),
+            T::Example => Ok(Focus::Example(name)),
+            T::Bin => Ok(Focus::Bin(name)),
+            // don't bother with handling remaining cases since struct is #[non_exhaustive]
+            _ => anyhow::bail!("Unsupported target kind {kind:?}"),
         }
     }
 }
@@ -494,15 +511,12 @@ impl Focus {
     #[must_use]
     pub fn matches_artifact(&self, artifact: &Artifact) -> bool {
         let (kind, name) = self.as_parts();
-        let somewhat_matches = kind == "lib"
-            && artifact
-                .target
-                .kind
-                .iter()
-                .any(|i| ["rlib", "cdylib"].contains(&i.as_str()));
-        let kind_matches = artifact.target.kind == [kind];
-        (somewhat_matches || kind_matches)
-            && name.map_or(true, |name| artifact.target.name == *name)
+        let somewhat_matches =
+            kind == "lib" && artifact.target.is_rlib() || artifact.target.is_cdylib();
+        let kind = <cargo_metadata::TargetKind as std::str::FromStr>::from_str(kind)
+            .expect("cargo_metadata made me do it");
+        let kind_matches = artifact.target.kind.contains(&kind);
+        (somewhat_matches || kind_matches) && name.is_none_or(|name| artifact.target.name == *name)
     }
 }
 
