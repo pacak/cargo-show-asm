@@ -302,8 +302,8 @@ impl<'a> Label<'a> {
         let comment = terminated(
             tag(":"),
             (
-                take_while1(|c| c == ' '),
-                tag("# @"),
+                take_while1(|c| c == ' ' || c == '\t'),
+                tag("#"),
                 take_while1(|c| c != '\n'),
             ),
         );
@@ -546,6 +546,18 @@ fn test_parse_label() {
             Label {
                 id: "Ltmp12",
                 kind: LabelKind::Temp
+            }
+        ))
+    );
+    assert_eq!(
+        Label::parse(
+            ".Ltmp0:\t# comment"
+        ),
+        Ok((
+            "",
+            Label {
+                id: ".Ltmp0",
+                kind: LabelKind::Local,
             }
         ))
     );
