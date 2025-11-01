@@ -538,9 +538,7 @@ fn test_parse_label() {
         ))
     );
     assert_eq!(
-        Label::parse(
-            ".Ltmp0:\t# comment"
-        ),
+        Label::parse(".Ltmp0:\t# comment"),
         Ok((
             "",
             Label {
