@@ -95,6 +95,7 @@ impl Dumpable for Mca<'_> {
                 Statement::Nothing => {}
                 // we couldn't parse it, maybe mca can?
                 Statement::Dunno(unk) => writeln!(i, "{unk}")?,
+                Statement::Assignment(_, _) => {}
             }
         }
         drop(i);
