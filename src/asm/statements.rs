@@ -22,6 +22,7 @@ pub enum Statement<'a> {
     Directive(Directive<'a>),
     Instruction(Instruction<'a>),
     Nothing,
+    Assignment(&'a str, &'a str),
     Dunno(&'a str),
 }
 
@@ -137,6 +138,17 @@ impl std::fmt::Display for Statement<'_> {
             }
             Statement::Nothing => Ok(()),
             Statement::Dunno(l) => write!(f, "{l}"),
+            Statement::Assignment(key, val) => {
+                let display = NameDisplay::from(&*f);
+                let key = demangle::contents(key, display);
+                let val = demangle::contents(val, display);
+                write!(
+                    f,
+                    "{} = {}",
+                    color!(key, OwoColorize::bright_cyan),
+                    color!(val, OwoColorize::bright_cyan)
+                )
+            }
         }
     }
 }
@@ -843,6 +855,17 @@ pub fn parse_statement(input: &str) -> IResult<&str, Statement<'_>> {
         Directive::SubsectionsViaSym
     });
 
+    let assignment = map(
+        (
+            take_while1(good_for_label),
+            space0,
+            tag("="),
+            space0,
+            take_while1(good_for_label),
+        ),
+        |(src, _, _, _, dst)| Statement::Assignment(src, dst),
+    );
+
     let dunno = map(take_while1(|c| c != '\n'), Statement::Dunno);
     // let dunno = |input: &str| todo!("{:?}", &input[..100]);
 
@@ -887,7 +910,11 @@ pub fn parse_statement(input: &str) -> IResult<&str, Statement<'_>> {
 
     // use terminated on the subparsers so that if the subparser doesn't consume the whole line, it's discarded
     // we assume that each label/instruction/directive will only take one line
-    terminated(alt((label, dir, instr, nothing, dunno)), newline).parse(input)
+    terminated(
+        alt((label, dir, instr, nothing, assignment, dunno)),
+        newline,
+    )
+    .parse(input)
 }
 
 fn good_for_label(c: char) -> bool {

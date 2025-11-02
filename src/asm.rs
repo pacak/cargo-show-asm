@@ -127,8 +127,10 @@ pub fn find_items(lines: &[Statement]) -> BTreeMap<Item, Range<usize>> {
         .collect::<HashMap<_, _>>();
 
     for (end, line) in lines.iter().enumerate() {
-        let Statement::Directive(Directive::SetValue(name, _)) = line else {
-            continue;
+        let name = match line {
+            Statement::Directive(Directive::SetValue(name, _)) => name,
+            Statement::Assignment(name, _) => name,
+            _ => continue,
         };
         let Some(start) = globals.get(name).copied() else {
             continue;
@@ -155,6 +157,9 @@ pub fn find_items(lines: &[Statement]) -> BTreeMap<Item, Range<usize>> {
         //  .type   32;
         //  .endef
         // .set _ZN13sample_merged7two_num17h2372a6fab541fa02E, _ZN13sample_merged12one_plus_one17h96e22123e4e22951E
+
+        // Since rust 1.91.0 ".set FOO, BAR" is replaced by "FOO = BAR", I'm assuming - on all
+        // platforms, so try to parse that as well
 
         let range = start..end + 1;
         if range.len() > 10 {
@@ -270,6 +275,7 @@ fn used_labels<'a>(stmts: &'_ [Statement<'a>]) -> BTreeSet<&'a str> {
                 Directive::SectionStart(ss) => Some(*ss),
             },
             Statement::Instruction(i) => i.args,
+            Statement::Assignment(_, _) => None,
             Statement::Dunno(s) => Some(s),
         })
         .flat_map(demangle::local_labels)
