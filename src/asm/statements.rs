@@ -861,7 +861,7 @@ pub fn parse_statement(input: &str) -> IResult<&str, Statement<'_>> {
             space0,
             tag("="),
             space0,
-            take_while1(good_for_label),
+            take_while1(|c| c != '\n'),
         ),
         |(src, _, _, _, dst)| Statement::Assignment(src, dst),
     );
