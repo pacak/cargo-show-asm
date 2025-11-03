@@ -1,5 +1,10 @@
 # Change Log
 
+## [0.2.54] - 2025-11-03
+- improve label/comment parsing (#425)
+  thanks @guncha
+- support new merged function representation since 1.91.0 (#426)
+
 ## [0.2.53] - 2025-10-28
 - `--disasm` support for m68k, RISC-V (32- and 64-bit) and x32
   thanks @cabalorguk
