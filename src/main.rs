@@ -68,8 +68,12 @@ fn spawn_cargo(
             format.verbosity.saturating_sub(1),
         ))
         // Workspace location.
-        .arg("--manifest-path")
-        .arg(&cargo.manifest_path)
+        .args(
+            cargo
+                .manifest_path
+                .iter()
+                .flat_map(|p| ["--manifest-path".as_ref(), p.as_os_str()]),
+        )
         .args(["--config", "profile.release.strip=false"])
         // Artifact selectors.
         .args(["--package", &focus_package.name])
@@ -226,12 +230,12 @@ fn main() -> anyhow::Result<()> {
         .flat_map(|x| ["-Z".to_owned(), x.clone()])
         .collect::<Vec<_>>();
 
-    let metadata = MetadataCommand::new()
-        .cargo_path(cargo_path())
-        .manifest_path(&cargo.manifest_path)
-        .other_options(unstable)
-        .no_deps()
-        .exec()?;
+    let mut metadata = MetadataCommand::new();
+    metadata.cargo_path(cargo_path());
+    if let Some(path) = &cargo.manifest_path {
+        metadata.manifest_path(path);
+    }
+    let metadata = metadata.other_options(unstable).no_deps().exec()?;
 
     #[cfg(feature = "_unstable")]
     let target_dir_to_build_dir = metadata

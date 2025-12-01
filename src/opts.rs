@@ -88,7 +88,7 @@ pub struct SelectFragment {
 #[bpaf(hide_usage)]
 pub struct Cargo {
     #[bpaf(external, hide_usage)]
-    pub manifest_path: PathBuf,
+    pub manifest_path: Option<PathBuf>,
 
     /// Override a cargo configuration value
     #[bpaf(argument("KEY=VALUE"))]
@@ -217,7 +217,7 @@ fn verbosity() -> impl Parser<usize> {
     construct!(verbose, silent).map(|(v, q)| (v + 1).saturating_sub(q))
 }
 
-fn manifest_path() -> impl Parser<PathBuf> {
+fn manifest_path() -> impl Parser<Option<PathBuf>> {
     long("manifest-path")
         .help("Path to Cargo.toml, defaults to one in current folder")
         .argument::<PathBuf>("PATH")
@@ -230,7 +230,7 @@ fn manifest_path() -> impl Parser<PathBuf> {
                     .and_then(|full_path| full_path.canonicalize())
             }
         })
-        .fallback_with(|| std::env::current_dir().map(|x| x.join("Cargo.toml")))
+        .optional()
 }
 
 #[allow(clippy::struct_excessive_bools)]
