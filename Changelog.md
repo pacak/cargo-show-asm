@@ -1,5 +1,10 @@
 # Change Log
 
+## [0.2.55] - 2025-12-01
+- support execution from subdirectories as well, similar to other cargo commands (#430)
+- bump deps
+
+
 ## [0.2.54] - 2025-11-03
 - improve label/comment parsing (#425)
   thanks @guncha
