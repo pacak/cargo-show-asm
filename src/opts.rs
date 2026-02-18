@@ -476,7 +476,7 @@ impl TryFrom<&'_ cargo_metadata::Target> for Focus {
             .ok_or_else(|| anyhow::anyhow!("No target kinds in target"))?;
         let name = target.name.clone();
         match kind {
-            T::Lib | T::RLib | T::CDyLib => Ok(Focus::Lib),
+            T::Lib | T::RLib | T::CDyLib | T::StaticLib => Ok(Focus::Lib),
             T::Test => Ok(Focus::Test(name)),
             T::Bench => Ok(Focus::Bench(name)),
             T::Example => Ok(Focus::Example(name)),
