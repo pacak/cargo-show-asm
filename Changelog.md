@@ -1,5 +1,11 @@
 # Change Log
 
+## [0.2.56] - 2026-02-18
+- try to resolve focules before complaining that there are several (#443)
+  this deals with build.rs that is a target, but not something we can focus on
+- support for powerpc-nintendo-none-eabi (#444)
+- bump deps
+
 ## [0.2.55] - 2025-12-01
 - support execution from subdirectories as well, similar to other cargo commands (#430)
 - bump deps
