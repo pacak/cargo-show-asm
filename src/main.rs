@@ -266,22 +266,27 @@ fn main() -> anyhow::Result<()> {
 
     let focus_artifact = match opts.select_fragment.focus {
         Some(ref focus) => focus.clone(),
-        None => match focus_package.targets.len() {
-            0 => anyhow::bail!("No targets found"),
-            1 => opts::Focus::try_from(&focus_package.targets[0])?,
-            _ => {
-                esafeprintln!(
-                    "{} defines multiple targets, you need to specify which one to use:",
-                    focus_package.name
-                );
-                for target in &focus_package.targets {
-                    if let Ok(focus) = opts::Focus::try_from(target) {
+        None => {
+            let candidates = focus_package
+                .targets
+                .iter()
+                .filter_map(|t| opts::Focus::try_from(t).ok())
+                .collect::<Vec<_>>();
+            match candidates.as_slice() {
+                [] => anyhow::bail!("No targets found"),
+                [c] => c.clone(),
+                xs => {
+                    esafeprintln!(
+                        "{} defines multiple targets, you need to specify which one to use:",
+                        focus_package.name
+                    );
+                    for focus in xs {
                         esafeprintln!("\t{}", focus.as_cargo_args().collect::<Vec<_>>().join(" "));
                     }
+                    anyhow::bail!("Multiple targets found")
                 }
-                anyhow::bail!("Multiple targets found")
             }
-        },
+        }
     };
 
     // Pending on this https://github.com/rust-lang/rust/pull/122597
