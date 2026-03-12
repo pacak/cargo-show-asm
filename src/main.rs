@@ -245,11 +245,16 @@ fn main() -> anyhow::Result<()> {
     #[cfg(not(feature = "_unstable"))]
     let target_dir_to_build_dir = None;
 
-    let focus_package = match opts.select_fragment.package {
-        Some(ref name) => metadata
+    let focus_package = match opts
+        .select_fragment
+        .package
+        .as_ref()
+        .map(|n| n.as_str().trim())
+    {
+        Some(name) => metadata
             .packages
             .iter()
-            .find(|p| *p.name == name.as_str())
+            .find(|p| *p.name == name || p.id.repr.as_str() == name)
             .with_context(|| format!("Package '{name}' is not found"))?,
         None if metadata.packages.len() == 1 => &metadata.packages[0],
         None => {
