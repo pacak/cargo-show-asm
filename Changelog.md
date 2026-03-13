@@ -1,8 +1,14 @@
 # Change Log
 
+## [0.2.57] - 2026-03-13
+- More support for cargo build-dir (#449)
+  thanks @ranger-ross
+- `-p` suppors both package name and package ids (#450)
+- bump deps
+
 ## [0.2.56] - 2026-02-18
-- try to resolve focules before complaining that there are several (#443)
-  this deals with build.rs that is a target, but not something we can focus on
+- try to resolve focuses before complaining that there is several of them (#443)
+  this deals with `build.rs` that a target, but not something we can focus on
 - support for powerpc-nintendo-none-eabi (#444)
 - bump deps
 
