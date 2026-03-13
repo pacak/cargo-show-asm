@@ -419,6 +419,7 @@ fn locate_asm_path_via_artifact(
             .flat_map(|iter| iter.filter_map(|entry| entry.ok()))
     };
 
+    // In Cargo's legacy build-dir layout
     // For lib, test, bench, lib-type example, `filenames` hint the file stem of the asm file.
     // We could locate asm files precisely.
     //
@@ -446,6 +447,30 @@ fn locate_asm_path_via_artifact(
             let path = path.with_file_name(path.file_name()?.to_str()?.strip_prefix("lib")?);
             if path.exists() {
                 return Some(path);
+            }
+            None
+        })
+    {
+        return Ok(path);
+    }
+
+    // In Cargo's new build-dir layout, the compiler rmeta output is in the same directory as the
+    // asm file so we can just check the current directory.
+    //
+    // `filenames`:
+    // [..]/build-dir/release/build/foo/01234567/out/libfoo-01234567.rmeta" # lib by-product
+    // Asm files:
+    // [..]/build-dir/release/build/foo/01234567/out/foo-01234567.s
+    if let Some(path) = artifact
+        .filenames
+        .iter()
+        .filter(|path| matches!(path.extension(), Some("rmeta")))
+        .find_map(|path| {
+            for entry in read_dir(build_dir(path.parent().unwrap().as_ref()).as_ref()) {
+                let asm_file = entry.path().with_extension(expect_ext);
+                if asm_file.exists() {
+                    return Some(asm_file);
+                }
             }
             None
         })
@@ -496,6 +521,9 @@ fn locate_asm_path_via_artifact(
     //
     // on windows it's xx.dll / xx.s, on MacOS it's libxx.dylib / xx.s...
     //    if artifact.target.kind.iter().any(|k| k == "cdylib") {
+    //
+    // In Cargo's new build-dir layout the asm file is in the same directory as the dylib, so we
+    // search for the dylib in the build-dir, then search for the asm in that directory.
     if let Some(cdylib_path) = artifact.filenames.iter().find(|f| {
         f.extension()
             .is_some_and(|e| ["so", "dylib", "dll"].contains(&e))
@@ -516,6 +544,22 @@ fn locate_asm_path_via_artifact(
                 }
             }
         }
+
+        // New Cargo build-dir layout
+        let build = cdylib_path.with_file_name("build");
+
+        for maybe_origin in read_dir_recursive(build.as_ref(), &build_dir) {
+            if same_contents(cdylib_path.as_ref(), &maybe_origin) {
+                // We found the dylib in the build-dir, so the asm file should be in the same
+                // directory with it. So search for the asm file.
+                for entry in read_dir(maybe_origin.parent().unwrap()) {
+                    let asm_file = entry.path().with_extension(expect_ext);
+                    if asm_file.exists() {
+                        return Ok(asm_file);
+                    }
+                }
+            }
+        }
     }
 
     // For bin or bin-type example artifacts, `filenames` provide hard-linked paths
@@ -523,6 +567,7 @@ fn locate_asm_path_via_artifact(
     // We scan all possible original artifacts by checking hard links,
     // in order to retrieve the correct extra-filename, and then locate asm files.
     //
+    // In Cargo's legacy build-dir layout
     // `filenames`, also `executable`:
     // [..]/target/debug/foobin                    <+
     // [..]/target/debug/examples/fooexample        | <+ Hard linked.
@@ -532,6 +577,17 @@ fn locate_asm_path_via_artifact(
     // Asm files:
     // [..]/target/debug/deps/foobin-01234567.s
     // [..]/target/debug/examples/fooexample-01234567.s
+    //
+    // In Cargo's new build-dir layout
+    // `filenames`, also `executable`:
+    // [..]/target/debug/foobin                                   <+
+    // [..]/target/debug/examples/fooexample                       | <+ Hard linked.
+    // Origins:                                                    |  |
+    // [..]/build-dir/debug/build/foobin/01234567/out/foobin      <+  |
+    // [..]/build-dir/debug/build/fooexample/01234567/out/fooexample <+
+    // Asm files:
+    // [..]/build-dir/debug/deps/foobin-01234567.s
+    // [..]/build-dir/debug/examples/fooexample-01234567.s
     if let Some(exe_path) = &artifact.executable {
         let parent = exe_path.parent().unwrap();
         let deps_dir = if parent.file_name() == Some("examples") {
@@ -542,6 +598,21 @@ fn locate_asm_path_via_artifact(
 
         for entry in read_dir(deps_dir.as_ref()) {
             let maybe_origin = entry.path();
+            if same_contents(exe_path.as_ref(), &maybe_origin) {
+                let asm_file = maybe_origin.with_extension(expect_ext);
+                if asm_file.exists() {
+                    return Ok(asm_file);
+                }
+            }
+        }
+
+        let build = if parent.file_name() == Some("examples") {
+            exe_path.parent().unwrap().with_file_name("build")
+        } else {
+            exe_path.with_file_name("build")
+        };
+
+        for maybe_origin in read_dir_recursive(build.as_ref(), &build_dir) {
             if same_contents(exe_path.as_ref(), &maybe_origin) {
                 let asm_file = maybe_origin.with_extension(expect_ext);
                 if asm_file.exists() {
@@ -561,6 +632,22 @@ fn locate_asm_path_via_artifact(
             .collect::<Vec<_>>()
             .join(", ")
     );
+}
+
+fn read_dir_recursive(path: &Path, build_dir: &impl Fn(&Path) -> PathBuf) -> Vec<PathBuf> {
+    build_dir(path)
+        .read_dir()
+        .ok()
+        .into_iter()
+        .flat_map(|iter| iter.filter_map(|entry| entry.ok()))
+        .flat_map(|entry| {
+            if entry.path().is_dir() {
+                read_dir_recursive(&entry.path(), build_dir).into_iter()
+            } else {
+                vec![entry.path()].into_iter()
+            }
+        })
+        .collect()
 }
 
 fn same_contents(a: &Path, b: &Path) -> bool {
