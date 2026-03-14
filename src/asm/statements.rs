@@ -6,13 +6,13 @@ use nom::multi::count;
 use nom::sequence::{delimited, pair, preceded, terminated};
 use nom::{AsChar, IResult, Parser as _};
 use owo_colors::OwoColorize;
-use std::borrow::Cow;
 use std::collections::HashSet;
-use std::path::Path;
 use std::sync::LazyLock;
 
 use crate::demangle::LabelKind;
 use crate::opts::NameDisplay;
+use crate::sources::File;
+use crate::sources::FilePath;
 use crate::{color, demangle};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -376,44 +376,6 @@ impl<'a> Loc<'a> {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum FilePath {
-    FullPath(String),
-    PathAndFileName { path: String, name: String },
-}
-
-impl FilePath {
-    pub fn as_full_path(&self) -> Cow<'_, Path> {
-        match self {
-            FilePath::FullPath(path) => Cow::Borrowed(Path::new(path)),
-            FilePath::PathAndFileName { path, name } => Cow::Owned(Path::new(path).join(name)),
-        }
-    }
-
-    /// Optionally expand `~/` to `home_dir`
-    ///
-    /// Rewritten debug paths may use `~/` for privacy, but that's not a real path,
-    /// because `~` is usually expanded by the shell.
-    pub fn as_full_path_with_home_dir(&self, home_dir: Option<&Path>) -> Cow<'_, Path> {
-        let path = self.as_full_path();
-
-        if let Some(home_dir) = home_dir {
-            if let Ok(path_in_home) = path.strip_prefix("~") {
-                return Cow::Owned(home_dir.join(path_in_home));
-            }
-        }
-
-        path
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct File<'a> {
-    pub index: u64,
-    pub path: FilePath,
-    pub md5: Option<&'a str>,
-}
-
 fn parse_quoted_string(input: &str) -> IResult<&str, String> {
     // Inverse of MCAsmStreamer::PrintQuotedString() in MCAsmStreamer.cpp in llvm.
     delimited(
@@ -512,6 +474,9 @@ impl<'a> File<'a> {
         .parse(input)
     }
 }
+
+#[cfg(test)]
+use std::path::Path;
 
 #[test]
 fn test_parse_label() {

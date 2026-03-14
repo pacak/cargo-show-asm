@@ -1,7 +1,48 @@
+use crate::cached_lines::CachedLines;
 use crate::esafeprintln;
 use crate::opts::SourcesFrom;
 use std::borrow::Cow;
 use std::path::{Display, Path, PathBuf};
+
+pub(crate) type SourceFile = (String, Option<(Source, CachedLines)>);
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct File<'a> {
+    pub index: u64,
+    pub path: FilePath,
+    pub md5: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum FilePath {
+    FullPath(String),
+    PathAndFileName { path: String, name: String },
+}
+
+impl FilePath {
+    pub fn as_full_path(&self) -> Cow<'_, Path> {
+        match self {
+            FilePath::FullPath(path) => Cow::Borrowed(Path::new(path)),
+            FilePath::PathAndFileName { path, name } => Cow::Owned(Path::new(path).join(name)),
+        }
+    }
+
+    /// Optionally expand `~/` to `home_dir`
+    ///
+    /// Rewritten debug paths may use `~/` for privacy, but that's not a real path,
+    /// because `~` is usually expanded by the shell.
+    pub fn as_full_path_with_home_dir(&self, home_dir: Option<&Path>) -> Cow<'_, Path> {
+        let path = self.as_full_path();
+
+        if let Some(home_dir) = home_dir {
+            if let Ok(path_in_home) = path.strip_prefix("~") {
+                return Cow::Owned(home_dir.join(path_in_home));
+            }
+        }
+
+        path
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum Source {

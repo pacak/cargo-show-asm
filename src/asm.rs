@@ -3,11 +3,9 @@ use crate::asm::statements::Label;
 use crate::cached_lines::CachedLines;
 use crate::demangle::LabelKind;
 pub use crate::sources::Source;
-use crate::sources::{locate_sources, path_formatter};
-use crate::{
-    CallGraph, Dumpable, Item, RawLines, URange, color, demangle, get_context_for,
-    safeprintln,
-};
+use crate::sources::{SourceFile, locate_sources, path_formatter};
+use crate::{CallGraph, Dumpable, Item, RawLines, URange};
+use crate::{color, demangle, esafeprintln, get_context_for, safeprintln};
 // TODO, use https://sourceware.org/binutils/docs/as/index.html
 use crate::opts::{Format, NameDisplay, RedundantLabels};
 
@@ -21,8 +19,6 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
-
-type SourceFile = (String, Option<(Source, CachedLines)>);
 
 pub fn parse_file(input: &str) -> anyhow::Result<Vec<Statement<'_>>> {
     // eat all statements until the eof, so we can report the proper errors on failed parse
