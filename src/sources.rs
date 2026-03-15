@@ -30,6 +30,12 @@ impl<'a> SourceFileIndex<'a> {
         }
     }
 
+    /// A source index with no workspace or sysroot roots. All paths resolve
+    /// as absolute, so `load` only finds files that exist on disk as given.
+    pub fn empty() -> Self {
+        Self::new(Path::new(""), Path::new(""))
+    }
+
     pub fn get(&self, at: u64) -> Option<&SourceFile> {
         self.index.get(&at)
     }

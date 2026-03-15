@@ -27,14 +27,16 @@ name = "cargo-asm"
 path = "src/main.rs"
 
 [dependencies]
+addr2line = { version = "0.25", optional = true }
 anyhow = "1"
 ar = { version = "0.9", optional = true }
 bpaf = { version = "0.9.26", features = ["autocomplete", "bpaf_derive"] }
 capstone = { version = "0.14", optional = true }
 cargo_metadata = "0.23.1"
+gimli = { version = "0.32", optional = true }
 line-span = "0.1"
 nom = "8"
-object = { version = "0.40", optional = true }
+object = { version = "0.37", optional = true }
 owo-colors = { version = "4", features = ["supports-colors"] }
 regex = "1"
 rustc-demangle = "0.1"
@@ -54,7 +56,7 @@ cargo-show-asm = { path = ".", features = ["disasm"] }
 default = ["_unstable", "dull-color"]
 _unstable = ["cargo_metadata/unstable"]
 bright-color = ["bpaf/bright-color"]
-disasm = ["ar", "capstone", "object"]
+disasm = ["dep:addr2line", "dep:gimli", "ar", "capstone", "object"]
 dull-color = ["bpaf/dull-color"]
 
 [lints]

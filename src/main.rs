@@ -1,8 +1,6 @@
 use anyhow::Context;
 use cargo_metadata::{Artifact, Message, MetadataCommand, Package};
 
-#[cfg(feature = "disasm")]
-use cargo_show_asm::disasm::dump_disasm;
 use cargo_show_asm::{
     asm::Asm,
     dump_function, esafeprintln,
@@ -12,6 +10,8 @@ use cargo_show_asm::{
     opts::{self, CodeSource, OutputType},
     safeprintln,
 };
+#[cfg(feature = "disasm")]
+use cargo_show_asm::{disasm::dump_disasm, sources::SourceFileIndex};
 use std::{
     io::BufReader,
     path::{Path, PathBuf},
@@ -207,7 +207,15 @@ fn main() -> anyhow::Result<()> {
                 _ => {
                     #[cfg(feature = "disasm")]
                     {
-                        dump_disasm(opts.to_dump, file, &opts.format, opts.syntax.output_style)?;
+                        // For a standalone binary file we don't know the workspace or sysroot,
+                        // so source annotation is not available.
+                        dump_disasm(
+                            opts.to_dump,
+                            file,
+                            &opts.format,
+                            opts.syntax.output_style,
+                            SourceFileIndex::empty(),
+                        )?;
                     }
                     #[cfg(not(feature = "disasm"))]
                     {
@@ -347,6 +355,7 @@ fn main() -> anyhow::Result<()> {
             &asm_path,
             &opts.format,
             opts.syntax.output_style,
+            SourceFileIndex::new(metadata.workspace_root.as_std_path(), &sysroot),
         ),
     }
 }
