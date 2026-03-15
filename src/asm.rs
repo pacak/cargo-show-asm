@@ -1,11 +1,10 @@
 #![allow(clippy::missing_errors_doc)]
 use crate::asm::statements::Label;
-use crate::cached_lines::CachedLines;
 use crate::demangle::LabelKind;
 pub use crate::sources::Source;
-use crate::sources::{SourceFile, locate_sources, path_formatter};
+use crate::sources::SourceFileIndex;
 use crate::{CallGraph, Dumpable, Item, RawLines, URange};
-use crate::{color, demangle, esafeprintln, get_context_for, safeprintln};
+use crate::{color, demangle, get_context_for, safeprintln};
 // TODO, use https://sourceware.org/binutils/docs/as/index.html
 use crate::opts::{Format, NameDisplay, RedundantLabels};
 
@@ -18,7 +17,7 @@ use statements::{Loc, parse_statement};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::ops::Range;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 pub fn parse_file(input: &str) -> anyhow::Result<Vec<Statement<'_>>> {
     // eat all statements until the eof, so we can report the proper errors on failed parse
@@ -296,7 +295,7 @@ fn scan_constant(
 }
 
 fn dump_range(
-    files: &BTreeMap<u64, SourceFile>,
+    files: &SourceFileIndex,
     fmt: &Format,
     print_range: Range<usize>,
     body: &[Statement], // full body
@@ -329,7 +328,7 @@ fn dump_range(
                 continue;
             }
             prev_loc = *loc;
-            match files.get(&loc.file) {
+            match files.get(loc.file) {
                 Some((fname, Some((source, file)))) => {
                     if source.show_for(fmt.sources_from) {
                         let pos = format!("\t\t// {fname}:{}", loc.line);
@@ -408,54 +407,6 @@ fn dump_range(
     Ok(())
 }
 
-fn load_rust_sources(
-    sysroot: &Path,
-    workspace: &Path,
-    statements: &[Statement],
-    fmt: &Format,
-    files: &mut BTreeMap<u64, SourceFile>,
-) {
-    let home_dir = std::env::home_dir();
-    let format_path = path_formatter();
-    let mut tmp = PathBuf::new();
-
-    for line in statements {
-        if let Statement::Directive(Directive::File(f)) = line {
-            files.entry(f.index).or_insert_with(|| {
-                let path = f.path.as_full_path_with_home_dir(home_dir.as_deref());
-                let pretty_path = format_path(&path, &mut tmp).to_string();
-                if fmt.verbosity > 2 {
-                    safeprintln!("Reading file #{} {}", f.index, path.display());
-                }
-
-                if let Some((source, filepath)) = locate_sources(sysroot, workspace, &path) {
-                    if fmt.verbosity > 3 {
-                        safeprintln!("Resolved name is {filepath:?}");
-                    }
-                    let sources = std::fs::read_to_string(&filepath).expect("Can't read a file");
-                    if sources.is_empty() {
-                        if fmt.verbosity > 0 {
-                            safeprintln!("Ignoring empty file {filepath:?}!");
-                        }
-                        (pretty_path, None)
-                    } else {
-                        if fmt.verbosity > 3 {
-                            safeprintln!("Got {} bytes", sources.len());
-                        }
-                        let lines = CachedLines::without_ending(sources);
-                        (pretty_path, Some((source, lines)))
-                    }
-                } else {
-                    if fmt.verbosity > 1 {
-                        safeprintln!("File not found {}", path.display());
-                    }
-                    (pretty_path, None)
-                }
-            });
-        }
-    }
-}
-
 impl RawLines for Statement<'_> {
     fn lines(&self) -> Option<&str> {
         match self {
@@ -467,17 +418,13 @@ impl RawLines for Statement<'_> {
 }
 
 pub struct Asm<'a> {
-    workspace: &'a Path,
-    sysroot: &'a Path,
-    sources: RefCell<BTreeMap<u64, SourceFile>>,
+    sources: RefCell<SourceFileIndex<'a>>,
 }
 
 impl<'a> Asm<'a> {
     pub fn new(workspace: &'a Path, sysroot: &'a Path) -> Self {
         Self {
-            workspace,
-            sysroot,
-            sources: Default::default(),
+            sources: RefCell::new(SourceFileIndex::new(workspace, sysroot)),
         }
     }
 }
@@ -532,13 +479,12 @@ impl Dumpable for Asm<'_> {
     ) -> Vec<Range<usize>> {
         let mut res = get_context_for(fmt.context, lines, range.clone(), items);
         if fmt.rust {
-            load_rust_sources(
-                self.sysroot,
-                self.workspace,
-                lines,
-                fmt,
-                &mut self.sources.borrow_mut(),
-            );
+            let sources = &mut self.sources.borrow_mut();
+            for line in lines {
+                if let Statement::Directive(Directive::File(f)) = line {
+                    sources.load(f, fmt);
+                }
+            }
         }
 
         if fmt.include_constants {

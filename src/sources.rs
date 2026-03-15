@@ -1,10 +1,105 @@
+use crate::Format;
 use crate::cached_lines::CachedLines;
-use crate::esafeprintln;
 use crate::opts::SourcesFrom;
+use crate::{esafeprintln, safeprintln};
 use std::borrow::Cow;
-use std::path::{Display, Path, PathBuf};
+use std::collections::BTreeMap;
+use std::env;
+use std::path::{Path, PathBuf};
 
 pub(crate) type SourceFile = (String, Option<(Source, CachedLines)>);
+
+pub struct SourceFileIndex<'a> {
+    workspace: &'a Path,
+    sysroot: &'a Path,
+
+    path_formatter: PathFormatter,
+    index: BTreeMap<u64, SourceFile>,
+}
+
+impl<'a> SourceFileIndex<'a> {
+    pub fn new(workspace: &'a Path, sysroot: &'a Path) -> Self {
+        Self {
+            workspace,
+            sysroot,
+            path_formatter: PathFormatter {
+                home_dir: env::home_dir(),
+                current_dir: env::current_dir().unwrap_or_default(),
+            },
+            index: Default::default(),
+        }
+    }
+
+    pub fn get(&self, at: u64) -> Option<&SourceFile> {
+        self.index.get(&at)
+    }
+
+    /// Cache sourcecode for the file if possible
+    pub fn load(&mut self, f: &File<'_>, fmt: &Format) {
+        self.index.entry(f.index).or_insert_with(|| {
+            let path = f
+                .path
+                .as_full_path_with_home_dir(self.path_formatter.home_dir.as_deref());
+            let pretty_path = self.path_formatter.format_path(&path).display().to_string();
+            if fmt.verbosity > 2 {
+                safeprintln!("Reading file #{} {}", f.index, path.display());
+            }
+
+            if let Some((source, filepath)) = locate_sources(self.sysroot, self.workspace, &path) {
+                if fmt.verbosity > 3 {
+                    safeprintln!("Resolved name is {filepath:?}");
+                }
+                let sources = std::fs::read_to_string(&filepath).expect("Can't read a file");
+                if sources.is_empty() {
+                    if fmt.verbosity > 0 {
+                        safeprintln!("Ignoring empty file {filepath:?}!");
+                    }
+                    (pretty_path, None)
+                } else {
+                    if fmt.verbosity > 3 {
+                        safeprintln!("Got {} bytes", sources.len());
+                    }
+                    let lines = CachedLines::without_ending(sources);
+                    (pretty_path, Some((source, lines)))
+                }
+            } else {
+                if fmt.verbosity > 1 {
+                    safeprintln!("File not found {}", path.display());
+                }
+                (pretty_path, None)
+            }
+        });
+    }
+}
+
+struct PathFormatter {
+    home_dir: Option<PathBuf>,
+    current_dir: PathBuf,
+}
+
+impl PathFormatter {
+    /// Trims the paths
+    fn format_path<'p>(&self, path: &'p Path) -> Cow<'p, Path> {
+        let home = if std::path::MAIN_SEPARATOR == '/' {
+            "~"
+        } else {
+            "%userprofile%"
+        };
+        if path.is_absolute() {
+            if let Ok(rel) = path.strip_prefix(&self.current_dir) {
+                return rel.into();
+            }
+            if let Some(path_in_home) = self
+                .home_dir
+                .as_ref()
+                .and_then(|home| path.strip_prefix(home).ok())
+            {
+                return Path::new(home).join(path_in_home).into();
+            }
+        }
+        return path.into();
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct File<'a> {
@@ -176,7 +271,7 @@ pub(crate) fn locate_sources(
     {
         // It does what I want as far as *nix is concerned, might not work for Windows...
         #[allow(deprecated)]
-        let mut source = std::env::home_dir().expect("No home dir?");
+        let mut source = env::home_dir().expect("No home dir?");
 
         source.push(".cargo");
         for part in path.components().skip(ix) {
@@ -189,35 +284,4 @@ pub(crate) fn locate_sources(
     }
 
     None
-}
-
-/// Returns a closure that trims the paths
-pub(crate) fn path_formatter() -> impl for<'p> Fn(&'p Path, &'p mut PathBuf) -> Display<'p> {
-    let current_dir = std::env::current_dir().unwrap_or_default();
-    let home_dir = std::env::home_dir();
-    let home = if std::path::MAIN_SEPARATOR == '/' {
-        "~"
-    } else {
-        "%userprofile%"
-    };
-    move |path, tmp| {
-        if path.is_absolute() {
-            if let Ok(rel) = path.strip_prefix(&current_dir) {
-                rel
-            } else if let Some(path_in_home) = home_dir
-                .as_ref()
-                .and_then(|home| path.strip_prefix(home).ok())
-            {
-                tmp.clear();
-                tmp.push(home);
-                tmp.push(path_in_home);
-                &*tmp
-            } else {
-                path
-            }
-        } else {
-            path
-        }
-        .display()
-    }
 }
