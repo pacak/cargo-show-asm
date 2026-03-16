@@ -87,8 +87,6 @@ impl Dumpable for Llvm {
                 }
             } else if line == "}" {
                 if let Some(mut cur) = current_item.take() {
-                    // go home clippy, you're drunk
-                    #[allow(clippy::range_plus_one)]
                     let range = cur.start..ix + 1;
                     cur.item.len = range.len();
                     res.insert(cur.item, range);
