@@ -1,7 +1,8 @@
 use crate::Format;
 use crate::cached_lines::CachedLines;
 use crate::opts::SourcesFrom;
-use crate::{esafeprintln, safeprintln};
+use crate::{color, esafeprintln, safeprintln};
+use owo_colors::OwoColorize;
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::env::{current_dir, home_dir};
@@ -103,7 +104,7 @@ impl PathFormatter {
                 return Path::new(home).join(path_in_home).into();
             }
         }
-        return path.into();
+        path.into()
     }
 }
 
@@ -165,6 +166,42 @@ impl Source {
                 SourcesFrom::ThisWorkspace | SourcesFrom::AllCrates => false,
                 SourcesFrom::AllSources => true,
             },
+        }
+    }
+}
+
+pub(crate) fn print_source_location(
+    fname: &str,
+    line: u64,
+    content: Option<&(Source, CachedLines)>,
+    verbosity: usize,
+) {
+    if content.is_none() && verbosity > 1 {
+        safeprintln!(
+            "\t\t{} {}",
+            color!("//", OwoColorize::cyan),
+            color!(
+                "Can't locate the file, please open a ticket with cargo-show-asm",
+                OwoColorize::red
+            ),
+        );
+    }
+    let pos = format!("\t\t// {fname}:{line}");
+    safeprintln!("{}", color!(pos, OwoColorize::cyan));
+    if let Some((_, cached)) = content {
+        if let Some(src_line) = cached.get(line as usize - 1) {
+            safeprintln!(
+                "\t\t{}",
+                color!(src_line.trim_start(), OwoColorize::bright_red)
+            );
+        } else {
+            safeprintln!(
+                "\t\t{}",
+                color!(
+                    "Corrupted rust-src installation? Try re-adding rust-src component.",
+                    OwoColorize::red
+                )
+            );
         }
     }
 }
