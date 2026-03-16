@@ -2,16 +2,15 @@
 use crate::asm::statements::Label;
 use crate::demangle::LabelKind;
 pub use crate::sources::Source;
-use crate::sources::SourceFileIndex;
+use crate::sources::{SourceFileIndex, print_source_location};
 use crate::{CallGraph, Dumpable, Item, RawLines, URange};
-use crate::{color, demangle, get_context_for, safeprintln};
+use crate::{demangle, get_context_for, safeprintln};
 // TODO, use https://sourceware.org/binutils/docs/as/index.html
 use crate::opts::{Format, NameDisplay, RedundantLabels};
 
 mod statements;
 
 use nom::Parser as _;
-use owo_colors::OwoColorize;
 pub use statements::{Directive, GenericDirective, Instruction, Statement};
 use statements::{Loc, parse_statement};
 use std::cell::RefCell;
@@ -329,39 +328,11 @@ fn dump_range(
             }
             prev_loc = *loc;
             match files.get(loc.file) {
-                Some((fname, Some((source, file)))) => {
-                    if source.show_for(fmt.sources_from) {
-                        let pos = format!("\t\t// {fname}:{}", loc.line);
-                        safeprintln!("{}", color!(pos, OwoColorize::cyan));
-                        if let Some(rust_line) = &file.get(loc.line as usize - 1) {
-                            safeprintln!(
-                                "\t\t{}",
-                                color!(rust_line.trim_start(), OwoColorize::bright_red)
-                            );
-                        } else {
-                            safeprintln!(
-                                "\t\t{}",
-                                color!(
-                                    "Corrupted rust-src installation? Try re-adding rust-src component.",
-                                    OwoColorize::red
-                                )
-                            );
-                        }
+                Some((fname, content)) => {
+                    let content = content.as_ref();
+                    if content.is_none_or(|(source, _)| source.show_for(fmt.sources_from)) {
+                        print_source_location(fname, loc.line, content, fmt.verbosity);
                     }
-                }
-                Some((fname, None)) => {
-                    if fmt.verbosity > 1 {
-                        safeprintln!(
-                            "\t\t{} {}",
-                            color!("//", OwoColorize::cyan),
-                            color!(
-                                "Can't locate the file, please open a ticket with cargo-show-asm",
-                                OwoColorize::red
-                            ),
-                        );
-                    }
-                    let pos = format!("\t\t// {fname}:{}", loc.line);
-                    safeprintln!("{}", color!(pos, OwoColorize::cyan));
                 }
                 None => {
                     anyhow::bail!("DWARF file refers to an undefined location {loc:?}");

@@ -4,7 +4,7 @@ use crate::{
     esafeprintln,
     opts::{Format, NameDisplay, OutputStyle, ToDump},
     pick_dump_item, safeprintln,
-    sources::{File, SourceFileIndex},
+    sources::{File, SourceFileIndex, print_source_location},
 };
 use addr2line::Location;
 use anyhow::Context as _;
@@ -380,17 +380,7 @@ impl<'a> SourceDisplay<'a> {
         }
 
         self.prev_loc = Some((file.index, line));
-
-        let pos = format!("\t\t// {display_path}:{line}");
-        safeprintln!("{}", color!(pos, OwoColorize::cyan));
-        if let Some((_, cached)) = content {
-            if let Some(src_line) = cached.get(line as usize - 1) {
-                safeprintln!(
-                    "\t\t{}",
-                    color!(src_line.trim_start(), OwoColorize::bright_red)
-                );
-            }
-        }
+        print_source_location(display_path, line, content.as_ref(), self.fmt.verbosity);
         true
     }
 }
