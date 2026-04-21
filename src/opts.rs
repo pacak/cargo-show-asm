@@ -513,8 +513,7 @@ impl Focus {
         let (kind, name) = self.as_parts();
         let somewhat_matches =
             kind == "lib" && artifact.target.is_rlib() || artifact.target.is_cdylib();
-        let kind = <cargo_metadata::TargetKind as std::str::FromStr>::from_str(kind)
-            .expect("cargo_metadata made me do it");
+        let Ok(kind) = <cargo_metadata::TargetKind as std::str::FromStr>::from_str(kind);
         let kind_matches = artifact.target.kind.contains(&kind);
         (somewhat_matches || kind_matches) && name.is_none_or(|name| artifact.target.name == *name)
     }
