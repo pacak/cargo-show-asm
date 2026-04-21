@@ -364,7 +364,7 @@ fn dump_range(
                     safeprintln!("{}", color!(pos, OwoColorize::cyan));
                 }
                 None => {
-                    panic!("DWARF file refers to an undefined location {loc:?}");
+                    anyhow::bail!("DWARF file refers to an undefined location {loc:?}");
                 }
             }
             empty_line = false;

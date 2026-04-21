@@ -395,7 +395,10 @@ fn cargo_to_asm_path(
             {
                 rlib.into()
             } else {
-                todo!("{:?}", artifact);
+                anyhow::bail!(
+                    "Looking for an executable or an rlib file to work on, got {:?} instead.",
+                    artifact
+                );
             }
         }
     };
