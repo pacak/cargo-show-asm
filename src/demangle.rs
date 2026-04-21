@@ -3,7 +3,7 @@
 
 use crate::{color, opts::NameDisplay};
 use owo_colors::OwoColorize;
-use regex::{Regex, RegexSet, Replacer};
+use regex::{Regex, Replacer};
 use rustc_demangle::Demangle;
 use std::{borrow::Cow, sync::LazyLock};
 
@@ -42,9 +42,6 @@ pub(self) const GLOBAL_LABELS_REGEX: &str = r"\b_?(_[a-zA-Z0-9_$\.]+)";
 // Note: this rejects "labels" like `H.Lfoo` but accepts `.Lexception` and `[some + .Label]`
 pub(self) const LOCAL_LABELS_REGEX: &str = r"(?:[^\w\d\$\.]|^)(\.L[a-zA-Z0-9_\$\.]+|\bLBB[0-9_]+)";
 
-// temporary labels
-pub(self) const TEMP_LABELS_REGEX: &str = r"\b(Ltmp[0-9]+)\b";
-
 pub(self) fn global_labels_reg() -> &'static Regex {
     static GLOBAL_LABELS: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(GLOBAL_LABELS_REGEX).expect("regexp should be valid"));
@@ -55,14 +52,6 @@ pub(self) fn local_labels_reg() -> &'static Regex {
     static LOCAL_LABELS: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(LOCAL_LABELS_REGEX).expect("regexp should be valid"));
     &LOCAL_LABELS
-}
-
-pub(self) fn label_kinds_reg() -> &'static RegexSet {
-    static LABEL_KINDS: LazyLock<RegexSet> = LazyLock::new(|| {
-        RegexSet::new([LOCAL_LABELS_REGEX, GLOBAL_LABELS_REGEX, TEMP_LABELS_REGEX])
-            .expect("regexp should be valid")
-    });
-    &LABEL_KINDS
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -93,11 +82,17 @@ pub(crate) fn local_labels(input: &str) -> impl Iterator<Item = &str> {
 
 #[must_use]
 pub fn label_kind(input: &str) -> LabelKind {
-    match label_kinds_reg().matches(input).into_iter().next() {
-        Some(1) => LabelKind::Global,
-        Some(0) => LabelKind::Local,
-        Some(2) => LabelKind::Temp,
-        _ => LabelKind::Unknown,
+    if input.starts_with(".L") || input.starts_with("LBB") {
+        // Local labels: .L... or LBB...
+        LabelKind::Local
+    } else if input.starts_with("Ltmp") {
+        // Temp labels: LtmpN
+        LabelKind::Temp
+    } else if input.starts_with('_') {
+        // Global labels: start with _ (but not .L or LBB which are local)
+        LabelKind::Global
+    } else {
+        LabelKind::Unknown
     }
 }
 
