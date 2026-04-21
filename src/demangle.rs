@@ -5,7 +5,7 @@ use crate::{color, opts::NameDisplay};
 use owo_colors::OwoColorize;
 use regex::{Regex, RegexSet, Replacer};
 use rustc_demangle::Demangle;
-use std::{borrow::Cow, sync::OnceLock};
+use std::{borrow::Cow, sync::LazyLock};
 
 #[must_use]
 pub fn name(input: &str) -> Option<String> {
@@ -44,21 +44,23 @@ pub(self) const LOCAL_LABELS_REGEX: &str = r"(?:[^\w\d\$\.]|^)(\.L[a-zA-Z0-9_\$\
 pub(self) const TEMP_LABELS_REGEX: &str = r"\b(Ltmp[0-9]+)\b";
 
 pub(self) fn global_labels_reg() -> &'static Regex {
-    static GLOBAL_LABELS: OnceLock<Regex> = OnceLock::new();
-    GLOBAL_LABELS.get_or_init(|| Regex::new(GLOBAL_LABELS_REGEX).expect("regexp should be valid"))
+    static GLOBAL_LABELS: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(GLOBAL_LABELS_REGEX).expect("regexp should be valid"));
+    &GLOBAL_LABELS
 }
 
 pub(self) fn local_labels_reg() -> &'static Regex {
-    static LOCAL_LABELS: OnceLock<Regex> = OnceLock::new();
-    LOCAL_LABELS.get_or_init(|| Regex::new(LOCAL_LABELS_REGEX).expect("regexp should be valid"))
+    static LOCAL_LABELS: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(LOCAL_LABELS_REGEX).expect("regexp should be valid"));
+    &LOCAL_LABELS
 }
 
 pub(self) fn label_kinds_reg() -> &'static RegexSet {
-    static LABEL_KINDS: OnceLock<RegexSet> = OnceLock::new();
-    LABEL_KINDS.get_or_init(|| {
+    static LABEL_KINDS: LazyLock<RegexSet> = LazyLock::new(|| {
         RegexSet::new([LOCAL_LABELS_REGEX, GLOBAL_LABELS_REGEX, TEMP_LABELS_REGEX])
             .expect("regexp should be valid")
-    })
+    });
+    &LABEL_KINDS
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

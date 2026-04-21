@@ -16,19 +16,19 @@ use std::{
     io::BufReader,
     path::{Path, PathBuf},
     process::{Child, Stdio},
-    sync::OnceLock,
+    sync::LazyLock,
 };
 
 fn cargo_path() -> &'static Path {
-    static CARGO_PATH: OnceLock<PathBuf> = OnceLock::new();
-    CARGO_PATH
-        .get_or_init(|| std::env::var_os("CARGO").map_or_else(|| "cargo".into(), PathBuf::from))
+    static CARGO_PATH: LazyLock<PathBuf> =
+        LazyLock::new(|| std::env::var_os("CARGO").map_or_else(|| "cargo".into(), PathBuf::from));
+    &CARGO_PATH
 }
 
 fn rust_path() -> &'static Path {
-    static RUSTC_PATH: OnceLock<PathBuf> = OnceLock::new();
-    RUSTC_PATH
-        .get_or_init(|| std::env::var_os("RUSTC").map_or_else(|| "rustc".into(), PathBuf::from))
+    static RUSTC_PATH: LazyLock<PathBuf> =
+        LazyLock::new(|| std::env::var_os("RUSTC").map_or_else(|| "rustc".into(), PathBuf::from));
+    &RUSTC_PATH
 }
 
 #[cfg(not(feature = "disasm"))]

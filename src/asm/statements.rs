@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 use std::path::Path;
-use std::sync::OnceLock;
+use std::sync::LazyLock;
 
 use nom::branch::alt;
 use nom::bytes::complete::{escaped_transform, tag, take_while1, take_while_m_n};
@@ -54,15 +54,14 @@ impl<'a> Instruction<'a> {
 }
 
 fn parse_data_dec(input: &str) -> IResult<&str, Directive<'_>> {
-    static DATA_DEC: OnceLock<Regex> = OnceLock::new();
-    // all of those can insert something as well... Not sure if it's a full list or not
-    // .long, .short .octa, .quad, .word,
-    // .single .double .float
-    // .ascii, .asciz, .string, .string8 .string16 .string32 .string64
-    // .2byte .4byte .8byte
-    // .dc
-    // .inst .insn
-    let reg = DATA_DEC.get_or_init(|| {
+    static DATA_DEC: LazyLock<Regex> = LazyLock::new(|| {
+        // all of those can insert something as well... Not sure if it's a full list or not
+        // .long, .short .octa, .quad, .word,
+        // .single .double .float
+        // .ascii, .asciz, .string, .string8 .string16 .string32 .string64
+        // .2byte .4byte .8byte
+        // .dc
+        // .inst .insn
         // regexp is inspired by the compiler explorer
         Regex::new(
             "^\\s*\\.(ascii|asciz|[1248]?byte|dc(?:\\.[abdlswx])?|dcb(?:\\.[bdlswx])?\
@@ -72,7 +71,7 @@ fn parse_data_dec(input: &str) -> IResult<&str, Directive<'_>> {
         .expect("regexp should be valid")
     });
 
-    let Some(cap) = reg.captures(input) else {
+    let Some(cap) = DATA_DEC.captures(input) else {
         use nom::error::*;
         return Err(nom::Err::Error(Error::new(input, ErrorKind::Eof)));
     };
