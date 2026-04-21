@@ -1,5 +1,13 @@
 # Change Log
 
+## [0.2.58] - 2026-05-21
+- a bunch of small optimizations, but it should run 60%ish faster now
+- a bunch more small improvements in general - less unwraps, better
+  error messages if something can happen in theory.
+- a redundant allow(clippy) removal - clippy is smarter now
+  thanks @alexander-t-haselton
+- bump deps (as usual)
+
 ## [0.2.57] - 2026-03-13
 - More support for cargo build-dir (#449)
   thanks @ranger-ross
