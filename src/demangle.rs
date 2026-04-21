@@ -14,13 +14,15 @@ pub fn name(input: &str) -> Option<String> {
 
 #[must_use]
 pub fn demangled(input: &str) -> Option<Demangle<'_>> {
-    let name = if input.starts_with("__") {
-        #[allow(clippy::string_slice)]
-        rustc_demangle::try_demangle(&input[1..]).ok()?
+    // Skip expensive demangling for labels that clearly aren't Rust mangled names (e.g.,
+    // .Lfunc_begin0, .LBB0_0, .LCPI0_0, etc.)
+    if !input.starts_with("_") {
+        None
+    } else if input.starts_with("__") {
+        rustc_demangle::try_demangle(&input[1..]).ok()
     } else {
-        rustc_demangle::try_demangle(input).ok()?
-    };
-    Some(name)
+        rustc_demangle::try_demangle(input).ok()
+    }
 }
 
 pub(self) const GLOBAL_LABELS_REGEX: &str = r"\b_?(_[a-zA-Z0-9_$\.]+)";
