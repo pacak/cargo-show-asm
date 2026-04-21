@@ -227,7 +227,7 @@ fn dump_slices(
 
     let max_width = insns.iter().map(|i| i.len()).max().unwrap_or(1);
 
-    // flow control related addresses referred by each instruction
+    // branch target addresses for local labels
     let addrs = insns
         .iter()
         .map(|insn| {
@@ -238,8 +238,8 @@ fn dump_slices(
                     .iter()
                     .any(|g| matches!(cs.group_name(*g).as_deref(), Some("call" | "jump")))
             }) {
-                let r = get_reference(&cs, insn)?;
-                (r != insn.address() + insn.len() as u64).then_some(r)
+                get_branch_target(&cs, insn)
+                    .filter(|addr| *addr != insn.address() + insn.len() as u64)
             } else {
                 None
             }
@@ -314,7 +314,12 @@ fn dump_slices(
     Ok(())
 }
 
-fn get_reference(cs: &Capstone, insn: &Insn) -> Option<u64> {
+/// Extract the target address from a call/jump instruction with an immediate operand.
+///
+/// Returns `None` for indirect branches (through memory or registers) since their
+/// targets can't be resolved at disassembly time. GOT calls like `jmp [rip]` are
+/// resolved via relocation instead.
+fn get_branch_target(cs: &Capstone, insn: &Insn) -> Option<u64> {
     use capstone::arch::{
         arm64::Arm64OperandType, x86::X86OperandType, ArchDetail, DetailsArchInsn,
     };
@@ -322,28 +327,12 @@ fn get_reference(cs: &Capstone, insn: &Insn) -> Option<u64> {
     match details.arch_detail() {
         ArchDetail::X86Detail(x86) => match x86.operands().next()?.op_type {
             X86OperandType::Imm(rel) => Some(rel.try_into().unwrap()),
-            X86OperandType::Mem(mem) => {
-                assert_eq!(mem.scale(), 1);
-                if mem.disp() == 0 {
-                    (insn.address() + insn.len() as u64).checked_add_signed(mem.disp())
-                } else {
-                    None
-                }
-            }
-            _ => None, // ¯\_ (ツ)_/¯
+            _ => None,
         },
 
-        // I have no idea what I'm doing here :)
         ArchDetail::Arm64Detail(arm) => match arm.operands().next()?.op_type {
             Arm64OperandType::Imm(rel) => Some(rel.try_into().unwrap()),
-            Arm64OperandType::Mem(mem) => {
-                if mem.disp() == 0 {
-                    (insn.address() + insn.len() as u64).checked_add_signed(mem.disp() as i64)
-                } else {
-                    None
-                }
-            }
-            _ => None, // ¯\_ (ツ)_/¯
+            _ => None,
         },
 
         _ => None,
