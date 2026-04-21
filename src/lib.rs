@@ -140,7 +140,7 @@ pub fn suggest_name<'a>(
 
     #[allow(clippy::cast_sign_loss)]
     #[allow(clippy::cast_precision_loss)]
-    let width = (count as f64).log10().ceil() as usize;
+    let width = (count.max(1) as f64).log10().ceil() as usize;
 
     let mut ix = 0;
     for (name, lens) in &names {
