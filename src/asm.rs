@@ -229,10 +229,6 @@ fn handle_non_mangled_labels(
                 get_item_in_section(ix, label, ss.strip_prefix(".text.")?, false)
             }
         }
-        //        Some(Statement::Directive(Directive::Generic(GenericDirective(g)))) => {
-        // macOS symbols after the first are matched here.
-        //            get_item_in_section(PrefixKind::Global, ix, label, g, true)
-        //        }
         Some(Statement::Directive(Directive::Global(g))) => get_item_in_section(ix, label, g, true),
         _ => None,
     }
