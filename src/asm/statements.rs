@@ -1,7 +1,3 @@
-use std::borrow::Cow;
-use std::path::Path;
-use std::sync::LazyLock;
-
 use nom::branch::alt;
 use nom::bytes::complete::{escaped_transform, tag, take_while1, take_while_m_n};
 use nom::character::complete::{self, newline, none_of, not_line_ending, one_of, space0, space1};
@@ -10,7 +6,10 @@ use nom::multi::count;
 use nom::sequence::{delimited, pair, preceded, terminated};
 use nom::{AsChar, IResult, Parser as _};
 use owo_colors::OwoColorize;
-use regex::Regex;
+use std::borrow::Cow;
+use std::collections::HashSet;
+use std::path::Path;
+use std::sync::LazyLock;
 
 use crate::demangle::LabelKind;
 use crate::opts::NameDisplay;
@@ -53,35 +52,52 @@ impl<'a> Instruction<'a> {
     }
 }
 
-fn parse_data_dec(input: &str) -> IResult<&str, Directive<'_>> {
-    static DATA_DEC: LazyLock<Regex> = LazyLock::new(|| {
-        // all of those can insert something as well... Not sure if it's a full list or not
-        // .long, .short .octa, .quad, .word,
-        // .single .double .float
-        // .ascii, .asciz, .string, .string8 .string16 .string32 .string64
-        // .2byte .4byte .8byte
-        // .dc
-        // .inst .insn
-        // regexp is inspired by the compiler explorer
-        Regex::new(
-            "^\\s*\\.(ascii|asciz|[1248]?byte|dc(?:\\.[abdlswx])?|dcb(?:\\.[bdlswx])?\
-            |ds(?:\\.[bdlpswx])?|double|dword|fill|float|half|hword|int|long|octa|quad|\
-            short|single|skip|space|string(?:8|16|32|64)?|value|word|xword|zero)\\s+([^\\n]+)",
-        )
-        .expect("regexp should be valid")
-    });
+// All data directive names the original regex matched
+static DATA_DIRS: LazyLock<HashSet<&str>> = LazyLock::new(|| {
+    // all of those can insert something as well... Not sure if it's a full list or not
+    // .long, .short .octa, .quad, .word,
+    // .single .double .float
+    // .ascii, .asciz, .string, .string8 .string16 .string32 .string64
+    // .2byte .4byte .8byte
+    // .dc
+    // .inst .insn
 
-    let Some(cap) = DATA_DEC.captures(input) else {
+    [
+        "string64", "string32", "string16", "string8", "dcb.x", "dcb.w", "dcb.s", "dcb.l", "dcb.d",
+        "dcb.b", "ds.x", "ds.w", "ds.s", "ds.p", "ds.l", "ds.d", "ds.b", "dc.x", "dc.w", "dc.s",
+        "dc.l", "dc.d", "dc.a", "dc.b", "8byte", "4byte", "2byte", "byte", "xword", "value",
+        "zero", "word", "skip", "single", "string", "space", "short", "quad", "octa", "long",
+        "int", "hword", "half", "float", "fill", "dword", "double", "dc", "ds", "dcb", "asciz",
+        "ascii",
+    ]
+    .into_iter()
+    .collect()
+});
+
+fn parse_data_dec(input: &str) -> IResult<&str, Directive<'_>> {
+    let trimmed = input.trim_start();
+    let Some(rest) = trimmed.strip_prefix('.') else {
         use nom::error::*;
         return Err(nom::Err::Error(Error::new(input, ErrorKind::Eof)));
     };
-    let (Some(instr), Some(data)) = (cap.get(1), cap.get(2)) else {
-        panic!("regexp should be valid and capture found something");
-    };
-    Ok((
-        &input[data.range().end..],
-        Directive::Data(instr.as_str(), data.as_str()),
-    ))
+
+    let word_end = rest.find([' ', '\t']).unwrap_or(rest.len());
+    let directive = &rest[..word_end];
+
+    if !DATA_DIRS.contains(&directive) {
+        use nom::error::*;
+        return Err(nom::Err::Error(Error::new(input, ErrorKind::Eof)));
+    }
+
+    let after_directive = &rest[word_end..];
+    let after_ws = after_directive.trim_start();
+    let data_end = after_ws.find('\n').unwrap_or(after_ws.len());
+    let data = &after_ws[..data_end];
+
+    let leading_ws = input.len() - trimmed.len();
+    let consumed = leading_ws + 1 + rest.len() - after_ws.len() + data.len();
+
+    Ok((&input[consumed..], Directive::Data(directive, data)))
 }
 
 impl Statement<'_> {
