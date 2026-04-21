@@ -6,7 +6,7 @@ fn check_target_dir(path: PathBuf) -> anyhow::Result<PathBuf> {
     if path.is_dir() {
         Ok(path)
     } else {
-        std::fs::create_dir(&path)?;
+        std::fs::create_dir_all(&path)?;
         Ok(std::fs::canonicalize(path)?)
     }
 }
