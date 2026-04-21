@@ -658,6 +658,11 @@ fn read_dir_recursive(path: &Path, build_dir: &impl Fn(&Path) -> PathBuf) -> Vec
         .collect()
 }
 
+/// Check if files have the same contents
+///
+/// Before that we check if they are the same according to hardlinks (sorry filesystems with no
+/// hardlinks, you are not real), and before reading files - we check if sizes are the same - files
+/// are likely identical.
 fn same_contents(a: &Path, b: &Path) -> bool {
     same_file::is_same_file(a, b).unwrap_or(false)
         || (std::fs::metadata(a)
