@@ -374,8 +374,8 @@ fn dump_range(
         }) = line
         {
             match fmt.redundant_labels {
-                // We always include used labels and labels at the very
-                // beginning of the fragment - those are used for data declarations
+                // We always include used labels and labels at the start
+                // of the fragment - those are used for data declarations
                 _ if ix == 0 || used.contains(id) => {
                     safeprintln!("{line}");
                 }
