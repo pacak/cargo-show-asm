@@ -1,6 +1,10 @@
 # Change Log
 
-## [0.2.58] - 2026-05-21
+## [0.2.59] - 2026-05-02
+- support for instructions with '+' in it (#460)
+- bump deps
+
+## [0.2.58] - 2026-04-21
 - a bunch of small optimizations, but it should run 60%ish faster now
 - a bunch more small improvements in general - less unwraps, better
   error messages if something can happen in theory.
