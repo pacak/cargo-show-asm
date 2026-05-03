@@ -532,13 +532,13 @@ fn write_updated(new_val: &str, path: impl AsRef<std::path::Path>) -> std::io::R
         .open(path)?;
     let mut current_val = String::new();
     file.read_to_string(&mut current_val)?;
-    if current_val != new_val {
+    if current_val == new_val {
+        Ok(true)
+    } else {
         file.set_len(0)?;
         file.seek(std::io::SeekFrom::Start(0))?;
         std::io::Write::write_all(&mut file, new_val.as_bytes())?;
         Ok(false)
-    } else {
-        Ok(true)
     }
 }
 
