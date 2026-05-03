@@ -13,6 +13,7 @@ use object::{
 use owo_colors::OwoColorize;
 use std::{
     collections::{BTreeMap, BTreeSet},
+    fmt::Write as _,
     path::Path,
 };
 
@@ -290,7 +291,6 @@ fn dump_slices(
 
         if let Some(id) = maddr.and_then(|a| local_labels.get(&a)) {
             buf.clear();
-            use std::fmt::Write;
             write!(
                 buf,
                 "{}{}",
