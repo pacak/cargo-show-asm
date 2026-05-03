@@ -4,17 +4,27 @@ version = "0.2.59"
 edition = "2021"
 rust-version = "1.86"
 description = "A cargo subcommand that displays the generated assembly of Rust source code."
-categories = ["development-tools::cargo-plugins", "development-tools::debugging"]
-keywords = ["assembly", "plugins", "cargo"]
-repository = "https://github.com/pacak/cargo-show-asm"
-homepage = "https://github.com/pacak/cargo-show-asm"
 readme = "README.md"
+homepage = "https://github.com/pacak/cargo-show-asm"
+repository = "https://github.com/pacak/cargo-show-asm"
 license = "MIT OR Apache-2.0"
+keywords = ["assembly", "cargo", "plugins"]
+categories = [
+  "development-tools::cargo-plugins",
+  "development-tools::debugging"
+]
+
+[workspace.metadata.cauwugo]
+bpaf = true
+
+[[bin]]
+name = "cargo-asm"
+path = "src/main.rs"
 
 [dependencies]
 anyhow = "1"
 ar = { version = "0.9", optional = true }
-bpaf = { version = "0.9.25", features = ["bpaf_derive", "autocomplete"] }
+bpaf = { version = "0.9.25", features = ["autocomplete", "bpaf_derive"] }
 capstone = { version = "0.14", optional = true }
 cargo_metadata = "0.23.1"
 line-span = "0.1"
@@ -28,25 +38,21 @@ serde = "1.0.216"
 supports-color = "3.0"
 
 [dev-dependencies]
-bpaf = { version = "0.9.25", features = ["bpaf_derive", "autocomplete", "docgen"] }
+bpaf = { version = "0.9.25", features = [
+  "autocomplete",
+  "bpaf_derive",
+  "docgen"
+] }
 cargo-show-asm = { path = ".", features = ["disasm"] }
 
-
 [features]
-default = ["dull-color", "_unstable"]
+default = ["_unstable", "dull-color"]
+_unstable = ["cargo_metadata/unstable"]
 bright-color = ["bpaf/bright-color"]
 disasm = ["ar", "capstone", "object"]
 dull-color = ["bpaf/dull-color"]
-_unstable = ["cargo_metadata/unstable"]
-
-[[bin]]
-name = "cargo-asm"
-path = "src/main.rs"
-
-[workspace.metadata.cauwugo]
-bpaf = true
 
 [profile.release-lto]
+inherits = "release"
 lto = true
 codegen-units = 1
-inherits = "release"
