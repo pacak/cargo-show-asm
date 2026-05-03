@@ -11,8 +11,11 @@ license = "MIT OR Apache-2.0"
 keywords = ["assembly", "cargo", "plugins"]
 categories = [
   "development-tools::cargo-plugins",
-  "development-tools::debugging"
+  "development-tools::debugging",
 ]
+
+[workspace.lints.clippy]
+if_not_else = "warn"
 
 [workspace.metadata.cauwugo]
 bpaf = true
@@ -41,7 +44,7 @@ supports-color = "3.0"
 bpaf = { version = "0.9.25", features = [
   "autocomplete",
   "bpaf_derive",
-  "docgen"
+  "docgen",
 ] }
 cargo-show-asm = { path = ".", features = ["disasm"] }
 
@@ -51,6 +54,9 @@ _unstable = ["cargo_metadata/unstable"]
 bright-color = ["bpaf/bright-color"]
 disasm = ["ar", "capstone", "object"]
 dull-color = ["bpaf/dull-color"]
+
+[lints]
+workspace = true
 
 [profile.release-lto]
 inherits = "release"
