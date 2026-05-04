@@ -16,7 +16,7 @@ pub fn name(input: &str) -> Option<String> {
 pub fn demangled(input: &str) -> Option<Demangle<'_>> {
     // Skip expensive demangling for labels that clearly aren't Rust mangled names (e.g.,
     // .Lfunc_begin0, .LBB0_0, .LCPI0_0, etc.)
-    if !input.starts_with("_") {
+    if !input.starts_with('_') {
         None
     } else if input.starts_with("__") {
         rustc_demangle::try_demangle(&input[1..]).ok()
