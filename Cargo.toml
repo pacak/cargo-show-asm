@@ -17,6 +17,7 @@ categories = [
 [workspace.lints.clippy]
 if_not_else = "warn"
 items_after_statements = "warn"
+wildcard_imports = "warn"
 
 [workspace.metadata.cauwugo]
 bpaf = true
