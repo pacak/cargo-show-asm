@@ -77,7 +77,7 @@ static DATA_DIRS: LazyLock<HashSet<&str>> = LazyLock::new(|| {
 fn parse_data_dec(input: &str) -> IResult<&str, Directive<'_>> {
     let trimmed = input.trim_start();
     let Some(rest) = trimmed.strip_prefix('.') else {
-        use nom::error::*;
+        use nom::error::{Error, ErrorKind};
         return Err(nom::Err::Error(Error::new(input, ErrorKind::Eof)));
     };
 
@@ -85,7 +85,7 @@ fn parse_data_dec(input: &str) -> IResult<&str, Directive<'_>> {
     let directive = &rest[..word_end];
 
     if !DATA_DIRS.contains(&directive) {
-        use nom::error::*;
+        use nom::error::{Error, ErrorKind};
         return Err(nom::Err::Error(Error::new(input, ErrorKind::Eof)));
     }
 
