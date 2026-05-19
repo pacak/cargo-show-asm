@@ -29,7 +29,7 @@ path = "src/main.rs"
 [dependencies]
 anyhow = "1"
 ar = { version = "0.9", optional = true }
-bpaf = { version = "0.9.25", features = ["autocomplete", "bpaf_derive"] }
+bpaf = { version = "0.9.26", features = ["autocomplete", "bpaf_derive"] }
 capstone = { version = "0.14", optional = true }
 cargo_metadata = "0.23.1"
 line-span = "0.1"
@@ -43,7 +43,7 @@ serde = "1.0.216"
 supports-color = "3.0"
 
 [dev-dependencies]
-bpaf = { version = "0.9.25", features = [
+bpaf = { version = "0.9.26", features = [
   "autocomplete",
   "bpaf_derive",
   "docgen",
