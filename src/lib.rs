@@ -2,7 +2,6 @@
 
 use opts::{Format, NameDisplay, ToDump};
 use std::{
-    array,
     collections::{BTreeMap, BTreeSet},
     ops::Range,
     path::{Path, PathBuf},
@@ -188,14 +187,14 @@ pub fn pick_dump_item<K: Clone>(
                 .filter(|(item, _range)| item.name.contains(&function))
                 .collect::<Vec<_>>();
 
-            let range = if nth.is_none() && filtered.len() == 1 {
-                filtered
-                    .first()
-                    .expect("Must have one item as checked above")
-                    .1
-                    .clone()
-            } else if let Some(range) = nth.and_then(|nth| filtered.get(nth)) {
-                range.1.clone()
+            let range = if nth.is_none()
+                && let &[(_, range)] = filtered.as_slice()
+            {
+                range.clone()
+            } else if let Some(ix) = nth
+                && let Some((_, range)) = filtered.get(ix)
+            {
+                (*range).clone()
             } else if let Some(value) = nth {
                 let filtered = filtered.len();
                 esafeprintln!(
@@ -214,10 +213,11 @@ pub fn pick_dump_item<K: Clone>(
         }
 
         ToDump::Unspecified => {
-            let mut items_values = items.values();
-            if let [Some(item), None] = array::from_fn(|_| items_values.next()) {
+            if items.len() == 1
+                && let Some((_, value)) = items.first_key_value()
+            {
                 // Automatically pick an item if only one is found
-                Some(item.clone())
+                Some(value.clone())
             } else {
                 // Otherwise, print suggestions and exit
                 let items = items.keys();
