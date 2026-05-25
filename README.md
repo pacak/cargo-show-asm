@@ -30,7 +30,7 @@ $ cargo install cargo-show-asm
 
 Show the code rustc generates for any function
 
-**Usage**: **`cargo asm`** \[**`-p`**=_`SPEC`_\] \[_`ARTIFACT`_\] \[**`-M`**=_`ARG`_\]... \[_`TARGET-CPU`_\] \[**`--rust`**\] \[**`-c`**=_`COUNT`_\] \[**`--simplify`**\] \[**`--include-constants`**\] \[**`--this-workspace`** | **`--all-crates`** | **`--all-sources`**\] _`OUTPUT-FORMAT`_ \[**`--everything`** | _`FUNCTION`_ \[_`INDEX`_\]\]
+**Usage**: **`cargo asm`** \[**`-p`**=_`SPEC`_\] \[_`ARTIFACT`_\] \[**`-M`**=_`ARG`_\]... \[_`TARGET-CPU`_\] \[**`--rust`**\] \[**`-c`**=_`COUNT`_\] \[**`--simplify`**\] \[**`--include-constants`**\] \[**`--json`**\] \[**`--this-workspace`** | **`--all-crates`** | **`--all-sources`**\] _`OUTPUT-FORMAT`_ \[**`--everything`** | _`FUNCTION`_ \[_`INDEX`_\]\]
 
  Usage:
  1. Focus on a single assembly producing target:
@@ -143,6 +143,8 @@ Show the code rustc generates for any function
   Include sections containing string literals and other constants
 - **`-b`**, **`--keep-blank`** &mdash; 
   Keep blank lines
+- **`    --json`** &mdash; 
+  Output item list as JSON instead of human-readable format
 - **`    --this-workspace`** &mdash; 
   Show rust sources from current workspace only
 - **`    --all-crates`** &mdash; 

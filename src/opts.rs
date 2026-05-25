@@ -268,6 +268,9 @@ pub struct Format {
     #[bpaf(short('b'), long, hide_usage)]
     pub keep_blank: bool,
 
+    /// Output item list as JSON instead of human-readable format
+    pub json: bool,
+
     #[bpaf(external)]
     pub sources_from: SourcesFrom,
 }
