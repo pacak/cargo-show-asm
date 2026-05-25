@@ -1,4 +1,4 @@
-use bpaf::{construct, doc::Style, long, short, Bpaf, Parser};
+use bpaf::{Bpaf, Parser, construct, doc::Style, long, short};
 use cargo_metadata::Artifact;
 use std::path::PathBuf;
 

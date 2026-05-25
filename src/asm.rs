@@ -3,7 +3,7 @@ use crate::asm::statements::Label;
 use crate::cached_lines::CachedLines;
 use crate::demangle::LabelKind;
 use crate::{
-    color, demangle, esafeprintln, get_context_for, safeprintln, Dumpable, Item, RawLines, URange,
+    Dumpable, Item, RawLines, URange, color, demangle, esafeprintln, get_context_for, safeprintln,
 };
 // TODO, use https://sourceware.org/binutils/docs/as/index.html
 use crate::opts::{Format, NameDisplay, RedundantLabels, SourcesFrom};
@@ -12,8 +12,8 @@ mod statements;
 
 use nom::Parser as _;
 use owo_colors::OwoColorize;
-use statements::{parse_statement, Loc};
 pub use statements::{Directive, GenericDirective, Instruction, Statement};
+use statements::{Loc, parse_statement};
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
@@ -339,8 +339,12 @@ fn dump_range(
                                 color!(rust_line.trim_start(), OwoColorize::bright_red)
                             );
                         } else {
-                            safeprintln!("\t\t{}",
-                                color!("Corrupted rust-src installation? Try re-adding rust-src component.", OwoColorize::red)
+                            safeprintln!(
+                                "\t\t{}",
+                                color!(
+                                    "Corrupted rust-src installation? Try re-adding rust-src component.",
+                                    OwoColorize::red
+                                )
                             );
                         }
                     }

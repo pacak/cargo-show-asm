@@ -1,8 +1,8 @@
 use crate::{
-    color,
+    Item, color,
     demangle::{self, demangled},
     opts::{Format, NameDisplay, OutputStyle, ToDump},
-    pick_dump_item, safeprintln, Item,
+    pick_dump_item, safeprintln,
 };
 use ar::Archive;
 use capstone::{Capstone, Insn};
@@ -321,7 +321,7 @@ fn dump_slices(
 /// resolved via relocation instead.
 fn get_branch_target(cs: &Capstone, insn: &Insn) -> Option<u64> {
     use capstone::arch::{
-        arm64::Arm64OperandType, x86::X86OperandType, ArchDetail, DetailsArchInsn,
+        ArchDetail, DetailsArchInsn, arm64::Arm64OperandType, x86::X86OperandType,
     };
     let details = cs.insn_detail(insn).unwrap();
     match details.arch_detail() {
@@ -354,8 +354,8 @@ fn make_capstone(
     is_thumb: bool,
 ) -> anyhow::Result<Capstone> {
     use capstone::{
-        arch::{self, BuildsCapstone, BuildsCapstoneExtraMode, BuildsCapstoneSyntax},
         Endian,
+        arch::{self, BuildsCapstone, BuildsCapstoneExtraMode, BuildsCapstoneSyntax},
     };
 
     let endianness = match file.endianness() {

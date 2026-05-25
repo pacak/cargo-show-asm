@@ -1,4 +1,4 @@
-use crate::{asm::Statement, demangle, esafeprintln, opts::Format, safeprintln, Dumpable};
+use crate::{Dumpable, asm::Statement, demangle, esafeprintln, opts::Format, safeprintln};
 use std::{
     io::{BufRead, BufReader},
     process::{Command, Stdio},

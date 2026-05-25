@@ -1,5 +1,5 @@
 use nom::branch::alt;
-use nom::bytes::complete::{escaped_transform, tag, take_while1, take_while_m_n};
+use nom::bytes::complete::{escaped_transform, tag, take_while_m_n, take_while1};
 use nom::character::complete::{self, newline, none_of, not_line_ending, one_of, space0, space1};
 use nom::combinator::{map, opt, recognize, value, verify};
 use nom::multi::count;
@@ -526,7 +526,9 @@ fn test_parse_label() {
         ))
     );
     assert_eq!(
-        Label::parse("__ZN4core3ptr50drop_in_place$LT$rand..rngs..thread..ThreadRng$GT$17hba90ed09529257ccE:"),
+        Label::parse(
+            "__ZN4core3ptr50drop_in_place$LT$rand..rngs..thread..ThreadRng$GT$17hba90ed09529257ccE:"
+        ),
         Ok((
             "",
             Label {
@@ -576,7 +578,9 @@ fn test_parse_label() {
         ))
     );
     assert_eq!(
-        Label::parse("__ZN4core3ptr50drop_in_place$LT$rand..rngs..thread..ThreadRng$GT$17hba90ed09529257ccE: # @\"rand\""),
+        Label::parse(
+            "__ZN4core3ptr50drop_in_place$LT$rand..rngs..thread..ThreadRng$GT$17hba90ed09529257ccE: # @\"rand\""
+        ),
         Ok((
             "",
             Label {
@@ -586,7 +590,9 @@ fn test_parse_label() {
         ))
     );
     assert_eq!(
-        Label::parse("_ZN44_$LT$$RF$T$u20$as$u20$core..fmt..Display$GT$3fmt17h6557947cc19e5571E: # @\"_ZN44_$LT$$RF$T$u20$as$u20$core..fmt..Display$GT$3fmt17h6557947cc19e5571E\""),
+        Label::parse(
+            "_ZN44_$LT$$RF$T$u20$as$u20$core..fmt..Display$GT$3fmt17h6557947cc19e5571E: # @\"_ZN44_$LT$$RF$T$u20$as$u20$core..fmt..Display$GT$3fmt17h6557947cc19e5571E\""
+        ),
         Ok((
             "",
             Label {
@@ -775,7 +781,9 @@ fn test_parse_file() {
     );
     assert_eq!(
         file.path.as_full_path(),
-        Path::new("/home/\x00path\twith\nlots\"of\runprintable\x67characters\x08like\\this\x0c/src/main.rs")
+        Path::new(
+            "/home/\x00path\twith\nlots\"of\runprintable\x67characters\x08like\\this\x0c/src/main.rs"
+        )
     );
 
     let (rest, file) = File::parse(

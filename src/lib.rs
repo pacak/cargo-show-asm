@@ -174,7 +174,9 @@ pub fn pick_dump_item<K: Clone>(
                 Some(range.clone())
             } else {
                 let actual = items.len();
-                esafeprintln!("You asked to display item #{value} (zero based), but there's only {actual} items");
+                esafeprintln!(
+                    "You asked to display item #{value} (zero based), but there's only {actual} items"
+                );
                 std::process::exit(1);
             }
         }
@@ -196,7 +198,9 @@ pub fn pick_dump_item<K: Clone>(
                 range.1.clone()
             } else if let Some(value) = nth {
                 let filtered = filtered.len();
-                esafeprintln!("You asked to display item #{value} (zero based), but there's only {filtered} matching items");
+                esafeprintln!(
+                    "You asked to display item #{value} (zero based), but there's only {filtered} matching items"
+                );
                 std::process::exit(1);
             } else {
                 if filtered.is_empty() {

@@ -1,7 +1,7 @@
 [package]
 name = "cargo-show-asm"
 version = "0.2.59"
-edition = "2021"
+edition = "2024"
 rust-version = "1.86"
 description = "A cargo subcommand that displays the generated assembly of Rust source code."
 readme = "README.md"
