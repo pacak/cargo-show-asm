@@ -1,5 +1,5 @@
 use crate::Dumpable;
-use crate::{color, opts::Format, safeprintln, Item};
+use crate::{Item, color, opts::Format, safeprintln};
 use line_span::LineSpans;
 use owo_colors::OwoColorize;
 use std::{collections::BTreeMap, ops::Range};

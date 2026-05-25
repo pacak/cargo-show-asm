@@ -1,5 +1,5 @@
 #![allow(clippy::needless_pub_self)] // default is wrong, I want to mark some items as explicitly private
-                                     // otherwise pub(self) makes no sense
+// otherwise pub(self) makes no sense
 
 use crate::{color, opts::NameDisplay};
 use owo_colors::OwoColorize;

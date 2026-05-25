@@ -6,10 +6,10 @@ use regex::Regex;
 
 use crate::Dumpable;
 use crate::{
-    color,
+    Item, color,
     demangle::{self, contents},
     opts::Format,
-    safeprintln, Item,
+    safeprintln,
 };
 use std::{collections::BTreeMap, ops::Range, sync::LazyLock};
 
