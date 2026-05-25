@@ -115,11 +115,34 @@ impl Item {
     }
 }
 
+fn format_items_json<'a>(items: impl IntoIterator<Item = &'a Item>) -> String {
+    let mut wrote = false;
+    let mut json = String::from("[\n");
+    for (i, item) in items.into_iter().enumerate() {
+        use std::fmt::Write as _;
+        writeln!(&mut json,
+            "  {{\"id\": {}, \"name\": \"{}\", \"full_name\": \"{}\", \"mangled_name\": \"{}\", \"size\": {}}},\n",
+            i, item.name, item.hashed, item.mangled_name, item.len
+        ).expect("Writing to String shouldn't panic");
+        wrote = true;
+    }
+    if wrote {
+        json.truncate(json.len() - 2);
+    }
+    json.push_str("\n]");
+    json
+}
+
 pub fn suggest_name<'a>(
     search: &str,
     fmt: &Format,
     items: impl IntoIterator<Item = &'a Item>,
 ) -> ! {
+    if fmt.json {
+        safeprintln!("{}", format_items_json(items));
+        std::process::exit(0);
+    }
+
     let mut count = 0usize;
     let names: BTreeMap<&String, Vec<usize>> =
         items.into_iter().fold(BTreeMap::new(), |mut m, item| {
@@ -213,6 +236,10 @@ pub fn pick_dump_item<K: Clone>(
                 );
                 std::process::exit(1);
             } else {
+                if fmt.json {
+                    safeprintln!("{}", format_items_json(filtered.iter().map(|x| x.0)));
+                    std::process::exit(0);
+                }
                 if filtered.is_empty() {
                     esafeprintln!("Can't find any items matching {function:?}");
                 } else {
@@ -224,6 +251,11 @@ pub fn pick_dump_item<K: Clone>(
         }
 
         ToDump::Unspecified => {
+            if fmt.json {
+                safeprintln!("{}", format_items_json(items.keys()));
+                std::process::exit(0);
+            }
+
             if items.len() == 1
                 && let Some((_, value)) = items.first_key_value()
             {
