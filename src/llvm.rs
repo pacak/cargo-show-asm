@@ -11,7 +11,10 @@ use crate::{
     opts::Format,
     safeprintln, Item,
 };
-use std::{collections::BTreeMap, ops::Range};
+use std::{collections::BTreeMap, ops::Range, sync::LazyLock};
+
+static LLVM_FUNC_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("@\"?(_?[a-zA-Z0-9_$.]+)\"?\\(").expect("regexp should be valid"));
 
 pub struct Llvm;
 
@@ -30,7 +33,6 @@ impl Dumpable for Llvm {
         }
         let mut res = BTreeMap::new();
         let mut current_item = None::<ItemParseState>;
-        let regex = Regex::new("@\"?(_?[a-zA-Z0-9_$.]+)\"?\\(").expect("regexp should be valid");
 
         for (ix, &line) in lines.iter().enumerate() {
             if line.starts_with("; Module") || line.starts_with("; Function Attrs: ") {
@@ -49,7 +51,7 @@ impl Dumpable for Llvm {
                     start: ix,
                 });
             } else if line.starts_with("define ") {
-                if let Some(name) = regex.captures(line).and_then(|c| c.get(1)) {
+                if let Some(name) = LLVM_FUNC_RE.captures(line).and_then(|c| c.get(1)) {
                     let name = name.as_str();
                     let cur = current_item.get_or_insert_with(|| ItemParseState {
                         item: Item {
