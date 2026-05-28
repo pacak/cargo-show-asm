@@ -197,7 +197,7 @@ jobs:
       - name: Rlib project, AT&T asm
         shell: bash
         if: ${{ !cancelled() }}
-        run: ./.github/check.sh --manifest-path sample_rlib/Cargo.toml --att
+        run: rm -rf sample_rlib/target && ./.github/check.sh --manifest-path sample_rlib/Cargo.toml --att
 
       - name: cdylib project
         shell: bash
