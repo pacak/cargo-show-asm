@@ -3,7 +3,8 @@ use crate::asm::statements::Label;
 use crate::cached_lines::CachedLines;
 use crate::demangle::LabelKind;
 use crate::{
-    Dumpable, Item, RawLines, URange, color, demangle, esafeprintln, get_context_for, safeprintln,
+    CallGraph, Dumpable, Item, RawLines, URange, color, demangle, esafeprintln, get_context_for,
+    safeprintln,
 };
 // TODO, use https://sourceware.org/binutils/docs/as/index.html
 use crate::opts::{Format, NameDisplay, RedundantLabels, SourcesFrom};
@@ -16,7 +17,7 @@ pub use statements::{Directive, GenericDirective, Instruction, Statement};
 use statements::{Loc, parse_statement};
 use std::borrow::Cow;
 use std::cell::RefCell;
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::ops::Range;
 use std::path::{Display, Path, PathBuf};
 
@@ -670,6 +671,32 @@ impl Dumpable for Asm<'_> {
 
     fn find_items(lines: &[Self::Line<'_>]) -> BTreeMap<Item, Range<usize>> {
         find_items(lines)
+    }
+
+    fn callgraph<'a>(lines: &[Self::Line<'a>]) -> CallGraph<'a> {
+        let mut graph: HashMap<&str, HashSet<&str>> = HashMap::new();
+        let mut caller: &str = "";
+        for line in lines {
+            match line {
+                Statement::Label(Label { id, kind }) => {
+                    if !matches!(kind, LabelKind::Local | LabelKind::Temp) {
+                        caller = id;
+                    }
+                }
+                Statement::Instruction(Instruction {
+                    args: Some(arg), ..
+                }) => {
+                    for callee in demangle::GLOBAL_LABELS
+                        .captures_iter(arg)
+                        .filter_map(|c| c.get(1))
+                    {
+                        graph.entry(caller).or_default().insert(callee.as_str());
+                    }
+                }
+                _ => {}
+            }
+        }
+        CallGraph(graph)
     }
 
     fn dump_range(&self, fmt: &Format, lines: &[Self::Line<'_>]) -> anyhow::Result<()> {

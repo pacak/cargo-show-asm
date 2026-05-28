@@ -1,4 +1,4 @@
-use crate::Dumpable;
+use crate::{CallGraph, Dumpable, esafeprintln};
 use crate::{Item, color, opts::Format, safeprintln};
 use line_span::LineSpans;
 use owo_colors::OwoColorize;
@@ -8,6 +8,11 @@ pub struct Mir;
 
 impl Dumpable for Mir {
     type Line<'a> = &'a str;
+
+    fn callgraph<'a>(_lines: &[Self::Line<'a>]) -> CallGraph<'a> {
+        esafeprintln!("no callgraph support for mir!");
+        CallGraph::default()
+    }
 
     fn find_items(lines: &[&str]) -> BTreeMap<Item, Range<usize>> {
         let mut res = BTreeMap::new();

@@ -2,7 +2,7 @@
 
 use opts::{Format, NameDisplay, ToDump};
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     fmt::Write,
     ops::Range,
     path::{Path, PathBuf},
@@ -351,6 +351,9 @@ pub trait Dumpable {
     /// print all the lines from this range, aplying the required formatting
     fn dump_range(&self, fmt: &Format, lines: &[Self::Line<'_>]) -> anyhow::Result<()>;
 
+    /// Collect a callgraph: caller -> set of callees, using mangled names
+    fn callgraph<'a>(lines: &[Self::Line<'a>]) -> CallGraph<'a>;
+
     /// starting at an initial range find more ranges to include
     fn extra_context(
         &self,
@@ -363,6 +366,9 @@ pub trait Dumpable {
         Vec::new()
     }
 }
+
+#[derive(Debug, Clone, Default)]
+pub struct CallGraph<'a>(pub HashMap<&'a str, HashSet<&'a str>>);
 
 /// Parse a dumpable item from a file and dump it with all the extra context
 pub fn dump_function<T: Dumpable>(
