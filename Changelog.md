@@ -1,5 +1,8 @@
 # Change Log
 
+## [0.2.60] - unreleased
+- misc improvements by @xtqqczze and myself
+
 ## [0.2.59] - 2026-05-02
 - support for instructions with '+' in it (#460)
 - bump deps
