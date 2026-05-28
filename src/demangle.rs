@@ -42,17 +42,11 @@ pub(self) const GLOBAL_LABELS_REGEX: &str = r"\b_?(_[a-zA-Z0-9_$\.]+)";
 // Note: this rejects "labels" like `H.Lfoo` but accepts `.Lexception` and `[some + .Label]`
 pub(self) const LOCAL_LABELS_REGEX: &str = r"(?:[^\w\d\$\.]|^)(\.L[a-zA-Z0-9_\$\.]+|\bLBB[0-9_]+)";
 
-pub(self) fn global_labels_reg() -> &'static Regex {
-    static GLOBAL_LABELS: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(GLOBAL_LABELS_REGEX).expect("regexp should be valid"));
-    &GLOBAL_LABELS
-}
+static GLOBAL_LABELS: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(GLOBAL_LABELS_REGEX).expect("regexp should be valid"));
 
-pub(self) fn local_labels_reg() -> &'static Regex {
-    static LOCAL_LABELS: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(LOCAL_LABELS_REGEX).expect("regexp should be valid"));
-    &LOCAL_LABELS
-}
+static LOCAL_LABELS: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(LOCAL_LABELS_REGEX).expect("regexp should be valid"));
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LabelKind {
@@ -75,7 +69,7 @@ fn local_labels_works() {
 }
 
 pub(crate) fn local_labels(input: &str) -> impl Iterator<Item = &str> {
-    local_labels_reg()
+    LOCAL_LABELS
         .captures_iter(input)
         .filter_map(|c| Some(c.get(1)?.as_str()))
 }
@@ -105,7 +99,7 @@ impl Replacer for LabelColorizer {
 }
 
 pub fn color_local_labels(input: &str) -> Cow<'_, str> {
-    local_labels_reg().replace_all(input, LabelColorizer)
+    LOCAL_LABELS.replace_all(input, LabelColorizer)
 }
 
 struct Demangler {
@@ -134,12 +128,12 @@ impl Replacer for Demangler {
 
 #[must_use]
 pub fn contents(input: &str, display: NameDisplay) -> Cow<'_, str> {
-    global_labels_reg().replace_all(input, Demangler { display })
+    GLOBAL_LABELS.replace_all(input, Demangler { display })
 }
 
 #[must_use]
 pub fn global_reference(input: &str) -> Option<&str> {
-    global_labels_reg().find(input).map(|m| m.as_str())
+    GLOBAL_LABELS.find(input).map(|m| m.as_str())
 }
 
 #[cfg(test)]
