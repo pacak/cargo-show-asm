@@ -2,7 +2,7 @@
 
 use opts::{Format, NameDisplay, ToDump};
 use std::{
-    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet},
     fmt::Write,
     ops::Range,
     path::{Path, PathBuf},
@@ -10,6 +10,7 @@ use std::{
 
 pub mod asm;
 pub mod cached_lines;
+pub mod callgraph;
 pub mod demangle;
 #[cfg(feature = "disasm")]
 pub mod disasm;
@@ -367,8 +368,7 @@ pub trait Dumpable {
     }
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct CallGraph<'a>(pub HashMap<&'a str, HashSet<&'a str>>);
+pub use callgraph::CallGraph;
 
 /// Parse a dumpable item from a file and dump it with all the extra context
 pub fn dump_function<T: Dumpable>(
