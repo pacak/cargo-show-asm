@@ -149,6 +149,11 @@ jobs:
         if: ${{ !cancelled() }}
         run: ./.github/check.sh --manifest-path sample/Cargo.toml --lib --intel sample::main --rust
 
+      - name: Native version of cargo-show-asm (Intel ASM) - print json
+        shell: bash
+        if: ${{ !cancelled() }}
+        run: ./.github/check.sh --manifest-path sample/Cargo.toml --lib --intel --rust --json
+
       - name: Native version of cargo-show-asm (Intel ASM) + native CPU
         shell: bash
         if: ${{ !cancelled() }}
