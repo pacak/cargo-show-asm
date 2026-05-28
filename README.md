@@ -30,7 +30,7 @@ $ cargo install cargo-show-asm
 
 Show the code rustc generates for any function
 
-**Usage**: **`cargo asm`** \[**`-p`**=_`SPEC`_\] \[_`ARTIFACT`_\] \[**`-M`**=_`ARG`_\]... \[_`TARGET-CPU`_\] \[**`--rust`**\] \[**`-c`**=_`COUNT`_\] \[**`--simplify`**\] \[**`--include-constants`**\] \[**`--json`**\] \[**`--this-workspace`** | **`--all-crates`** | **`--all-sources`**\] _`OUTPUT-FORMAT`_ \[**`--everything`** | _`FUNCTION`_ \[_`INDEX`_\]\]
+**Usage**: **`cargo asm`** \[**`-p`**=_`SPEC`_\] \[_`ARTIFACT`_\] \[**`-M`**=_`ARG`_\]... \[_`TARGET-CPU`_\] \[**`--rust`**\] \[**`-c`**=_`COUNT`_\] \[**`--simplify`**\] \[**`--include-constants`**\] \[**`--json`**\] \[**`--this-workspace`** | **`--all-crates`** | **`--all-sources`**\] _`OUTPUT-FORMAT`_ \[**`--callers-of`** _`REGEX`_ \[_`DEPTH`_\]\] \[**`--everything`** | _`FUNCTION`_ \[_`INDEX`_\]\]
 
  Usage:
  1. Focus on a single assembly producing target:
@@ -173,6 +173,19 @@ Show the code rustc generates for any function
   Use Intel style for assembly
 - **`    --att`** &mdash; 
   Use AT&T style for assembly
+
+
+
+**Filter by call graph**
+- **`--callers-of`** _`REGEX`_ \[_`DEPTH`_\]
+- **`    --callers-of`** &mdash; 
+  List functions that call something matching this regex
+- _`REGEX`_ &mdash; 
+  Callee regex to match
+- _`DEPTH`_ &mdash; 
+  Up to this depth
+
+
 
 
 

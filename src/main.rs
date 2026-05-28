@@ -202,7 +202,7 @@ fn main() -> anyhow::Result<()> {
                     // For standalone file we don't know the matching
                     // system root so don't even try to dump it
                     format.rust = false;
-                    dump_function(&mut asm, opts.to_dump, file, &format)?;
+                    dump_function(&mut asm, opts.to_dump, file, &format, None)?;
                 }
                 _ => {
                     #[cfg(feature = "disasm")]
@@ -318,22 +318,25 @@ fn main() -> anyhow::Result<()> {
         safeprintln!("goal: {:?}", opts.to_dump);
     }
 
+    let callers_of = opts.callers_of.as_ref();
     match opts.syntax.output_type {
         OutputType::Asm | OutputType::Wasm => {
             let mut asm = Asm::new(metadata.workspace_root.as_std_path(), &sysroot);
-            dump_function(&mut asm, opts.to_dump, &asm_path, &opts.format)
+            dump_function(&mut asm, opts.to_dump, &asm_path, &opts.format, callers_of)
         }
         OutputType::Llvm | OutputType::LlvmInput => {
-            dump_function(&mut Llvm, opts.to_dump, &asm_path, &opts.format)
+            dump_function(&mut Llvm, opts.to_dump, &asm_path, &opts.format, callers_of)
         }
-        OutputType::Mir => dump_function(&mut Mir, opts.to_dump, &asm_path, &opts.format),
+        OutputType::Mir => {
+            dump_function(&mut Mir, opts.to_dump, &asm_path, &opts.format, callers_of)
+        }
         OutputType::Mca => {
             let mut mca = Mca::new(
                 &opts.mca_arg,
                 cargo.target.as_deref(),
                 opts.target_cpu.as_deref(),
             );
-            dump_function(&mut mca, opts.to_dump, &asm_path, &opts.format)
+            dump_function(&mut mca, opts.to_dump, &asm_path, &opts.format, callers_of)
         }
         #[cfg(not(feature = "disasm"))]
         OutputType::Disasm => no_disasm!(),

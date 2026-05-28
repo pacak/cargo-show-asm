@@ -1,4 +1,4 @@
-use bpaf::{Bpaf, Parser, construct, doc::Style, long, short};
+use bpaf::{Bpaf, Parser, construct, doc::Style, long, positional, short};
 use cargo_metadata::Artifact;
 use std::path::PathBuf;
 
@@ -47,6 +47,10 @@ pub struct Options {
     #[bpaf(external(syntax_compat))]
     pub syntax: Syntax,
 
+    // extra filter for what to display
+    #[bpaf(external, optional)]
+    pub callers_of: Option<(String, usize)>,
+
     // what to display
     #[bpaf(external)]
     pub to_dump: ToDump,
@@ -66,6 +70,21 @@ pub enum CodeSource {
         #[bpaf(argument("PATH"), hide_usage)]
         file: PathBuf,
     },
+}
+
+fn callers_of() -> impl Parser<(String, usize)> {
+    let k = long("callers-of")
+        .long("caller-of")
+        .help("List functions that call something matching this regex")
+        .req_flag(());
+    let m = positional("REGEX").help("Callee regex to match");
+    let depth = positional("DEPTH")
+        .help("Up to this depth")
+        .fallback(usize::MAX);
+    construct!(k, m, depth)
+        .adjacent()
+        .map(|(_, name, depth)| (name, depth))
+        .group_help("Filter by call graph")
 }
 
 #[derive(Clone, Debug, Bpaf)]

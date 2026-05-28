@@ -1,6 +1,8 @@
 use regex::Regex;
 use std::collections::{HashMap, HashSet, VecDeque};
 
+use crate::esafeprintln;
+
 #[derive(Debug, Clone, Default)]
 /// caller -> callee
 pub struct CallGraph<'a>(pub HashMap<&'a str, HashSet<&'a str>>);
@@ -10,6 +12,21 @@ pub struct CallGraph<'a>(pub HashMap<&'a str, HashSet<&'a str>>);
 pub struct InvCallGraph<'a>(pub HashMap<&'a str, HashSet<&'a str>>);
 
 impl<'a> CallGraph<'a> {
+    pub fn filter(&self, regex_str: &str, max_depth: usize) -> HashSet<&'a str> {
+        let re = match Regex::new(regex_str) {
+            Ok(re) => re,
+            Err(err) => {
+                esafeprintln!("{err}");
+                std::process::exit(1);
+            }
+        };
+        self.invert()
+            .callers_of(&re)
+            .into_iter()
+            .filter_map(|(name, d)| (d <= max_depth).then_some(name))
+            .collect()
+    }
+
     pub fn invert(&self) -> InvCallGraph<'a> {
         let mut inv: HashMap<&str, HashSet<&str>> = HashMap::new();
         for (&caller, callees) in &self.0 {
