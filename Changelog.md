@@ -2,6 +2,7 @@
 
 ## [0.2.60] - unreleased
 - misc improvements by @xtqqczze and myself
+- list found items as json with `--json`, useful for scripting and CI
 
 ## [0.2.59] - 2026-05-02
 - support for instructions with '+' in it (#460)
