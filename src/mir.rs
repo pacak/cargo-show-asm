@@ -13,6 +13,7 @@ impl Dumpable for Mir {
         let mut res = BTreeMap::new();
         let mut current_item = None::<Item>;
         let mut block_start = None;
+        let mut non_blank_count = 0usize;
 
         for (ix, &line) in lines.iter().enumerate() {
             if line.starts_with("//") {
@@ -23,11 +24,14 @@ impl Dumpable for Mir {
                 if let Some(mut cur) = current_item.take() {
                     let range = cur.len..ix + 1;
                     cur.len = range.len();
+                    cur.non_blank_len = non_blank_count;
                     res.insert(cur, range);
                 }
+                non_blank_count = 0;
             } else if !(line.starts_with(' ') || line.is_empty()) && current_item.is_none() {
                 let start = block_start.take().unwrap_or(ix);
                 let mut name = line;
+                non_blank_count = 1;
                 'outer: loop {
                     for suffix in [" {", " =", " -> ()"] {
                         if let Some(rest) = name.strip_suffix(suffix) {
@@ -37,14 +41,17 @@ impl Dumpable for Mir {
                     }
                     break;
                 }
+                let name = name.trim().to_owned();
                 current_item = Some(Item {
-                    mangled_name: name.to_owned(),
-                    name: name.to_owned(),
-                    hashed: name.to_owned(),
+                    mangled_name: name.clone(),
+                    name: name.clone(),
+                    hashed: name,
                     index: res.len(),
                     len: start,
                     non_blank_len: 0,
                 });
+            } else if current_item.is_some() && !line.trim().is_empty() {
+                non_blank_count += 1;
             }
         }
 
