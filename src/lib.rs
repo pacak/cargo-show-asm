@@ -104,6 +104,17 @@ pub struct Item {
     pub mangled_name: String,
 }
 
+impl Item {
+    pub fn assert_valid(&self) {
+        for name in &[&self.name, &self.hashed, &self.mangled_name] {
+            assert!(
+                !name.contains(['"', '\'', '\n', '\r', '\\']),
+                "Name looks sus: {name:?}",
+            );
+        }
+    }
+}
+
 pub fn suggest_name<'a>(
     search: &str,
     fmt: &Format,
@@ -319,6 +330,9 @@ pub fn dump_function<T: Dumpable>(
 
     let lines = T::split_lines(&contents)?;
     let items = T::find_items(&lines);
+    for item in items.keys() {
+        item.assert_valid();
+    }
     dumpable.init(&lines);
 
     match pick_dump_item(goal, fmt, &items) {
