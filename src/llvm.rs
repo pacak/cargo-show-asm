@@ -6,12 +6,16 @@ use regex::Regex;
 
 use crate::Dumpable;
 use crate::{
-    Item, color,
+    CallGraph, Item, color,
     demangle::{self, contents},
     opts::Format,
     safeprintln,
 };
-use std::{collections::BTreeMap, ops::Range, sync::LazyLock};
+use std::{
+    collections::{BTreeMap, HashMap, HashSet},
+    ops::Range,
+    sync::LazyLock,
+};
 
 static LLVM_FUNC_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new("@\"?(_?[a-zA-Z0-9_$.]+)\"?\\(").expect("regexp should be valid"));
@@ -25,6 +29,30 @@ impl Dumpable for Llvm {
             .line_spans()
             .map(|s| s.as_str())
             .collect::<Vec<_>>())
+    }
+    fn callgraph<'a>(lines: &[Self::Line<'a>]) -> CallGraph<'a> {
+        let mut graph: HashMap<&str, HashSet<&str>> = HashMap::new();
+        let mut current_func: &str = "";
+        for &line in lines {
+            if line.starts_with("define ") {
+                if let Some(name) = LLVM_FUNC_RE.captures(line).and_then(|c| c.get(1)) {
+                    current_func = name.as_str();
+                }
+            } else if line == "}" {
+                current_func = "";
+            } else if line.starts_with("  ") {
+                for callee in demangle::GLOBAL_LABELS
+                    .captures_iter(line)
+                    .filter_map(|c| c.get(1))
+                {
+                    graph
+                        .entry(current_func)
+                        .or_default()
+                        .insert(callee.as_str());
+                }
+            }
+        }
+        CallGraph(graph)
     }
     fn find_items(lines: &[&str]) -> BTreeMap<Item, Range<usize>> {
         struct ItemParseState {

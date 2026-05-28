@@ -1,4 +1,6 @@
-use crate::{Dumpable, asm::Statement, demangle, esafeprintln, opts::Format, safeprintln};
+use crate::{
+    CallGraph, Dumpable, asm::Statement, demangle, esafeprintln, opts::Format, safeprintln,
+};
 use std::{
     io::{BufRead, BufReader},
     process::{Command, Stdio},
@@ -31,6 +33,10 @@ impl Dumpable for Mca<'_> {
 
     fn split_lines(contents: &str) -> anyhow::Result<Vec<Self::Line<'_>>> {
         crate::asm::parse_file(contents)
+    }
+
+    fn callgraph<'a>(lines: &[Self::Line<'a>]) -> CallGraph<'a> {
+        crate::asm::Asm::callgraph(lines)
     }
 
     fn init(&mut self, lines: &[Self::Line<'_>]) {

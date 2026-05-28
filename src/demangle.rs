@@ -42,7 +42,7 @@ pub(self) const GLOBAL_LABELS_REGEX: &str = r"\b_?(_[a-zA-Z0-9_$\.]+)";
 // Note: this rejects "labels" like `H.Lfoo` but accepts `.Lexception` and `[some + .Label]`
 pub(self) const LOCAL_LABELS_REGEX: &str = r"(?:[^\w\d\$\.]|^)(\.L[a-zA-Z0-9_\$\.]+|\bLBB[0-9_]+)";
 
-static GLOBAL_LABELS: LazyLock<Regex> =
+pub(crate) static GLOBAL_LABELS: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(GLOBAL_LABELS_REGEX).expect("regexp should be valid"));
 
 static LOCAL_LABELS: LazyLock<Regex> =
