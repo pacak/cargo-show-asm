@@ -3,6 +3,7 @@
 use opts::{Format, NameDisplay, ToDump};
 use std::{
     collections::{BTreeMap, BTreeSet},
+    fmt::Write,
     ops::Range,
     path::{Path, PathBuf},
 };
@@ -104,32 +105,47 @@ pub struct Item {
     pub mangled_name: String,
 }
 
-impl Item {
-    pub fn assert_valid(&self) {
-        for name in &[&self.name, &self.hashed, &self.mangled_name] {
-            assert!(
-                !name.contains(['"', '\'', '\n', '\r', '\\']),
-                "Name looks sus: {name:?}",
-            );
+fn format_items_json<'a>(items: impl IntoIterator<Item = &'a Item>) -> String {
+    struct EscapedStr<'a>(&'a str);
+    impl std::fmt::Display for EscapedStr<'_> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            for c in self.0.chars() {
+                match c {
+                    '\\' => f.write_str("\\\\"),
+                    '"' => f.write_str("\\\""),
+                    '\n' => f.write_str("\\n"),
+                    '\r' => f.write_str("\\r"),
+                    '\t' => f.write_str("\\t"),
+                    c if (c as u32) < 0x20 => write!(f, "\\u{:04x}", c as u32),
+                    c => f.write_char(c),
+                }?;
+            }
+            Ok(())
         }
     }
-}
 
-fn format_items_json<'a>(items: impl IntoIterator<Item = &'a Item>) -> String {
     let mut wrote = false;
     let mut json = String::from("[\n");
-    for (i, item) in items.into_iter().enumerate() {
+    for (ix, item) in items.into_iter().enumerate() {
         use std::fmt::Write as _;
-        writeln!(&mut json,
-            "  {{\"id\": {}, \"name\": \"{}\", \"full_name\": \"{}\", \"mangled_name\": \"{}\", \"size\": {}}},\n",
-            i, item.name, item.hashed, item.mangled_name, item.len
-        ).expect("Writing to String shouldn't panic");
+        writeln!(
+            &mut json,
+            r#"  {{"id": {ix}, "name": "{}", "full_name": "{}", "mangled_name": "{}", "size": {}}},"#,
+            EscapedStr(&item.name),
+            EscapedStr(&item.hashed),
+            EscapedStr(&item.mangled_name),
+            item.len
+        )
+        .expect("Writing to String shouldn't panic");
         wrote = true;
     }
     if wrote {
         json.truncate(json.len() - 2);
+        json.push_str("\n]");
+    } else {
+        json.clear();
+        json.push_str("[]\n");
     }
-    json.push_str("\n]");
     json
 }
 
@@ -362,9 +378,6 @@ pub fn dump_function<T: Dumpable>(
 
     let lines = T::split_lines(&contents)?;
     let items = T::find_items(&lines);
-    for item in items.keys() {
-        item.assert_valid();
-    }
     dumpable.init(&lines);
 
     match pick_dump_item(goal, fmt, &items) {
