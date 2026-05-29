@@ -76,6 +76,27 @@ instead of a full one and only matching functions will be listed
 $ cargo asm --lib Debug
 ```
 
+# call graph filtering
+
+By default cargo-show-asm lists all the functions. You can limit it to all the functions that
+call some other function - by name pattern. Can be useful if you find to list all the functions
+that can panic you can type something like this:
+
+```console,ignore
+cargo asm --lib --callers-of panic
+```
+
+`--callers-of` takes one required parameter - a regexp pattern of a function
+and one optional - how deep that call might be: `--callers-of panic 0` will
+list only functions that have "panic" in their own name, `--callers-of panic 1`
+- this adds any functions that call functions with "panic" in their name (this
+includes any panics from `core`).
+
+# JSON output
+
+`--json` is an alternative way to list all found functions. Can be useful in CI
+or for integrations.
+
 # My function isn't there!
 
 `rustc` will only generate the code for your function if it knows what type it is, including
