@@ -75,6 +75,7 @@ impl Dumpable for Llvm {
                         index: res.len(),
                         len: 0,
                         non_blank_len: 0,
+                        depth: None,
                     },
                     start: ix,
                 });
@@ -89,6 +90,7 @@ impl Dumpable for Llvm {
                             index: res.len(),
                             len: 0,
                             non_blank_len: 0,
+                            depth: None,
                         },
                         start: ix,
                     });

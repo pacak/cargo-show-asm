@@ -12,7 +12,7 @@ pub struct CallGraph<'a>(pub HashMap<&'a str, HashSet<&'a str>>);
 pub struct InvCallGraph<'a>(pub HashMap<&'a str, HashSet<&'a str>>);
 
 impl<'a> CallGraph<'a> {
-    pub fn filter(&self, regex_str: &str, max_depth: usize) -> HashSet<&'a str> {
+    pub fn filter(&self, regex_str: &str, max_depth: usize) -> HashMap<&'a str, usize> {
         let re = match Regex::new(regex_str) {
             Ok(re) => re,
             Err(err) => {
@@ -23,7 +23,7 @@ impl<'a> CallGraph<'a> {
         self.invert()
             .callers_of(&re)
             .into_iter()
-            .filter_map(|(name, d)| (d <= max_depth).then_some(name))
+            .filter(|(_, d)| *d <= max_depth)
             .collect()
     }
 
