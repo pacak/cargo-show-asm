@@ -1,8 +1,9 @@
 # Change Log
 
-## [0.2.60] - unreleased
+## [0.2.60] - 2026-05-29
 - misc improvements by @xtqqczze and myself
-- list found items as json with `--json`, useful for scripting and CI
+- list found items as JSON with `--json`, useful for scripting and CI
+- filter by called functions (`--callers-of NAME [DEPTH]`)
 
 ## [0.2.59] - 2026-05-02
 - support for instructions with '+' in it (#460)
