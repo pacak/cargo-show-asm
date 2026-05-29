@@ -281,10 +281,13 @@ cargo asm --lib --callers-of panic
 ```
 
 `--callers-of` takes one required parameter - a regexp pattern of a function
-and one optional - how deep that call might be: `--callers-of panic 0` will
-list only functions that have "panic" in their own name, `--callers-of panic 1`
-- this adds any functions that call functions with "panic" in their name (this
-includes any panics from `core`).
+and one optional - how deep that call might be:
+
+- `--callers-of panic 0` - will list only functions that have "panic" in their
+  own name.
+
+- `--callers-of panic 1` - this adds any functions that call functions with
+  "panic" in their name (this includes any panics from `core`).
 
 # JSON output
 
