@@ -131,6 +131,7 @@ fn pick_item<'a>(
                 len,
                 non_blank_len: len,
                 mangled_name: raw_name.to_owned(),
+                depth: None,
             };
             items.insert(item, (file, section_index, addr, len));
         }

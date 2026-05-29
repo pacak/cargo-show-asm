@@ -98,6 +98,7 @@ pub fn find_items(lines: &[Statement]) -> BTreeMap<Item, Range<usize>> {
                     index: *name_entry,
                     len: ix,
                     non_blank_len: 0,
+                    depth: None,
                 });
                 *name_entry += 1;
             } else if matches!(label.kind, LabelKind::Unknown | LabelKind::Global) {
@@ -181,6 +182,7 @@ pub fn find_items(lines: &[Statement]) -> BTreeMap<Item, Range<usize>> {
                     index: *name_entry,
                     len: range.len(),
                     non_blank_len: range.len(),
+                    depth: None,
                 },
                 range,
             );
@@ -253,6 +255,7 @@ fn get_item_in_section(ix: usize, label: &Label, ss: &str, strip_underscore: boo
         index: 0, // Written later in find_items
         len: ix,
         non_blank_len: 0,
+        depth: None,
     })
 }
 

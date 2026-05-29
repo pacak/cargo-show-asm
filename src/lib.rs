@@ -104,6 +104,8 @@ pub struct Item {
     pub non_blank_len: usize,
     /// mangled name
     pub mangled_name: String,
+    /// depth in the callgraph (when available)
+    pub depth: Option<usize>,
 }
 
 fn format_items_json<'a>(items: impl IntoIterator<Item = &'a Item>) -> String {
@@ -129,15 +131,19 @@ fn format_items_json<'a>(items: impl IntoIterator<Item = &'a Item>) -> String {
     let mut json = String::from("[\n");
     for (ix, item) in items.into_iter().enumerate() {
         use std::fmt::Write as _;
-        writeln!(
+        _ = write!(
             &mut json,
-            r#"  {{"id": {ix}, "name": "{}", "full_name": "{}", "mangled_name": "{}", "size": {}}},"#,
+            r#"  {{"id": {ix}, "name": "{}", "full_name": "{}", "mangled_name": "{}", "size": {}"#,
             EscapedStr(&item.name),
             EscapedStr(&item.hashed),
             EscapedStr(&item.mangled_name),
             item.len
-        )
-        .expect("Writing to String shouldn't panic");
+        );
+
+        if let Some(depth) = item.depth {
+            _ = write!(&mut json, r#", "depth": {depth}"#);
+        }
+        json.push_str("},\n");
         wrote = true;
     }
     if wrote {
@@ -389,8 +395,14 @@ pub fn dump_function<T: Dumpable>(
 
     if let Some((regex_str, max_depth)) = callers_of {
         let graph = T::callgraph(&lines);
-        let matching = graph.filter(regex_str, *max_depth);
-        items.retain(|item, _| matching.contains(item.mangled_name.as_str()))
+        let depths = graph.filter(regex_str, *max_depth);
+        items = items
+            .into_iter()
+            .filter_map(|(mut item, range)| {
+                item.depth = Some(*depths.get(item.mangled_name.as_str())?);
+                Some((item, range))
+            })
+            .collect();
     };
 
     match pick_dump_item(goal, fmt, &items) {

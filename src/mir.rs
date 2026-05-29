@@ -54,6 +54,7 @@ impl Dumpable for Mir {
                     index: res.len(),
                     len: start,
                     non_blank_len: 0,
+                    depth: None,
                 });
             } else if current_item.is_some() && !line.trim().is_empty() {
                 non_blank_count += 1;
