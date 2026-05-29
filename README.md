@@ -270,6 +270,27 @@ instead of a full one and only matching functions will be listed
 $ cargo asm --lib Debug
 ```
 
+# call graph filtering
+
+By default cargo-show-asm lists all the functions. You can limit it to all the functions that
+call some other function - by name pattern. Can be useful if you find to list all the functions
+that can panic you can type something like this:
+
+```console,ignore
+cargo asm --lib --callers-of panic
+```
+
+`--callers-of` takes one required parameter - a regexp pattern of a function
+and one optional - how deep that call might be: `--callers-of panic 0` will
+list only functions that have "panic" in their own name, `--callers-of panic 1`
+- this adds any functions that call functions with "panic" in their name (this
+includes any panics from `core`).
+
+# JSON output
+
+`--json` is an alternative way to list all found functions. Can be useful in CI
+or for integrations.
+
 # My function isn't there!
 
 `rustc` will only generate the code for your function if it knows what type it is, including
@@ -287,18 +308,6 @@ So suppose you have a function `foo` that calls some other function - `bar`. Wit
 or it's short variant `-c N` you can ask cargo-show-asm to include body of bar to the input.
 This is done recursively up to N steps. See https://github.com/pacak/cargo-show-asm/issues/247
 
-
-# What about `cargo-asm`?
-
-`cargo-asm` is not maintained: <https://github.com/gnzlbg/cargo-asm/issues/244>. This crate is a reimplementation which addresses a number of its shortcomings, including:
-
-* `cargo-asm` recompiles everything every time with 1 codegen unit, which is slow and also not necessarily what is in your release profile. `cargo-show-asm` avoids that.
-
-* Because of how `cargo-asm` handles demangling the output looks like asm but isn't actually asm. It contains a bunch of extra commas which makes reusing it more annoying.
-
-* `cargo-asm` always uses colors unless you pass a flag while `cargo-show-asm` changes its default behavior if output is not sent to a terminal.
-
-* `cargo-show-asm` also supports MIR (note that the formatting of human-readable MIR is not stable).
 
 # Shell completion
 
