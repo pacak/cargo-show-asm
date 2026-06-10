@@ -1,5 +1,8 @@
 # Change Log
 
+## [0.2.61] - 2026-06-10
+- use full package ID (`id.repr`)  when passing `--package` to `cargo` (#478)
+
 ## [0.2.60] - 2026-05-29
 - misc improvements by @xtqqczze and myself
 - list found items as JSON with `--json`, useful for scripting and CI
