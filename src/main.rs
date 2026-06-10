@@ -76,7 +76,7 @@ fn spawn_cargo(
         )
         .args(["--config", "profile.release.strip=false"])
         // Artifact selectors.
-        .args(["--package", &focus_package.name])
+        .args(["--package", &focus_package.id.repr])
         .args(focus_artifact.as_cargo_args())
         // Compile options.
         .args(cargo.config.iter().flat_map(|c| ["--config", c]))
