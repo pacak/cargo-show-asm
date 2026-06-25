@@ -1,5 +1,6 @@
 use bpaf::{Bpaf, Parser, construct, doc::Style, long, positional, short};
 use cargo_metadata::Artifact;
+use std::convert::Infallible;
 use std::path::PathBuf;
 
 fn check_target_dir(path: PathBuf) -> anyhow::Result<PathBuf> {
@@ -153,32 +154,57 @@ pub struct Cargo {
     pub unstable: Vec<String>,
 }
 
-#[derive(Debug, Clone, Bpaf)]
-/// Pick item to display from the artifact
-#[bpaf(fallback(ToDump::Unspecified))]
+#[derive(Debug, Clone)]
 pub enum ToDump {
-    /// Dump the whole file
     Everything,
-
-    #[bpaf(hide)]
     ByIndex {
-        /// Dump name with this index
-        #[bpaf(positional("ITEM_INDEX"))]
         value: usize,
     },
-
     Function {
-        /// Dump a function with a given name, filter functions by name
-        #[bpaf(positional("FUNCTION"))]
-        function: String,
-
-        /// Select specific function when there's several with the same name
-        #[bpaf(positional("INDEX"))]
+        function: Vec<String>,
         nth: Option<usize>,
     },
-
-    #[bpaf(skip)]
     Unspecified,
+}
+
+fn to_dump() -> impl Parser<ToDump> {
+    let everything = long("everything")
+        .help("Dump the whole file")
+        .req_flag(ToDump::Everything);
+
+    let functions = positional::<String>("FUNCTION")
+        .help("Dump a function with a given name, filter functions by name, multiple filters can be specified, all must match")
+        .many();
+
+    // This is just a dummy for the docs, the above `functions: Vec<String>`
+    // will absorb all arguments, which is why we use this custom parser to
+    // extract the last integer index again.
+    let dummy_index = positional::<usize>("INDEX")
+        .help("Select specific function when there's several with the same name")
+        .optional();
+
+    let positionals = construct!(functions, dummy_index).parse(
+        |(mut args, _dummy_idx)| -> Result<ToDump, Infallible> {
+            let Some(last) = args.last() else {
+                return Ok(ToDump::Unspecified);
+            };
+
+            let nth = last.parse::<usize>().ok();
+            if let Some(idx) = nth {
+                args.pop();
+                if args.is_empty() {
+                    return Ok(ToDump::ByIndex { value: idx });
+                }
+            }
+
+            Ok(ToDump::Function {
+                function: args,
+                nth,
+            })
+        },
+    );
+
+    construct!([everything, positionals]).group_help("Pick item to display from the artifact")
 }
 
 fn target_cpu() -> impl Parser<Option<String>> {

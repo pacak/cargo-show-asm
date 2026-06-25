@@ -239,10 +239,22 @@ pub fn pick_dump_item<K: Clone>(
 
         // By index with filtering
         ToDump::Function { function, nth } => {
-            let filtered = items
+            let patterns: Vec<_> = function
                 .iter()
-                .filter(|(item, _range)| item.name.contains(&function))
-                .collect::<Vec<_>>();
+                .map(|pat| (pat.as_str(), pat.chars().all(|c| c.is_ascii_lowercase())))
+                .collect();
+            let filtered: Vec<_> = items
+                .iter()
+                .filter(|(item, _range)| {
+                    patterns.iter().all(|(pat, ignore_ascii_case)| {
+                        if *ignore_ascii_case {
+                            item.name.to_ascii_lowercase().contains(pat)
+                        } else {
+                            item.name.contains(pat)
+                        }
+                    })
+                })
+                .collect();
 
             let range = if nth.is_none()
                 && let &[(_, range)] = filtered.as_slice()
