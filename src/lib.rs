@@ -157,7 +157,7 @@ fn format_items_json<'a>(items: impl IntoIterator<Item = &'a Item>) -> String {
 }
 
 pub fn suggest_name<'a>(
-    search: &str,
+    search_specified: bool,
     fmt: &Format,
     items: impl IntoIterator<Item = &'a Item>,
 ) -> ! {
@@ -181,12 +181,12 @@ pub fn suggest_name<'a>(
 
     if fmt.verbosity > 0 {
         if names.is_empty() {
-            if search.is_empty() {
+            if search_specified {
+                safeprintln!("No matching functions, try relaxing your search request");
+            } else {
                 safeprintln!(
                     "This target defines no functions (or cargo-show-asm can't find them)"
                 );
-            } else {
-                safeprintln!("No matching functions, try relaxing your search request");
             }
             safeprintln!("You can pass --everything to see the demangled contents of a file");
         } else {
@@ -266,7 +266,7 @@ pub fn pick_dump_item<K: Clone>(
                 if filtered.is_empty() {
                     esafeprintln!("Can't find any items matching {function:?}");
                 } else {
-                    suggest_name(&function, fmt, filtered.iter().map(|x| x.0));
+                    suggest_name(!function.is_empty(), fmt, filtered.iter().map(|x| x.0));
                 }
                 std::process::exit(1);
             };
@@ -287,7 +287,7 @@ pub fn pick_dump_item<K: Clone>(
             } else {
                 // Otherwise, print suggestions and exit
                 let items = items.keys();
-                suggest_name("", fmt, items);
+                suggest_name(false, fmt, items);
             }
         }
     }
