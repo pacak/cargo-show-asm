@@ -30,7 +30,7 @@ $ cargo install cargo-show-asm
 
 Show the code rustc generates for any function
 
-**Usage**: **`cargo asm`** \[**`-p`**=_`SPEC`_\] \[_`ARTIFACT`_\] \[**`-M`**=_`ARG`_\]... \[_`TARGET-CPU`_\] \[**`--rust`**\] \[**`-c`**=_`COUNT`_\] \[**`--simplify`**\] \[**`--include-constants`**\] \[**`--json`**\] \[**`--this-workspace`** | **`--all-crates`** | **`--all-sources`**\] _`OUTPUT-FORMAT`_ \[**`--callers-of`** _`REGEX`_ \[_`DEPTH`_\]\] \[**`--everything`** | _`FUNCTION`_ \[_`INDEX`_\]\]
+**Usage**: **`cargo asm`** \[**`-p`**=_`SPEC`_\] \[_`ARTIFACT`_\] \[**`-M`**=_`ARG`_\]... \[_`TARGET-CPU`_\] \[**`--rust`**\] \[**`-c`**=_`COUNT`_\] \[**`--simplify`**\] \[**`--include-constants`**\] \[**`--json`**\] \[**`--this-workspace`** | **`--all-crates`** | **`--all-sources`**\] _`OUTPUT-FORMAT`_ \[**`--callers-of`** _`REGEX`_ \[_`DEPTH`_\]\] (**`--everything`** | \[_`FUNCTION`_\]... \[_`INDEX`_\])
 
  Usage:
  1. Focus on a single assembly producing target:
@@ -193,7 +193,7 @@ Show the code rustc generates for any function
 - **`    --everything`** &mdash; 
   Dump the whole file
 - _`FUNCTION`_ &mdash; 
-  Dump a function with a given name, filter functions by name
+  Dump a function with a given name, filter functions by name, multiple filters can be specified, all must match
 - _`INDEX`_ &mdash; 
   Select specific function when there's several with the same name
 
