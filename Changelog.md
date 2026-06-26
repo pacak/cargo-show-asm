@@ -1,5 +1,10 @@
 # Change Log
 
+## [0.2.62] - 2026-06-26
+- improved function matching (#481)
+  thanks @orlp
+- bump deps
+
 ## [0.2.61] - 2026-06-10
 - use full package ID (`id.repr`)  when passing `--package` to `cargo` (#478)
 

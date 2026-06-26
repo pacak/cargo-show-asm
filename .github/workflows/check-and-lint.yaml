@@ -149,6 +149,16 @@ jobs:
         if: ${{ !cancelled() }}
         run: ./.github/check.sh --manifest-path sample/Cargo.toml --lib --intel sample::main --rust
 
+      - name: Match by two fragments and an index
+        shell: bash
+        if: ${{ !cancelled() }}
+        run: ./.github/check.sh --manifest-path sample/Cargo.toml --lib --intel hash reserve 0
+
+      - name: Match by two fragments and no index
+        shell: bash
+        if: ${{ !cancelled() }}
+        run: ./.github/check.sh --manifest-path sample/Cargo.toml --lib --intel hash find
+
       - name: Native version of cargo-show-asm (Intel ASM) - print json
         shell: bash
         if: ${{ !cancelled() }}
