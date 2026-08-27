@@ -5,7 +5,7 @@ use crate::{color, esafeprintln, safeprintln};
 use owo_colors::OwoColorize;
 use std::borrow::Cow;
 use std::collections::BTreeMap;
-use std::env;
+use std::env::{current_dir, home_dir};
 use std::path::{Path, PathBuf};
 
 pub(crate) type SourceFile = (String, Option<(Source, CachedLines)>);
@@ -24,8 +24,8 @@ impl<'a> SourceFileIndex<'a> {
             workspace,
             sysroot,
             path_formatter: PathFormatter {
-                home_dir: env::home_dir(),
-                current_dir: env::current_dir().unwrap_or_default(),
+                home_dir: home_dir(),
+                current_dir: current_dir().unwrap_or_default(),
             },
             index: Default::default(),
         }
@@ -314,7 +314,7 @@ pub(crate) fn locate_sources(
     {
         // It does what I want as far as *nix is concerned, might not work for Windows...
         #[allow(deprecated)]
-        let mut source = env::home_dir().expect("No home dir?");
+        let mut source = home_dir().expect("No home dir?");
 
         source.push(".cargo");
         for part in path.components().skip(ix) {
