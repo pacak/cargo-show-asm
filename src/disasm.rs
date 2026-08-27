@@ -50,6 +50,14 @@ impl std::fmt::Display for HexDump<'_> {
     }
 }
 
+#[derive(Copy, Clone)]
+struct PickedItem<'a> {
+    file: &'a object::File<'a>,
+    section_index: SectionIndex,
+    addr: usize,
+    len: usize,
+}
+
 /// disassemble rlib or exe, one file at a time
 pub fn dump_disasm(
     goal: ToDump,
@@ -82,7 +90,7 @@ fn pick_item<'a>(
     goal: ToDump,
     files: &'a [object::File],
     fmt: &Format,
-) -> anyhow::Result<(&'a object::File<'a>, SectionIndex, usize, usize)> {
+) -> anyhow::Result<PickedItem<'a>> {
     let mut items = BTreeMap::new();
 
     for file in files {
@@ -133,7 +141,12 @@ fn pick_item<'a>(
                 mangled_name: raw_name.to_owned(),
                 depth: None,
             };
-            items.insert(item, (file, section_index, addr, len));
+            items.insert(item, PickedItem {
+                file,
+                section_index,
+                addr,
+                len,
+            });
         }
     }
 
@@ -175,7 +188,7 @@ fn dump_slices(
         .iter()
         .map(|data| object::File::parse(data.as_slice()))
         .collect::<Result<Vec<_>, _>>()?;
-    let (file, section_index, addr, len) = pick_item(goal, &files, fmt)?;
+    let PickedItem { file, section_index, addr, len } = pick_item(goal, &files, fmt)?;
     let mut opcode_cache = BTreeMap::new();
 
     let section = file.section_by_index(section_index)?;
