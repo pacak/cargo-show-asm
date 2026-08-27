@@ -2,7 +2,7 @@
 name = "cargo-show-asm"
 version = "0.2.62"
 edition = "2024"
-rust-version = "1.86"
+rust-version = "1.88"
 description = "A cargo subcommand that displays the generated assembly of Rust source code."
 readme = "README.md"
 homepage = "https://github.com/pacak/cargo-show-asm"
@@ -27,16 +27,16 @@ name = "cargo-asm"
 path = "src/main.rs"
 
 [dependencies]
-addr2line = { version = "0.25", optional = true }
+addr2line = { version = "0.27", optional = true }
 anyhow = "1"
 ar = { version = "0.9", optional = true }
 bpaf = { version = "0.9.26", features = ["autocomplete", "bpaf_derive"] }
 capstone = { version = "0.14", optional = true }
 cargo_metadata = "0.23.1"
-gimli = { version = "0.32", optional = true }
+gimli = { version = "0.34", optional = true }
 line-span = "0.1"
 nom = "8"
-object = { version = "0.37", optional = true }
+object = { version = "0.40", optional = true }
 owo-colors = { version = "4", features = ["supports-colors"] }
 regex = "1"
 rustc-demangle = "0.1"
