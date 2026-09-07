@@ -1,2 +1,2 @@
-/target
-/*/target
+target/
+tests/disasm-test-crate/Cargo.lock
