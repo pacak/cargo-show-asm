@@ -131,18 +131,18 @@ jobs:
 
       - name: disassembler on a binary
         shell: bash
-        if: ${{ !cancelled() && matrix.os == 'ubuntu-latest' }} # linux only
-        run: ./.github/check.sh --manifest-path sample/Cargo.toml --bin sample sample::main 0 --disasm
+        if: ${{ !cancelled() && matrix.os != 'windows-latest' }} # anything but windows
+        run: ./.github/check.sh --manifest-path sample/Cargo.toml --bin sample sample::main 0 --disasm --rust
 
       - name: disassembler on a library
         shell: bash
-        if: ${{ !cancelled() && matrix.os == 'ubuntu-latest' }} # linux only
-        run: ./.github/check.sh --manifest-path sample/Cargo.toml --lib sample::main 0 --disasm
+        if: ${{ !cancelled() && matrix.os != 'windows-latest' }} # non windows
+        run: ./.github/check.sh --manifest-path sample/Cargo.toml --lib sample::main 0 --disasm --rust
 
       - name: run disassembler directly on a file
         shell: bash
-        if: ${{ !cancelled() && matrix.os == 'ubuntu-latest' }} # linux only
-        run: ./.github/check.sh --file sample/target/release/sample sample::main 0
+        if: ${{ !cancelled() && matrix.os != 'windows-latest' }} # non windows
+        run: ./.github/check.sh --file sample/target/release/sample sample::main 0 --rust
 
       - name: Native version of cargo-show-asm (Intel ASM)
         shell: bash
