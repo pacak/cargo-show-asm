@@ -1,9 +1,13 @@
 use crate::{
     Item, color,
     demangle::{self, demangled},
+    esafeprintln,
     opts::{Format, NameDisplay, OutputStyle, ToDump},
     pick_dump_item, safeprintln,
+    sources::{File, SourceFileIndex, print_source_location},
 };
+use addr2line::Location;
+use anyhow::Context as _;
 use ar::Archive;
 use capstone::{Capstone, Insn};
 use object::{
@@ -12,7 +16,7 @@ use object::{
 };
 use owo_colors::OwoColorize;
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet, HashMap},
     fmt::Write as _,
     path::Path,
 };
@@ -50,12 +54,23 @@ impl std::fmt::Display for HexDump<'_> {
     }
 }
 
+#[derive(Copy, Clone)]
+struct PickedItem {
+    file_idx: usize,
+    section_index: SectionIndex,
+    addr: usize,
+    len: usize,
+}
+
 /// disassemble rlib or exe, one file at a time
+///
+/// `source_files` provides the workspace/sysroot roots used to resolve and read Rust sources.
 pub fn dump_disasm(
     goal: ToDump,
     file: &Path,
     fmt: &Format,
     syntax: OutputStyle,
+    source_files: SourceFileIndex,
 ) -> anyhow::Result<()> {
     if file.extension().is_some_and(|e| e == "rlib") {
         let mut slices = Vec::new();
@@ -71,21 +86,24 @@ pub fn dump_disasm(
             std::io::Read::read_to_end(&mut entry, &mut bytes)?;
             slices.push(bytes);
         }
-        dump_slices(goal, slices.as_slice(), fmt, syntax)
+        dump_slices(goal, slices.as_slice(), fmt, syntax, source_files, None)
     } else {
         let binary_data = std::fs::read(file)?;
-        dump_slices(goal, &[binary_data][..], fmt, syntax)
+        dump_slices(
+            goal,
+            &[binary_data][..],
+            fmt,
+            syntax,
+            source_files,
+            Some(file),
+        )
     }
 }
 
-fn pick_item<'a>(
-    goal: ToDump,
-    files: &'a [object::File],
-    fmt: &Format,
-) -> anyhow::Result<(&'a object::File<'a>, SectionIndex, usize, usize)> {
+fn pick_item(goal: ToDump, files: &[object::File], fmt: &Format) -> anyhow::Result<PickedItem> {
     let mut items = BTreeMap::new();
 
-    for file in files {
+    for (file_idx, file) in files.iter().enumerate() {
         let mut addresses: Vec<_> = file
             .symbols()
             .filter(|s| s.is_definition() && s.kind() == SymbolKind::Text)
@@ -133,7 +151,15 @@ fn pick_item<'a>(
                 mangled_name: raw_name.to_owned(),
                 depth: None,
             };
-            items.insert(item, (file, section_index, addr, len));
+            items.insert(
+                item,
+                PickedItem {
+                    file_idx,
+                    section_index,
+                    addr,
+                    len,
+                },
+            );
         }
     }
 
@@ -165,17 +191,220 @@ fn reloc_info<'a>(
     })
 }
 
+fn dwarf_from_object(obj: &object::File) -> anyhow::Result<Addr2LineCtx> {
+    let endian = if obj.is_little_endian() {
+        gimli::RunTimeEndian::Little
+    } else {
+        gimli::RunTimeEndian::Big
+    };
+
+    let dwarf = gimli::Dwarf::load(|id: gimli::SectionId| -> Result<_, gimli::Error> {
+        let data: std::rc::Rc<[u8]> = obj
+            .section_by_name(id.name())
+            .and_then(|section| section.uncompressed_data().ok())
+            .map_or_else(
+                || std::rc::Rc::from(&[][..]),
+                |cow| std::rc::Rc::from(&*cow),
+            );
+        Ok(gimli::EndianRcSlice::new(data, endian))
+    })
+    .context("failed to load DWARF sections")?;
+
+    addr2line::Context::from_dwarf(dwarf).context("failed to build an addr2line context")
+}
+
+/// On macOS debug info lives in a separate `.dSYM` bundle rather than in the
+/// binary itself. The DWARF file inside the bundle is named after the build
+/// artifact (e.g. `cargo_asm-2d5399dd0f42d340` vs `cargo-asm`) due to Cargo's
+/// hashing, enumerate the directory instead of guessing the filename.
+///
+/// `Ok(None)` means there is no bundle here and the caller should fall back to
+/// the object's own debug sections; `Err` means a bundle exists but is unusable.
+#[cfg(target_os = "macos")]
+fn dsym_dwarf(binary_path: Option<&Path>) -> anyhow::Result<Option<Addr2LineCtx>> {
+    let Some(binary) = binary_path else {
+        return Ok(None);
+    };
+    let (Some(name), Some(parent)) = (binary.file_name(), binary.parent()) else {
+        return Ok(None);
+    };
+
+    let bundle = parent.join(format!("{}.dSYM", name.to_string_lossy()));
+    if !bundle.is_dir() {
+        return Ok(None);
+    }
+
+    let dwarf_dir = bundle.join("Contents/Resources/DWARF");
+    let dwarf_path = std::fs::read_dir(&dwarf_dir)
+        .with_context(|| format!("can't read the DWARF directory {}", dwarf_dir.display()))?
+        .filter_map(Result::ok)
+        .find_map(|entry| {
+            let path = entry.path();
+            path.is_file().then_some(path)
+        })
+        .with_context(|| format!("no DWARF file inside {}", dwarf_dir.display()))?;
+
+    let data = std::fs::read(&dwarf_path)
+        .with_context(|| format!("can't read {}", dwarf_path.display()))?;
+    let obj = object::File::parse(&*data)
+        .with_context(|| format!("can't parse {}", dwarf_path.display()))?;
+
+    dwarf_from_object(&obj)
+        .map(Some)
+        .with_context(|| format!("in the dSYM bundle {}", bundle.display()))
+}
+
+#[cfg(not(target_os = "macos"))]
+fn dsym_dwarf(_binary_path: Option<&Path>) -> anyhow::Result<Option<Addr2LineCtx>> {
+    Ok(None)
+}
+
+fn make_addr2line_context(
+    object_data: &[u8],
+    binary_path: Option<&Path>,
+) -> anyhow::Result<Addr2LineCtx> {
+    if let Some(ctx) = dsym_dwarf(binary_path)? {
+        return Ok(ctx);
+    }
+
+    let obj = object::File::parse(object_data).context("can't parse the object for debug info")?;
+    dwarf_from_object(&obj)
+}
+
+/// A DWARF lookup context that owns its section data, see [`dwarf_from_object`].
+type Addr2LineCtx = addr2line::Context<gimli::EndianRcSlice<gimli::RunTimeEndian>>;
+
+/// Tracks source location state for inline annotations in disasm output.
+struct SourceLookup<'a> {
+    ctx: Addr2LineCtx,
+    display: SourceDisplay<'a>,
+    failed_lookups: usize,
+    successful_lookups: usize,
+}
+
+struct SourceDisplay<'a> {
+    path_to_index_file: HashMap<String, File<'static>>,
+    source_file_index: SourceFileIndex<'a>,
+    fmt: &'a Format,
+    /// Last annotated (file index, line), to avoid re-printing the same location.
+    prev_loc: Option<(u64, u64)>,
+}
+
+impl<'a> SourceLookup<'a> {
+    fn new(ctx: Addr2LineCtx, source_file_index: SourceFileIndex<'a>, fmt: &'a Format) -> Self {
+        Self {
+            ctx,
+            failed_lookups: 0,
+            successful_lookups: 0,
+            display: SourceDisplay {
+                path_to_index_file: HashMap::new(),
+                source_file_index,
+                fmt,
+                prev_loc: None,
+            },
+        }
+    }
+
+    /// Show a source annotation for the instruction at `addr`, if available.
+    fn show(&mut self, addr: u64) {
+        // split dwarf (.dwo) isn't supported due to skip_all_loads()
+        let mut frames = match self.ctx.find_frames(addr).skip_all_loads() {
+            Ok(frames) => frames,
+            Err(e) => {
+                if self.failed_lookups == 0 {
+                    safeprintln!("Warning: addr2line lookup failed at {addr:#x}: {e}");
+                }
+                self.failed_lookups += 1;
+                return;
+            }
+        };
+
+        while let Ok(Some(frame)) = frames.next() {
+            let Some(Location {
+                file: Some(file),
+                line: Some(line),
+                ..
+            }) = frame.location
+            else {
+                continue;
+            };
+            if line == 0 {
+                continue;
+            }
+            if self.display.show_location(file, line.into()) {
+                self.successful_lookups += 1;
+                return;
+            }
+        }
+        self.failed_lookups += 1;
+    }
+
+    fn report(&self) {
+        if self.successful_lookups == 0 && self.failed_lookups > 0 {
+            safeprintln!(
+                "Warning: --rust: no source locations found for any of the {} instructions",
+                self.failed_lookups
+            );
+        }
+    }
+}
+
+impl<'a> SourceDisplay<'a> {
+    fn show_location(&mut self, file_path: &str, line: u64) -> bool {
+        if !self.path_to_index_file.contains_key(file_path) {
+            let index = self.path_to_index_file.len() as u64;
+            let file = File {
+                index,
+                path: crate::sources::FilePath::FullPath(file_path.into()),
+                md5: None,
+            };
+            self.source_file_index.load(&file, self.fmt);
+            self.path_to_index_file.insert(file_path.to_string(), file);
+        }
+
+        let file = &self.path_to_index_file[file_path];
+
+        if self.prev_loc == Some((file.index, line)) {
+            return true;
+        }
+
+        let Some((display_path, content)) = self.source_file_index.get(file.index) else {
+            return false;
+        };
+
+        if content
+            .as_ref()
+            .is_some_and(|(s, _)| !s.show_for(self.fmt.sources_from))
+        {
+            return false;
+        }
+
+        self.prev_loc = Some((file.index, line));
+        print_source_location(display_path, line, content.as_ref(), self.fmt.verbosity);
+        true
+    }
+}
+
 fn dump_slices(
     goal: ToDump,
     binary_data: &[Vec<u8>],
     fmt: &Format,
     syntax: OutputStyle,
+    source_files: SourceFileIndex,
+    binary_path: Option<&Path>,
 ) -> anyhow::Result<()> {
     let files = binary_data
         .iter()
         .map(|data| object::File::parse(data.as_slice()))
         .collect::<Result<Vec<_>, _>>()?;
-    let (file, section_index, addr, len) = pick_item(goal, &files, fmt)?;
+    let PickedItem {
+        file_idx,
+        section_index,
+        addr,
+        len,
+    } = pick_item(goal, &files, fmt)?;
+    let file = &files[file_idx];
+    let file_data = &binary_data[file_idx];
     let mut opcode_cache = BTreeMap::new();
 
     let section = file.section_by_index(section_index)?;
@@ -262,6 +491,22 @@ fn dump_slices(
         .map(|n| (n.1, n.0))
         .collect::<BTreeMap<_, _>>();
 
+    // Build source display context for --rust annotations via DWARF debug info.
+    // Uses the same .o file that contains the selected function (important for rlibs).
+
+    let mut source_display = if fmt.rust {
+        match make_addr2line_context(file_data, binary_path) {
+            Ok(ctx) => Some(SourceLookup::new(ctx, source_files, fmt)),
+            Err(err) => {
+                esafeprintln!("--rust: no source annotations available: {err:#}");
+                None
+            }
+        }
+    } else {
+        drop(source_files);
+        None
+    };
+
     let mut buf = String::new();
     for (insn, &maddr) in insns.iter().zip(addrs.iter()) {
         let hex = HexDump {
@@ -270,6 +515,10 @@ fn dump_slices(
         };
 
         let addr = insn.address();
+
+        if let Some(ref mut sd) = source_display {
+            sd.show(addr);
+        }
 
         // binary code will have pending relocations if we are dealing with disassembling a library
         // code or with relocations already applied if we are working with a binary
@@ -310,6 +559,10 @@ fn dump_slices(
         } else {
             safeprintln!("{addr:8x}:    {hex}{i}");
         }
+    }
+
+    if let Some(sd) = source_display {
+        sd.report();
     }
 
     Ok(())

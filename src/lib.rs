@@ -18,6 +18,7 @@ pub mod llvm;
 pub mod mca;
 pub mod mir;
 pub mod opts;
+pub mod sources;
 
 #[macro_export]
 macro_rules! color {
