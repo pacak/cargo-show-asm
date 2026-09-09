@@ -264,16 +264,25 @@ fn main() -> anyhow::Result<()> {
             .iter()
             .find(|p| *p.name == name || p.id.repr.as_str() == name)
             .with_context(|| format!("Package '{name}' is not found"))?,
-        None if metadata.packages.len() == 1 => &metadata.packages[0],
         None => {
-            esafeprintln!(
-                "{:?} refers to multiple packages, you need to specify which one to use",
-                cargo.manifest_path
-            );
-            for package in &metadata.packages {
-                esafeprintln!("\t-p {}", package.name);
+            let default_packages = if metadata.workspace_default_members.is_available() {
+                metadata.workspace_default_packages()
+            } else {
+                metadata.workspace_packages()
+            };
+            match default_packages.as_slice() {
+                [p] => *p,
+                _ => {
+                    esafeprintln!(
+                        "{:?} refers to multiple packages, you need to specify which one to use",
+                        cargo.manifest_path
+                    );
+                    for package in &metadata.packages {
+                        esafeprintln!("\t-p {}", package.name);
+                    }
+                    anyhow::bail!("Multiple packages found")
+                }
             }
-            anyhow::bail!("Multiple packages found")
         }
     };
 
