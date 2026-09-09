@@ -96,13 +96,13 @@ pub fn find_items(lines: &[Statement]) -> BTreeMap<Item, Range<usize>> {
                     depth: None,
                 });
                 *name_entry += 1;
-            } else if matches!(label.kind, LabelKind::Unknown | LabelKind::Global) {
-                if let Some(mut i) = handle_non_mangled_labels(lines, ix, label, sec_start) {
-                    let name_entry = names.entry(i.name.clone()).or_insert(0);
-                    i.index = *name_entry;
-                    item = Some(i);
-                    *name_entry += 1;
-                }
+            } else if matches!(label.kind, LabelKind::Unknown | LabelKind::Global)
+                && let Some(mut i) = handle_non_mangled_labels(lines, ix, label, sec_start)
+            {
+                let name_entry = names.entry(i.name.clone()).or_insert(0);
+                i.index = *name_entry;
+                item = Some(i);
+                *name_entry += 1;
             }
         }
     }
@@ -488,12 +488,11 @@ impl Dumpable for Asm<'_> {
                     | Statement::Directive(Directive::Generic(GenericDirective(arg))) = s
                     {
                         for label in crate::demangle::local_labels(arg) {
-                            if let Some(constant_range) = scan_constant(label, &constants, lines) {
-                                if !seen.contains(&constant_range)
-                                    && !print_range.fully_contains(constant_range)
-                                {
-                                    pending.push(constant_range);
-                                }
+                            if let Some(constant_range) = scan_constant(label, &constants, lines)
+                                && !seen.contains(&constant_range)
+                                && !print_range.fully_contains(constant_range)
+                            {
+                                pending.push(constant_range);
                             }
                         }
                     }

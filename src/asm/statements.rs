@@ -106,10 +106,10 @@ impl Statement<'_> {
         if let Statement::Directive(Directive::SetValue(_, _)) = self {
             return false;
         }
-        if let Statement::Directive(Directive::SectionStart(name)) = self {
-            if name.starts_with(".data") || name.starts_with(".rodata") {
-                return false;
-            }
+        if let Statement::Directive(Directive::SectionStart(name)) = self
+            && (name.starts_with(".data") || name.starts_with(".rodata"))
+        {
+            return false;
         }
         matches!(self, Statement::Directive(_) | Statement::Dunno(_))
     }

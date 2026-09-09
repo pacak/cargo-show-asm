@@ -102,12 +102,12 @@ impl Dumpable for Llvm {
                 if let Some(cur) = &mut current_item {
                     cur.item.non_blank_len += 1;
                 }
-            } else if line == "}" {
-                if let Some(mut cur) = current_item.take() {
-                    let range = cur.start..ix + 1;
-                    cur.item.len = range.len();
-                    res.insert(cur.item, range);
-                }
+            } else if line == "}"
+                && let Some(mut cur) = current_item.take()
+            {
+                let range = cur.start..ix + 1;
+                cur.item.len = range.len();
+                res.insert(cur.item, range);
             }
         }
         res

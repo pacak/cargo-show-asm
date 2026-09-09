@@ -136,10 +136,10 @@ impl FilePath {
     pub fn as_full_path_with_home_dir(&self, home_dir: Option<&Path>) -> Cow<'_, Path> {
         let path = self.as_full_path();
 
-        if let Some(home_dir) = home_dir {
-            if let Ok(path_in_home) = path.strip_prefix("~") {
-                return Cow::Owned(home_dir.join(path_in_home));
-            }
+        if let Some(home_dir) = home_dir
+            && let Ok(path_in_home) = path.strip_prefix("~")
+        {
+            return Cow::Owned(home_dir.join(path_in_home));
         }
 
         path
