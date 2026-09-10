@@ -15,11 +15,8 @@ use object::{
     SymbolKind,
 };
 use owo_colors::OwoColorize;
-use std::{
-    collections::{BTreeMap, BTreeSet, HashMap},
-    fmt::Write as _,
-    path::Path,
-};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::{fmt::Write as _, path::Path, rc::Rc};
 
 /// Reference to some other symbol
 #[derive(Copy, Clone)]
@@ -191,6 +188,24 @@ fn reloc_info<'a>(
     })
 }
 
+// Rustc stores DWARF string references as relocations against `.debug_str` (e.g. `DW_AT_name`, `DW_AT_comp_dir`)
+#[derive(Clone, Debug, Default)]
+struct ObjectRelocations(Rc<object::read::RelocationMap>);
+
+impl gimli::read::Relocate for ObjectRelocations {
+    fn relocate_address(&self, offset: usize, value: u64) -> gimli::Result<u64> {
+        Ok(self.0.relocate(offset as u64, value))
+    }
+
+    fn relocate_offset(&self, offset: usize, value: usize) -> gimli::Result<usize> {
+        <usize as gimli::ReaderOffset>::from_u64(self.0.relocate(offset as u64, value as u64))
+    }
+}
+
+type DwarfReader =
+    gimli::RelocateReader<gimli::EndianRcSlice<gimli::RunTimeEndian>, ObjectRelocations>;
+
+// addr2line::Loader only accepts filesystem paths
 fn dwarf_from_object(obj: &object::File) -> anyhow::Result<Addr2LineCtx> {
     let endian = if obj.is_little_endian() {
         gimli::RunTimeEndian::Little
@@ -198,15 +213,22 @@ fn dwarf_from_object(obj: &object::File) -> anyhow::Result<Addr2LineCtx> {
         gimli::RunTimeEndian::Big
     };
 
-    let dwarf = gimli::Dwarf::load(|id: gimli::SectionId| -> Result<_, gimli::Error> {
-        let data: std::rc::Rc<[u8]> = obj
-            .section_by_name(id.name())
-            .and_then(|section| section.uncompressed_data().ok())
-            .map_or_else(
-                || std::rc::Rc::from(&[][..]),
-                |cow| std::rc::Rc::from(&*cow),
-            );
-        Ok(gimli::EndianRcSlice::new(data, endian))
+    let dwarf = gimli::Dwarf::load(|id: gimli::SectionId| -> anyhow::Result<_> {
+        let mut map = object::read::RelocationMap::default();
+        let data = if let Some(section) = obj.section_by_name(id.name()) {
+            for (offset, relocation) in section.relocations() {
+                // there's no point printing noise about unusable relocations
+                let _ = map.add(obj, offset, relocation);
+            }
+            Rc::from(&*section.uncompressed_data()?)
+        } else {
+            Rc::default()
+        };
+
+        Ok(gimli::RelocateReader::new(
+            gimli::EndianRcSlice::new(data, endian),
+            ObjectRelocations(Rc::new(map)),
+        ))
     })
     .context("failed to load DWARF sections")?;
 
@@ -272,7 +294,7 @@ fn make_addr2line_context(
 }
 
 /// A DWARF lookup context that owns its section data, see [`dwarf_from_object`].
-type Addr2LineCtx = addr2line::Context<gimli::EndianRcSlice<gimli::RunTimeEndian>>;
+type Addr2LineCtx = addr2line::Context<DwarfReader>;
 
 /// Tracks source location state for inline annotations in disasm output.
 struct SourceLookup<'a> {
