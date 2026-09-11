@@ -1,5 +1,11 @@
 # Change Log
 
+## [0.2.63] - 2026-09-11
+- support `--rust` along with `--disasm` (#490, #492)
+  thanks @kornelski
+- Pick a crate from a current directory if in a workspace (#494)
+- bump deps
+
 ## [0.2.62] - 2026-06-26
 - improved function matching (#481)
   thanks @orlp
