@@ -47,8 +47,9 @@ impl<'a> Instruction<'a> {
         //       Wasm also uses `.` in instr names, and uses `_` for `end_function`
         //       "powerpc-nintendo-none-eabi.json" uses `+` and `-` in `blt-`/`blt+`...
         let op = take_while1(|c| AsChar::is_alphanum(c) || matches!(c, '.' | '_' | '-' | '+'));
-        let args = opt(preceded(space1, not_line_ending));
-        map(pair(op, args), |(op, args)| Instruction { op, args }).parse(input)
+        // Some x86 instructions such as `rep` may prefix arguments with a semicolon instead of a space, e.g. `rep;movsq`
+        let args = opt(preceded(alt((space1, tag(";"))), not_line_ending));
+        map((op, args), |(op, args)| Instruction { op, args }).parse(input)
     }
 }
 
@@ -806,6 +807,28 @@ fn parse_data_decl() {
     assert_eq!(
         parse_statement("\t.long   .Linfo_st\n").unwrap().1,
         Statement::Directive(Directive::Data("long", ".Linfo_st"))
+    );
+}
+
+#[test]
+fn parse_instruction_prefix() {
+    assert_eq!(
+        Instruction::parse("\trep movsq (%rsi), %es:(%rdi)")
+            .unwrap()
+            .1,
+        Instruction {
+            op: "rep",
+            args: Some("movsq (%rsi), %es:(%rdi)")
+        }
+    );
+    assert_eq!(
+        Instruction::parse("\trep;movsq (%rsi), %es:(%rdi)")
+            .unwrap()
+            .1,
+        Instruction {
+            op: "rep",
+            args: Some("movsq (%rsi), %es:(%rdi)")
+        }
     );
 }
 
