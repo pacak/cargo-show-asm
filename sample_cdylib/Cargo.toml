@@ -8,4 +8,8 @@ edition = "2021"
 [lib]
 crate-type = ["cdylib"]
 
+[[example]]
+name = "foo"
+crate-type = ["cdylib"]
+
 [dependencies]

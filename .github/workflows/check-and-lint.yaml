@@ -224,6 +224,11 @@ jobs:
         if: ${{ !cancelled() }}
         run: ./.github/check.sh --manifest-path sample_cdylib/Cargo.toml _mul
 
+      - name: cdylib example
+        shell: bash
+        if: ${{ !cancelled() && matrix.os == 'ubuntu-latest' }}
+        run: ./.github/check.sh --manifest-path sample_cdylib/Cargo.toml --example foo example_add
+
       - name: merged functions simd
         shell: bash
         if: ${{ !cancelled() && matrix.os != 'macos-latest' }} # uses x86 primops
