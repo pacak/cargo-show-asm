@@ -1,5 +1,10 @@
 # Change Log
 
+## [0.2.64] - 2026-10-21
+- yet another workaround for https://github.com/rust-lang/cargo/issues/13672
+  Any day now... Probably.
+- bump deps
+
 ## [0.2.63] - 2026-09-11
 - support `--rust` along with `--disasm` (#490, #492)
   thanks @kornelski

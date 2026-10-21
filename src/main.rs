@@ -557,25 +557,32 @@ fn locate_asm_path_via_artifact(
         f.extension()
             .is_some_and(|e| ["so", "dylib", "dll"].contains(&e))
     }) {
-        let deps_dir = cdylib_path.with_file_name("deps");
-        for entry in read_dir(deps_dir.as_ref()) {
-            let maybe_origin = entry.path();
-            if same_contents(cdylib_path.as_ref(), &maybe_origin) {
-                let Some(name) = maybe_origin.file_name() else {
-                    continue;
-                };
-                let Some(name) = name.to_str() else { continue };
-                let name = name.strip_prefix("lib").unwrap_or(name);
-                // on windows this is xx.dll -> xx.s, no lib....
-                let asm_file = maybe_origin.with_file_name(name).with_extension(expect_ext);
-                if asm_file.exists() {
-                    return Ok(asm_file);
+        let parent = cdylib_path.parent().unwrap();
+        // Cdylib examples put their artifact in `examples/`, not in `deps/`.
+        for dir in [cdylib_path.with_file_name("deps"), parent.to_path_buf()] {
+            for entry in read_dir(dir.as_ref()) {
+                let maybe_origin = entry.path();
+                if same_contents(cdylib_path.as_ref(), &maybe_origin) {
+                    let Some(name) = maybe_origin.file_name() else {
+                        continue;
+                    };
+                    let Some(name) = name.to_str() else { continue };
+                    let name = name.strip_prefix("lib").unwrap_or(name);
+                    // on windows this is xx.dll -> xx.s, no lib....
+                    let asm_file = maybe_origin.with_file_name(name).with_extension(expect_ext);
+                    if asm_file.exists() {
+                        return Ok(asm_file);
+                    }
                 }
             }
         }
 
         // New Cargo build-dir layout
-        let build = cdylib_path.with_file_name("build");
+        let build = if parent.file_name() == Some("examples") {
+            parent.with_file_name("build")
+        } else {
+            cdylib_path.with_file_name("build")
+        };
 
         for maybe_origin in read_dir_recursive(build.as_ref(), &build_dir) {
             if same_contents(cdylib_path.as_ref(), &maybe_origin) {
