@@ -106,7 +106,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-show-asm"
-version = "0.2.64"
+version = "0.2.65"
 dependencies = [
  "addr2line",
  "anyhow",
