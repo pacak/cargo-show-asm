@@ -46,7 +46,8 @@ impl<'a> Instruction<'a> {
         // NOTE: ARM allows `.` inside instruction names e.g. `b.ne` for branch not equal
         //       Wasm also uses `.` in instr names, and uses `_` for `end_function`
         //       "powerpc-nintendo-none-eabi.json" uses `+` and `-` in `blt-`/`blt+`...
-        let op = take_while1(|c| AsChar::is_alphanum(c) || matches!(c, '.' | '_' | '-' | '+'));
+        let op =
+            take_while1(|c| AsChar::is_alphanum(c) || matches!(c, '.' | '_' | '-' | '+' | ';'));
         let args = opt(preceded(space1, not_line_ending));
         map(pair(op, args), |(op, args)| Instruction { op, args }).parse(input)
     }
