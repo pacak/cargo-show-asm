@@ -1,5 +1,12 @@
 # Change Log
 
+## [0.2.65] - 2026-11-11
+- yet another workaround for https://github.com/rust-lang/cargo/issues/13672
+  thanks @Mottl
+- support for strange `rep;movsq` - `;` part (#499)
+- bump deps
+
+
 ## [0.2.64] - 2026-10-21
 - yet another workaround for https://github.com/rust-lang/cargo/issues/13672
   Any day now... Probably.
