@@ -217,12 +217,12 @@ jobs:
       - name: cdylib project
         shell: bash
         if: ${{ !cancelled() }}
-        run: ./.github/check.sh --manifest-path sample_cdylib/Cargo.toml add
+        run: ./.github/check.sh --manifest-path sample_cdylib/Cargo.toml --lib add
 
       - name: cdylib project, underscore prefix
         shell: bash
         if: ${{ !cancelled() }}
-        run: ./.github/check.sh --manifest-path sample_cdylib/Cargo.toml _mul
+        run: ./.github/check.sh --manifest-path sample_cdylib/Cargo.toml --lib _mul
 
       - name: cdylib example
         shell: bash
