@@ -448,10 +448,10 @@ fn locate_asm_path_via_artifact(
             .flat_map(|iter| iter.filter_map(|entry| entry.ok()))
     };
 
-    // In Cargo's legacy build-dir layout
     // For lib, test, bench, lib-type example, `filenames` hint the file stem of the asm file.
     // We could locate asm files precisely.
     //
+    // In Cargo's legacy build-dir layout
     // `filenames`:
     // [..]/target/debug/deps/libfoo-01234567.rmeta         # lib by-product
     // [..]/target/debug/deps/foo-01234567                  # test & bench
@@ -459,13 +459,21 @@ fn locate_asm_path_via_artifact(
     // Asm files:
     // [..]/target/debug/deps/foo-01234567.s
     // [..]/target/debug/deps/example/foo-01234567.s
+    //
+    // In Cargo's new build-dir layout (rust 1.100+), test & bench executables are not uplifted,
+    // so `filenames` points straight into the build unit's `out` directory, with
+    // the asm file next to it:
+    // [..]/target/debug/build/foo/01234567/out/foo-01234567   # test & bench
+    // [..]/target/debug/build/foo/01234567/out/foo-01234567.s
+    // See: https://github.com/rust-lang/cargo/issues/15010
+
     if let Some(path) = artifact
         .filenames
         .iter()
         .filter(|path| {
             matches!(
                 path.parent().unwrap().file_name(),
-                Some("deps" | "examples")
+                Some("out" | "deps" | "examples")
             )
         })
         .find_map(|path| {
