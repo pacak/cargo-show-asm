@@ -5,7 +5,6 @@ edition = "2024"
 rust-version = "1.88"
 description = "A cargo subcommand that displays the generated assembly of Rust source code."
 readme = "README.md"
-homepage = "https://github.com/pacak/cargo-show-asm"
 repository = "https://github.com/pacak/cargo-show-asm"
 license = "MIT OR Apache-2.0"
 keywords = ["assembly", "cargo", "plugins"]
