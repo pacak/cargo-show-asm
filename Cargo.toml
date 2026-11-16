@@ -36,7 +36,7 @@ cargo_metadata = "0.23.1"
 gimli = { version = "0.34", optional = true }
 line-span = "0.1"
 nom = "8"
-object = { version = "0.40", optional = true }
+object = { version = "0.41", optional = true }
 owo-colors = { version = "4", features = ["supports-colors"] }
 regex = "1"
 rustc-demangle = "0.1"
